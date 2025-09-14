@@ -31,7 +31,8 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
     myStartTime = getPastSecond();
      /* TODO:获取起点所在多边形id */
     std::cout << "----- Starting Get StartPos" << std::endl;
-    int start_pos_id = 4;
+    int start_pos_id = intersection.getStartPosinPolygonId(input.start_pos[0]);
+    std::cout << "StartPos Polygon id:" << start_pos_id << std::endl;
     std::cout << "----- Use Time: " << getPastSecond() - myStartTime << " s" << std::endl << std::endl;
 
     myStartTime = getPastSecond();
@@ -70,9 +71,9 @@ int main(int argc, char* argv[])
     }
     else {
         // for self-test.
-        string layout_path = "C:/Users/lenovo/Desktop/trace/instance/layout2.txt";
-        string rule_path = "C:/Users/lenovo/Desktop/trace/instance/rule1.txt";
-        string res_path = "C:/Users/lenovo/Desktop/trace/solution/res2.txt";
+        string layout_path = "C:/Users/lenovo/Desktop/trace/instance/layout.txt";
+        string rule_path = "C:/Users/lenovo/Desktop/trace/instance/rule.txt";
+        string res_path = "C:/Users/lenovo/Desktop/trace/solution/res.txt";
         int thread = 1;
 
         solve(layout_path, rule_path, thread, res_path);

@@ -1,11 +1,13 @@
 #pragma once
 #include "public.h"
+#include "QuadTree.hpp"
 #include <fstream>
 #include <sstream>
 #include <iostream>
 
 class Input {
 public:
+	Rect layout;                                            // 版图的最大矩形框
 	std::unordered_map<std::string, int> layer_name_to_id;  // 层名转层id, 0-index, 代码内使用id指代层
 	std::unordered_map<int, std::string> layer_id_to_name;  // 层id转层名, 方便输出
 	int total_polygon;										// 多边形总数
@@ -20,6 +22,7 @@ public:
 	// 给定文件路径，获取输入
 	Input(std::string layout_path, std::string rule_path) {
 		polygons.reserve(1000000); // 预分配一些空间
+		layout = Rect(INT_MAX, INT_MAX, INT_MIN, INT_MIN);
 
 		std::ifstream layout_file(layout_path); // 创建并打开文件
 		assert(layout_file.is_open() && "无法打开layout文件");
@@ -33,6 +36,7 @@ public:
 	}
 
 private:
+	// 读取版图文件
 	void readLayout(std::ifstream& layout_file) {
 		std::istringstream iss;
 		std::string line;
@@ -67,6 +71,14 @@ private:
 						poly.vetex.push_back(Point(x, y));
 					}
 				}
+				// 多边形的矩形包络框
+				Rect poly_rect = GetRectofPolygon(poly);
+				poly.rect = poly_rect;
+				// 是否扩大版图
+				if (poly_rect._xmin < layout._xmin) layout._xmin = poly_rect._xmin;
+				if (poly_rect._xmax > layout._xmax) layout._xmax = poly_rect._xmax;
+				if (poly_rect._ymin < layout._ymin) layout._ymin = poly_rect._ymin;
+				if (poly_rect._ymax > layout._ymax) layout._ymax = poly_rect._ymax;
 				// 新增多边形
 				polygons.emplace_back(std::move(poly));
 			}
@@ -85,6 +97,7 @@ private:
 		}
 	}
 
+	// 读取规则文件
 	void readRule(std::ifstream& rule_file) {
 		std::istringstream iss;
 		std::string line;
@@ -142,5 +155,17 @@ private:
 			std::cout << "Gate:" << layer_id_to_name[gate_rule.first] << " " << layer_id_to_name[gate_rule.second] << std::endl;
 		else 
 			std::cout << "no Gate" << std::endl;
+	}
+
+	// 获取多边形的矩形包络框
+	Rect GetRectofPolygon(Polygon& poly) {
+		Rect poly_rect = Rect(INT_MAX, INT_MAX, INT_MIN, INT_MIN);
+		for (auto& p : poly.vetex) {
+			if (p.first < poly_rect._xmin) poly_rect._xmin = p.first;
+			if (p.first > poly_rect._xmax) poly_rect._xmax = p.first;
+			if (p.second < poly_rect._ymin) poly_rect._ymin = p.second;
+			if (p.second > poly_rect._ymax) poly_rect._ymax = p.second;
+		}
+		return poly_rect;
 	}
 };

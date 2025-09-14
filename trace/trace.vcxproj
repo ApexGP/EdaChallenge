@@ -145,6 +145,7 @@
     <ClInclude Include="Intersect.hpp" />
     <ClInclude Include="Output.hpp" />
     <ClInclude Include="public.h" />
+    <ClInclude Include="QuadTree.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

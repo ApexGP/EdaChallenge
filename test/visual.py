@@ -53,31 +53,64 @@ def find_text_position(vertices):
     
     return (center_x, center_y)
 
+def calculate_polygon_area(vertices):
+    """使用鞋带公式计算多边形面积"""
+    n = len(vertices)
+    area = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        area += vertices[i][0] * vertices[j][1]
+        area -= vertices[j][0] * vertices[i][1]
+    return abs(area) / 2.0
+
 def visualize_polygons(data, show_labels=False):
-    """
-    可视化多层多边形
-    show_labels: 是否在多边形内部显示层名和编号
-    """
     if not data:
         print("No valid polygon data found.")
         return
         
-    fig, ax = plt.subplots(figsize=(12, 10))
-    ax.set_aspect('equal')
-    ax.grid(True)
-    ax.set_title('Multi-layer Polygons Visualization')
+    # 高对比度颜色方案
+    high_contrast_colors = [
+        '#FF0000', '#0000FF', '#00FF00', '#FF00FF',  # 红、蓝、绿、品红
+        '#FFFF00', '#00FFFF', '#FF8000', '#8000FF',  # 黄、青、橙、紫
+        '#008000', '#000080', '#800000', '#808000',  # 深绿、深蓝、深红、橄榄绿
+        '#008080', '#800080', '#808080', '#C0C0C0'   # 青蓝、紫红、灰、银
+    ]
     
-    # 为不同层生成颜色
+    # 创建图形
+    fig, ax = plt.subplots(figsize=(14, 12))
+    ax.set_aspect('equal')
+    
+    # 设置高对比度背景和网格
+    ax.set_facecolor('#FFFFFF')  # 白色背景
+    ax.grid(color='#AAAAAA', linestyle='--', linewidth=0.5, alpha=0.5)  # 浅灰网格
+    
+    # 设置高对比度文本颜色
+    ax.set_title('Multi-layer Polygons Visualization', color='#000000', fontsize=14, fontweight='bold')
+    ax.tick_params(colors='#000000')
+    
+    # 为不同层分配颜色
     layers = list(data.keys())
-    colors = plt.cm.tab10(np.linspace(0, 1, len(layers)))
+    colors = high_contrast_colors * (len(layers) // len(high_contrast_colors) + 1)
+    colors = colors[:len(layers)]
     
     # 创建图例的代理对象
     legend_proxies = []
     
-    # 绘制每个多边形
-    for i, layer in enumerate(layers):
+    # 按层深度排序（从深到浅绘制） 多边形多的在浅层（因为小而多）
+    sorted_layers = sorted(layers, key=lambda l: len(data[l]))
+    
+    # 绘制每个多边形（从大到小，从深到浅）
+    for i, layer in enumerate(sorted_layers):
         patches = []
-        for j, vertices in enumerate(data[layer]):
+        layer_polygons = data[layer]
+        
+        # 按多边形面积排序（从大到小）
+        layer_polygons.sort(
+            key=lambda poly: calculate_polygon_area(poly), 
+            reverse=True
+        )
+        
+        for j, vertices in enumerate(layer_polygons):
             polygon = Polygon(vertices, closed=True)
             patches.append(polygon)
             
@@ -89,33 +122,37 @@ def visualize_polygons(data, show_labels=False):
                 # 创建文本内容（层名和编号）
                 text_content = f"{layer}\n#{j+1}"
                 
-                # 添加文本
+                # 添加高对比度文本
                 ax.text(
                     text_x, text_y, 
                     text_content, 
-                    fontsize=10, 
+                    fontsize=6, 
                     fontweight='bold',
+                    color='#000000',  # 黑色文本
                     ha='center', 
                     va='center',
-                    bbox=dict(boxstyle='round', 
-                              facecolor='white', 
-                              edgecolor='black', 
-                              alpha=0.7,
-                              pad=0.5)
+                    # bbox=dict(
+                    #     boxstyle='round', 
+                    #     facecolor='#FFFFFF',  # 白色背景
+                    #     edgecolor='#000000',  # 黑色边界
+                    #     alpha=0.9,           # 高不透明度
+                    #     pad=0.5
+                    # )
                 )
         
-        # 创建带透明度的集合
+        # 创建多边形集合
         collection = PatchCollection(
             patches,
             facecolor=colors[i],
-            alpha=0.5,          # 50% 透明度
-            edgecolor='black',  # 黑色边界
-            linewidth=1.5       # 边界线宽
+            alpha=0.4,          # 动态透明度
+            edgecolor='#000000',  # 黑色边界
+            linewidth=2,        # 边界线宽
+            hatch=None            # 不使用填充图案（避免冲突）
         )
         ax.add_collection(collection)
         
         # 为图例创建代理对象
-        proxy = Rectangle((0, 0), 1, 1, fc=colors[i], alpha=0.5, ec='black', linewidth=1.5)
+        proxy = Rectangle((0, 0), 1, 1, fc=colors[i], alpha=0.4, ec='#000000', linewidth=1.5)
         legend_proxies.append(proxy)
     
     # 自动调整坐标轴范围
@@ -129,12 +166,29 @@ def visualize_polygons(data, show_labels=False):
         all_points = np.array(all_points)
         x_min, y_min = np.min(all_points, axis=0)
         x_max, y_max = np.max(all_points, axis=0)
-        padding = max((x_max - x_min), (y_max - y_min)) * 0.1  # 10% padding
+        padding = max((x_max - x_min), (y_max - y_min)) * 0.15
         ax.set_xlim(x_min - padding, x_max + padding)
         ax.set_ylim(y_min - padding, y_max + padding)
     
-    # 添加图例（始终显示）
-    ax.legend(legend_proxies, layers, loc='best', title="Layers")
+    # 统一刻度间隔
+    x_min, x_max = ax.get_xlim()
+    y_min, y_max = ax.get_ylim()
+    range_size = max(x_max - x_min, y_max - y_min)
+    tick_interval = range_size / 8
+    ax.xaxis.set_major_locator(plt.MultipleLocator(tick_interval))
+    ax.yaxis.set_major_locator(plt.MultipleLocator(tick_interval))
+    
+    # 添加高对比度图例
+    ax.legend(
+        legend_proxies, 
+        sorted_layers, 
+        loc='best', 
+        title="Layers",
+        frameon=True,
+        framealpha=1.0,
+        edgecolor='#000000',
+        fontsize=10
+    )
     
     plt.tight_layout()
     plt.show()
