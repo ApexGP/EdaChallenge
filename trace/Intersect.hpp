@@ -155,6 +155,7 @@ public:
 		assert(id != -1 && "起点不在任何多边形内");
 		return id;
 	}
+
 private:
 
 	// 根据层和Via规则，为多边形建立四叉树空间索引
@@ -202,7 +203,6 @@ private:
 		}
 	}
 
-
 	// poly一定是曼哈顿多边形，针对曼哈顿多边形，设计该函数进行多边形向外膨胀一个单位操作（TODO:正确性验证？间隔很小的凹口可能导致退化或自交）
 	Polygon_2 expandOneUnit(Polygon_2& poly) {
 		// 确保多边形是逆时针方向
@@ -241,4 +241,6 @@ private:
 		}
 		return res;
 	}
+
+
 };

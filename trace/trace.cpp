@@ -71,9 +71,9 @@ int main(int argc, char* argv[])
     }
     else {
         // for self-test.
-        string layout_path = "C:/Users/lenovo/Desktop/trace/instance/layout.txt";
-        string rule_path = "C:/Users/lenovo/Desktop/trace/instance/rule.txt";
-        string res_path = "C:/Users/lenovo/Desktop/trace/solution/res.txt";
+        string layout_path = "C:/Users/lenovo/Desktop/trace/instance/layout_test.txt";
+        string rule_path = "C:/Users/lenovo/Desktop/trace/instance/rule_test.txt";
+        string res_path = "C:/Users/lenovo/Desktop/trace/solution/res_test.txt";
         int thread = 1;
 
         solve(layout_path, rule_path, thread, res_path);

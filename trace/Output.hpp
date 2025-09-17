@@ -34,17 +34,21 @@ private:
 				res_file << input.layer_id_to_name[i] << std::endl;
 				//输出每个多边形
 				for (auto& poly_id : layer_polygons[i]) {
-					Polygon& p = polygons[poly_id];
-					//输出每个顶点
-					for (int j = 0; j < (int)p.vetex.size(); ++j) {
-						res_file << "(" << p.vetex[j].first << "," << p.vetex[j].second << ")";
-						if (j != p.vetex.size() - 1) {
-							res_file << ",";
-						}
-					}
-					res_file << std::endl;
+					OutputPolygon(res_file, polygons[poly_id]);
 				}
 			}
 		}
+	}
+
+	// 输出一个多边形
+	void OutputPolygon(std::ofstream& res_file, Polygon& p) {
+		//输出每个顶点
+		for (int j = 0; j < (int)p.vetex.size(); ++j) {
+			res_file << "(" << p.vetex[j].first << "," << p.vetex[j].second << ")";
+			if (j != p.vetex.size() - 1) {
+				res_file << ",";
+			}
+		}
+		res_file << std::endl;
 	}
 };
