@@ -71,12 +71,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>D:\Program Files\boost_1_82_0;C:\Users\PC\Desktop\EdaChallenge\thirty\;D:\Program Files\CGAL-5.6.2\auxiliary\gmp\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\Program Files\CGAL-5.6.2\auxiliary\gmp\lib;D:\Program Files\boost_1_82_0\libs;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)third_party;$(SolutionDir)third_party\gmp-win\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)third_party\gmp-win\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>D:\Program Files\boost_1_82_0;C:\Users\PC\Desktop\EdaChallenge\thirty\;D:\Program Files\CGAL-5.6.2\auxiliary\gmp\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\Program Files\CGAL-5.6.2\auxiliary\gmp\lib;D:\Program Files\boost_1_82_0\libs;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)third_party;$(SolutionDir)third_party\gmp-win\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)third_party\gmp-win\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

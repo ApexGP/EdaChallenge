@@ -19,9 +19,10 @@
 + instance/ 算例
 + solution/ 结果
 + trace/ 源码
++ + thirty/ 第三方库, 更多信息请查阅 [第三方库说明](./trace/third_party/README.md)
 + test/ 测试
-+ thirty/ 第三方库
-+ + CGAL/ 基于CGAL6.0+修改的库
++ trace_answer_checker/ 检验答案程序
+
 
 ## 3.代码结构
 + Input.hpp 输入类
@@ -36,10 +37,24 @@
 ​由于我们使用CGAL6.0+​​, 所以要求​C++17及以上, 即编译器要求: GCC 7+, Clang 5+, MSVC 2017+
 
 ### Windows with VS2022
-
+配置包含目录和库目录，以及链接器-附加依赖项，VC++17
 
 ### Linux
-
+```shell
+cd trace
+# 编译
+mkdir build
+cd build
+cmake ..
+make
+# 运行
+trace -layout ./layout.txt -rule ./rule.txt [-thread n] -output ./res.txt 
+```
++ trace：链路追踪（Net Trace）可执行程序
++ -layout：必选参数，指定版图文件的路径，该文件由出题方提供。
++ -rule:  必选参数，指定规则文件的路径，该文件由出题方提供。
++ -thread：可选参数，指定n个线程的并行计算。
++ -output:  必须参数，指定输出的结果文件的路径，由程序运行产生。
 
 ## 5.可视化脚本
 test/visual.py  
@@ -56,7 +71,7 @@ python visual.py ../solution/res.txt --label
 ### 相交检测测试-单线程
 |            case          |  rule  | n^2暴力 |  空间索引 |  矩形框初筛 |  索引+初筛  | 索引+初筛+提前跳出 |
 |:------------------------:|:------:|:-------:|:---------:|:-----------:|:----------:|:------------------:|
-|    case1_small_layout    |   q1   |     s   |   63.6s   |     33.6s   |    31.0s   |        28.1s       |
+|    case1_small_layout    |   q1   |    -    |   63.6s   |     33.6s   |    31.0s   |        28.1s       |
 |    case1_small_layout    |   q2   |    -    |  485.8s   |    736.1s   |   238.6s   |       219.7s       |
-| case1_large_0909b_layout |   q1   |    -    |     -     |      -      |  1889.2s ?  |           ?         |
-| case1_large_0909b_layout |   q2   |    -    |     -     |      -      |      -     |          ??填          |
+| case1_large_0909b_layout |   q1   |    -    |     -     |      -      |  1889.2s ?  |     1611.2s       |
+| case1_large_0909b_layout |   q2   |    -    |     -     |      -      |      -     |     12692.9s       |

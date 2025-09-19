@@ -1,0 +1,11 @@
+#!/bin/sh
+
+#*******************************************************************************#
+#*                                                                             *#
+#*   Copyright (c) 2025 by Semitronix Corporation. All Rights Reserved.        *#
+#*                                                                             *#
+#*******************************************************************************#
+
+SCRIPT_DIR=$(dirname "$0")
+export LD_LIBRARY_PATH="${SCRIPT_DIR}":${LD_LIBRARY_PATH}
+exec ${SCRIPT_DIR}/AnswerChecker "$@"

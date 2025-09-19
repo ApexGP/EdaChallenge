@@ -82,8 +82,8 @@ int main(int argc, char* argv[])
     else {
         // for self-test.
         string dir_path = "C:/Users/PC/Desktop/EdaChallenge/";
-        string layout_path = dir_path + "instance/case/case1_large_0909b_layout.txt";
-        string rule_path = dir_path + "instance/Rule/public_large_rule2.txt";
+        string layout_path = dir_path + "instance/case/case1_small_layout.txt";
+        string rule_path = dir_path + "instance/Rule/public_small_rule2.txt";
 
         size_t pos = layout_path.find_last_of('/');
         std::string case_name = (pos == std::string::npos) ? layout_path: layout_path.substr(pos + 1);
