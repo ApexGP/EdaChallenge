@@ -1,7 +1,0 @@
-StartPos
-M1 (118871,441132)
-Via
-AA CT M1
-PO CT M1
-Gate
-PO AA

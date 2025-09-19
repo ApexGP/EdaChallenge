@@ -1,5 +1,6 @@
 ﻿#include "public.h"
 #include "Input.hpp"
+#include "SpaceIndex.hpp"
 #include "Intersect.hpp"
 #include "Graph.hpp"
 #include "Output.hpp"
@@ -17,27 +18,36 @@ static double getPastSecond() {
 static void solve(string layout_path, string rule_path, int thread, string res_path) {
     double myStartTime = getPastSecond();
      /* 输入 */
-    std::cout << "----- Starting Input" << std::endl;
+    std::cout << "----- Starting Input -----" << std::endl;
     Input input(layout_path, rule_path);
+    input.PrintLayoutInfo();
+    input.PrintRuleInfo();
     std::cout << "----- Use Time: " << getPastSecond() - myStartTime << " s" << std::endl << std::endl;
 
     myStartTime = getPastSecond();
-    /* 相交检测获取边集 */
-    std::cout << "----- Starting Intersection Test" << std::endl;
-    Intersect intersection(input);
-    std::vector<Edge> edges = intersection.getAllEdge();
-    std::cout << "----- Use Time: " << getPastSecond() << " s" << std::endl << std::endl;
+    /* 根据输入和规则建立空间索引 */
+    std::cout << "----- Starting Space Index -----" << std::endl;
+    SpaceIndex spaceIndex(input);
+    spaceIndex.PrintSpaceIndexInfo();
+    std::cout << "----- Use Time: " << getPastSecond() - myStartTime << " s" << std::endl << std::endl;
 
     myStartTime = getPastSecond();
-     /* TODO:获取起点所在多边形id */
-    std::cout << "----- Starting Get StartPos" << std::endl;
-    int start_pos_id = intersection.getStartPosinPolygonId(input.start_pos[0]);
+     /* 获取起点所在多边形id */
+    std::cout << "----- Starting Get StartPos -----" << std::endl;
+    int start_pos_id = spaceIndex.GetStartPosinPolygonId(input.start_pos[0]);
     std::cout << "StartPos Polygon id:" << start_pos_id << std::endl;
     std::cout << "----- Use Time: " << getPastSecond() - myStartTime << " s" << std::endl << std::endl;
 
     myStartTime = getPastSecond();
+    /* 相交检测获取边集 */
+    std::cout << "----- Starting Intersection Test -----" << std::endl;
+    Intersect intersection(input, spaceIndex);
+    std::vector<Edge> edges = intersection.getAllEdge();
+    std::cout << "----- Use Time: " << getPastSecond() - myStartTime << " s" << std::endl << std::endl;
+
+    myStartTime = getPastSecond();
      /* 建图并求连通分量 */
-    std::cout << "----- Starting Get Connected Component" << std::endl;
+    std::cout << "----- Starting Get Connected Component -----" << std::endl;
     Graph graph(input.total_polygon);
     graph.AddEdges(edges);
     std::vector<int> component = graph.GetConnectedComponent(start_pos_id);
@@ -45,7 +55,7 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
 
     myStartTime = getPastSecond();
      /* 输出 */
-    std::cout << "----- Starting Output" << std::endl;
+    std::cout << "----- Starting Output -----" << std::endl;
     Output output(input, res_path, component);
     std::cout << "----- Use Time: " << getPastSecond() - myStartTime << " s" << std::endl << std::endl;
 
@@ -71,9 +81,15 @@ int main(int argc, char* argv[])
     }
     else {
         // for self-test.
-        string layout_path = "C:/Users/lenovo/Desktop/trace/instance/layout_test.txt";
-        string rule_path = "C:/Users/lenovo/Desktop/trace/instance/rule_test.txt";
-        string res_path = "C:/Users/lenovo/Desktop/trace/solution/res_test.txt";
+        string dir_path = "C:/Users/PC/Desktop/EdaChallenge/";
+        string layout_path = dir_path + "instance/case/case1_large_0909b_layout.txt";
+        string rule_path = dir_path + "instance/Rule/public_large_rule2.txt";
+
+        size_t pos = layout_path.find_last_of('/');
+        std::string case_name = (pos == std::string::npos) ? layout_path: layout_path.substr(pos + 1);
+        case_name = case_name.substr(0, case_name.size() - 4);
+
+        string res_path = dir_path + "solution/" + case_name + "_q" + rule_path.substr(rule_path.size() - 5);
         int thread = 1;
 
         solve(layout_path, rule_path, thread, res_path);

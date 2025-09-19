@@ -59,3 +59,8 @@ cmake-build-*
 *.ilk
 *.ipdb
 *.iobj
+
+# 大文件
+answer/
+instance/
+solution/

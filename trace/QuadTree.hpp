@@ -59,10 +59,13 @@ public:
 
 // 四叉树类
 class QuadTree {
-private:
+public:
+    std::string _name;      // 四叉树命名
     QuadTreeNode* _root;    // 根节点
-    int _maxDepth;          // 树的最大深度
-    int _maxDataNum;        // 树节点的最大数据数量
+    int _maxDepth;          // 树允许的最大深度
+    int _maxDataNum;        // 树预设的单叶子节点内最大数据数量
+    int _maxCurrDepth;      // 树当前的最大深度
+    int _maxCurrDataNum;    // 树当前的单叶子节点的最大数据数量
 
 public:
     /* 
@@ -71,8 +74,11 @@ public:
     * maxDepth:四叉树最大深度（根节点深度=1）
     * maxDataNum:四叉树叶子结点最大数据量
     */
-    QuadTree(const Rect& rect, int maxDepth, int maxDataNum)
-        : _root(new QuadTreeNode(rect, 1)), _maxDepth(maxDepth), _maxDataNum(maxDataNum) {}
+    QuadTree(const Rect& rect, int maxDepth, int maxDataNum, const std::string& name = "QUANTREE")
+        : _root(new QuadTreeNode(rect, 1)), _maxDepth(maxDepth), _maxDataNum(maxDataNum), _name(name){
+        _maxCurrDepth = 1;
+        _maxCurrDataNum = 0;
+    }
 
     ~QuadTree() {
         delete _root;
@@ -115,20 +121,30 @@ public:
         GetAllNodeRect(_root, rects);
     }
 
+    // for analysis 输出四叉树叶子数
+    int GetLeafNum() {
+        return GetLeafNum(_root);
+    }
+
 private:
     // 清空操作
     void clear() { _root->clear(); }
 
     // 对节点进行递归划分
-    bool SplitNode(QuadTreeNode* node) const
+    bool SplitNode(QuadTreeNode* node)
     {
         if (node != nullptr)
         {
             // 节点的深度达到最大深度或者节点的数据量还不到最大阈值，无需拆分节点
-            if (node->_depth >= _maxDepth || node->_datas.size() <= _maxDataNum)
-            {
+            if (node->_depth >= _maxDepth){
+                _maxCurrDataNum = static_cast<int>((node->_datas.size() > _maxCurrDataNum) ? node->_datas.size() : _maxCurrDataNum);
                 return true;
             }
+            if (node->_datas.size() <= _maxDataNum) {
+                _maxCurrDataNum = static_cast<int>((node->_datas.size() > _maxCurrDataNum) ? node->_datas.size() : _maxCurrDataNum);
+                return true;
+            }
+            _maxCurrDepth = ((node->_depth + 1 > _maxCurrDepth) ? node->_depth + 1 : _maxCurrDepth);
 
             // 生成四个子节点
             node->_divided = true;
@@ -215,5 +231,20 @@ private:
         GetAllNodeRect(node->_rt, rects);
         GetAllNodeRect(node->_lb, rects);
         GetAllNodeRect(node->_rb, rects);
+    }
+
+    // for analysis 输出四叉树叶子数
+    int GetLeafNum(QuadTreeNode* node) {
+        if (!node) return 0;
+        //叶子结点数据
+        if (!node->_divided) {
+            return 1;
+        }
+        int leaf_num = 0;
+        leaf_num += GetLeafNum(node->_lt);
+        leaf_num += GetLeafNum(node->_rt);
+        leaf_num += GetLeafNum(node->_lb);
+        leaf_num += GetLeafNum(node->_rb);
+        return leaf_num;
     }
 };

@@ -35,7 +35,6 @@ public:
 		rule_file.close();
 	}
 
-private:
 	// 读取版图文件
 	void readLayout(std::ifstream& layout_file) {
 		std::istringstream iss;
@@ -68,7 +67,7 @@ private:
 				while (iss >> c) {
 					if (c == '(') { // 解析坐标
 						iss >> x >> c >> y;
-						poly.vetex.push_back(Point(x, y));
+						poly.cgal_poly.push_back(Point_2(x, y));
 					}
 				}
 				// 多边形的矩形包络框
@@ -85,16 +84,6 @@ private:
 		}
 		polygon_id_range_in_layer[layer_id].second = polygon_id; // 最后一层末尾多边形id
 		total_polygon = polygon_id + 1;
-	
-		// check print
-		std::cout << "【Layout】" << std::endl;
-		std::cout << "total polygon num:" << total_polygon << std::endl;
-		std::cout << "total layer num:" << polygon_id_range_in_layer.size() << std::endl;
-		for (auto& name_id : layer_name_to_id) {
-			std::cout << "layer name:" << name_id.first << " id:" << name_id.second
-				<< " polygon num:" << polygon_id_range_in_layer[name_id.second].second - polygon_id_range_in_layer[name_id.second].first + 1
-				<< " polygon id range:[" << polygon_id_range_in_layer[name_id.second].first << "," << polygon_id_range_in_layer[name_id.second].second << "]" << std::endl;
-		}
 	}
 
 	// 读取规则文件
@@ -144,27 +133,43 @@ private:
 				}
 			}
 		}
-		
+	}
+
+	// 打印版图信息
+	void PrintLayoutInfo() {
+		// check print
+		std::cout << "【Layout】" << std::endl;
+		std::cout << "total polygon num:" << total_polygon << std::endl;
+		std::cout << "total layer num:" << polygon_id_range_in_layer.size() << std::endl;
+		for (auto& name_id : layer_name_to_id) {
+			std::cout << "layer name:" << name_id.first << " id:" << name_id.second
+				<< " polygon num:" << polygon_id_range_in_layer[name_id.second].second - polygon_id_range_in_layer[name_id.second].first + 1
+				<< " polygon id range:[" << polygon_id_range_in_layer[name_id.second].first << "," << polygon_id_range_in_layer[name_id.second].second << "]" << std::endl;
+		}
+	}
+
+	// 打印规则信息
+	void PrintRuleInfo() {
 		// check print
 		std::cout << "【Rule】" << std::endl;
 		for (auto& st : start_pos)
-			std::cout << "StartPos:" << layer_id_to_name[st.first] << " " << st.second.first <<" " << st.second.second << std::endl;
+			std::cout << "StartPos:" << layer_id_to_name[st.first] << " " << st.second.first << " " << st.second.second << std::endl;
 		for (auto& vi : via_rules)
 			std::cout << "Via:" << layer_id_to_name[vi.first] << " " << layer_id_to_name[vi.second] << std::endl;
-		if(has_gate_rule)
+		if (has_gate_rule)
 			std::cout << "Gate:" << layer_id_to_name[gate_rule.first] << " " << layer_id_to_name[gate_rule.second] << std::endl;
-		else 
+		else
 			std::cout << "no Gate" << std::endl;
 	}
 
 	// 获取多边形的矩形包络框
 	Rect GetRectofPolygon(Polygon& poly) {
 		Rect poly_rect = Rect(INT_MAX, INT_MAX, INT_MIN, INT_MIN);
-		for (auto& p : poly.vetex) {
-			if (p.first < poly_rect._xmin) poly_rect._xmin = p.first;
-			if (p.first > poly_rect._xmax) poly_rect._xmax = p.first;
-			if (p.second < poly_rect._ymin) poly_rect._ymin = p.second;
-			if (p.second > poly_rect._ymax) poly_rect._ymax = p.second;
+		for (auto& p : poly.cgal_poly.vertices()) {
+			if (p.x() < poly_rect._xmin) poly_rect._xmin = static_cast<int>(p.x());
+			if (p.x() > poly_rect._xmax) poly_rect._xmax = static_cast<int>(p.x());
+			if (p.y() < poly_rect._ymin) poly_rect._ymin = static_cast<int>(p.y());
+			if (p.y() > poly_rect._ymax) poly_rect._ymax = static_cast<int>(p.y());
 		}
 		return poly_rect;
 	}

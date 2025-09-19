@@ -43,9 +43,9 @@ private:
 	// 输出一个多边形
 	void OutputPolygon(std::ofstream& res_file, Polygon& p) {
 		//输出每个顶点
-		for (int j = 0; j < (int)p.vetex.size(); ++j) {
-			res_file << "(" << p.vetex[j].first << "," << p.vetex[j].second << ")";
-			if (j != p.vetex.size() - 1) {
+		for (int j = 0; j < (int)p.cgal_poly.size(); ++j) {
+			res_file << "(" << static_cast<int>(p.cgal_poly[j].x()) << "," << static_cast<int>(p.cgal_poly[j].y()) << ")";
+			if (j != p.cgal_poly.size() - 1) {
 				res_file << ",";
 			}
 		}

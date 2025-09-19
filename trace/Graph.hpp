@@ -4,6 +4,7 @@
 
 class Graph {
 public:
+    Graph(){}
     // 初始化节点数量
     explicit Graph(int num_nodes): _node_count(num_nodes), _offsets(num_nodes + 1, 0) {}
 

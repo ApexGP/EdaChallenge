@@ -1,4 +1,0 @@
-StartPos
-L3 (-65,31)
-Via
-L1 L2 L3
