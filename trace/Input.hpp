@@ -45,7 +45,7 @@ public:
 		while (std::getline(layout_file, line)) {
 			if (line != "" && line[0] != '(') { // 层名字
 				layer_id++;
-				polygon_id_range_in_layer.push_back(Range(polygon_id + 1, 0)); // 新建层, 已知起始多边形id
+				polygon_id_range_in_layer.emplace_back(Range(polygon_id + 1, 0)); // 新建层, 已知起始多边形id
 				if (layer_id != 0) {
 					polygon_id_range_in_layer[layer_id - 1].second = polygon_id; // 已知上一层末尾多边形id
 				}
@@ -61,23 +61,23 @@ public:
 				iss.clear();          // 清除错误状态
 				iss.str(line);        // 设置流为新行
 
-				// 解析逻辑
-				int x, y;
-				char c;
-				while (iss >> c) {
-					if (c == '(') { // 解析坐标
-						iss >> x >> c >> y;
-						poly.cgal_poly.push_back(Point_2(x, y));
-					}
-				}
+				//// 解析逻辑
+				//int x, y;
+				//char c;
+				//while (iss >> c) {
+				//	if (c == '(') { // 解析坐标
+				//		iss >> x >> c >> y;
+				//		poly.cgal_poly.push_back(Point_2(x, y));
+				//	}
+				//}
+				// 避免istringstream
+				fastParseCoordinates(line, poly.cgal_poly);
 				// 多边形的矩形包络框
 				Rect poly_rect = GetRectofPolygon(poly);
 				poly.rect = poly_rect;
+
 				// 是否扩大版图
-				if (poly_rect._xmin < layout._xmin) layout._xmin = poly_rect._xmin;
-				if (poly_rect._xmax > layout._xmax) layout._xmax = poly_rect._xmax;
-				if (poly_rect._ymin < layout._ymin) layout._ymin = poly_rect._ymin;
-				if (poly_rect._ymax > layout._ymax) layout._ymax = poly_rect._ymax;
+				updateLayoutBounds(poly_rect);
 				// 新增多边形
 				polygons.emplace_back(std::move(poly));
 			}
@@ -107,7 +107,7 @@ public:
 					iss >> layer_name;
 					startpos.first = layer_name_to_id[layer_name];
 					iss>> c >> startpos.second.first >> c >> startpos.second.second >> c;
-					start_pos.push_back(startpos);
+					start_pos.emplace_back(startpos);
 				}
 				else if (flag == "Via") { // 输入Via规则
 					std::string first_layer, second_layer;
@@ -164,13 +164,103 @@ public:
 
 	// 获取多边形的矩形包络框
 	Rect GetRectofPolygon(Polygon& poly) {
-		Rect poly_rect = Rect(INT_MAX, INT_MAX, INT_MIN, INT_MIN);
-		for (auto& p : poly.cgal_poly.vertices()) {
-			if (p.x() < poly_rect._xmin) poly_rect._xmin = static_cast<int>(p.x());
-			if (p.x() > poly_rect._xmax) poly_rect._xmax = static_cast<int>(p.x());
-			if (p.y() < poly_rect._ymin) poly_rect._ymin = static_cast<int>(p.y());
-			if (p.y() > poly_rect._ymax) poly_rect._ymax = static_cast<int>(p.y());
+		//Rect poly_rect = Rect(INT_MAX, INT_MAX, INT_MIN, INT_MIN);
+		//for (auto& p : poly.cgal_poly.vertices()) {
+		//	if (p.x() < poly_rect._xmin) poly_rect._xmin = static_cast<int>(p.x());
+		//	if (p.x() > poly_rect._xmax) poly_rect._xmax = static_cast<int>(p.x());
+		//	if (p.y() < poly_rect._ymin) poly_rect._ymin = static_cast<int>(p.y());
+		//	if (p.y() > poly_rect._ymax) poly_rect._ymax = static_cast<int>(p.y());
+		//}
+		//return poly_rect;
+		
+		// 这里改进测试似乎不大 
+		// 使用迭代器，避免重复的vertices()调用
+		auto vertex_iter = poly.cgal_poly.vertices_begin();
+		auto vertex_end = poly.cgal_poly.vertices_end();
+
+		// 初始化边界值
+		double first_x = vertex_iter->x();
+		double first_y = vertex_iter->y();
+
+		int xmin = static_cast<int>(first_x);
+		int xmax = xmin;
+		int ymin = static_cast<int>(first_y);
+		int ymax = ymin;
+
+		++vertex_iter; // 跳过第一个顶点
+
+		// 一次遍历找到所有边界
+		for (; vertex_iter != vertex_end; ++vertex_iter) {
+			int x = static_cast<int>(vertex_iter->x());
+			int y = static_cast<int>(vertex_iter->y());
+
+			// 使用条件赋值而不是if-else
+			xmin = (x < xmin) ? x : xmin;
+			xmax = (x > xmax) ? x : xmax;
+			ymin = (y < ymin) ? y : ymin;
+			ymax = (y > ymax) ? y : ymax;
 		}
-		return poly_rect;
+
+		return Rect(xmin, ymin, xmax, ymax);
 	}
+	private:
+		// 快速坐标解析函数，避免使用istringstream
+		void fastParseCoordinates(const std::string& line, Polygon_2& cgal_poly) {
+			const char* ptr = line.c_str();
+			const char* end = ptr + line.length();
+
+			while (ptr < end) {
+				// 寻找下一个 '('
+				while (ptr < end && *ptr != '(') ptr++;
+				if (ptr >= end) break;
+
+				ptr++; // 跳过 '('
+
+				// 解析x坐标
+				int x = 0;
+				bool x_negative = false;
+				if (*ptr == '-') {
+					x_negative = true;
+					ptr++;
+				}
+				while (ptr < end && *ptr >= '0' && *ptr <= '9') {
+					x = x * 10 + (*ptr - '0');
+					ptr++;
+				}
+				if (x_negative) x = -x;
+
+				// 跳过逗号
+				while (ptr < end && *ptr != ',') ptr++;
+				if (ptr >= end) break;
+				ptr++; // 跳过 ','
+
+				// 解析y坐标
+				int y = 0;
+				bool y_negative = false;
+				if (*ptr == '-') {
+					y_negative = true;
+					ptr++;
+				}
+				while (ptr < end && *ptr >= '0' && *ptr <= '9') {
+					y = y * 10 + (*ptr - '0');
+					ptr++;
+				}
+				if (y_negative) y = -y;
+
+				// 添加点到多边形
+				cgal_poly.push_back(Point_2(x, y));
+
+				// 寻找对应的 ')'
+				while (ptr < end && *ptr != ')') ptr++;
+				if (ptr < end) ptr++; // 跳过 ')'
+			}
+		}
+
+		// 边界更新函数
+		inline void updateLayoutBounds(const Rect& poly_rect) {
+			if (poly_rect._xmin < layout._xmin) layout._xmin = poly_rect._xmin;
+			if (poly_rect._xmax > layout._xmax) layout._xmax = poly_rect._xmax;
+			if (poly_rect._ymin < layout._ymin) layout._ymin = poly_rect._ymin;
+			if (poly_rect._ymax > layout._ymax) layout._ymax = poly_rect._ymax;
+		}
 };

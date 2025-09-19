@@ -17,6 +17,7 @@ public:
 	// 执行多边形相交检测, 相交视为二者之间存在一条边，获取所有边的集合
 	std::vector<Edge> getAllEdge() {
 		std::vector<Edge> edges;
+		edges.reserve(500000);
 
 		const std::vector<QuadTree*>& quad_trees = spaceIndex.GetSpaceIndex();
 		// 对各个四叉树
@@ -38,7 +39,7 @@ public:
 							//精细检测是否相交
 							//if (CGAL::do_intersect(a->cgal_poly, b->cgal_poly, CGAL::Tag_false())){ // CGAL5.x 则用这个
 							if (CGAL::do_intersect(a->cgal_poly, b->cgal_poly)) { // 相交则增加一条边
-								edges.push_back(Edge(a->id, b->id));
+								edges.emplace_back(Edge(a->id, b->id));
 							}
 						}
 					}

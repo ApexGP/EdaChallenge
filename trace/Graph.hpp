@@ -54,7 +54,7 @@ public:
 
         queue[rear++] = start;
         visited[start] = true;
-        component.push_back(start);
+        component.emplace_back(start);
 
         while (front < rear) {
             int current = queue[front++];
@@ -67,7 +67,7 @@ public:
                 if (!visited[neighbor]) {
                     visited[neighbor] = true;
                     queue[rear++] = neighbor;
-                    component.push_back(neighbor);
+                    component.emplace_back(neighbor);
                 }
             }
         }

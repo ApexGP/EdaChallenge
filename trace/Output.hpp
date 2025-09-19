@@ -24,7 +24,7 @@ private:
 		auto& polygons = input.polygons;
 		for (auto& poly_id : component) {
 			int layer_id = polygons[poly_id].layer_id;
-			layer_polygons[layer_id].push_back(poly_id);
+			layer_polygons[layer_id].emplace_back(poly_id);
 		}
 
 		// °´²ãË³ĞòÊä³ö
