@@ -90,10 +90,12 @@ python visual.py ../solution/res.txt --label
 ```
 
 ## 6.Simple Test
-### 相交检测测试-单线程
+### 相交检测测试-单线程-Windows VS2022
 |            case          |  rule  | n^2暴力 |  空间索引 |  矩形框初筛 |  索引+初筛  | 索引+初筛+提前跳出 |
 |:------------------------:|:------:|:-------:|:---------:|:-----------:|:----------:|:------------------:|
 |    case1_small_layout    |   q1   |    -    |   63.6s   |     33.6s   |    31.0s   |        28.1s       |
 |    case1_small_layout    |   q2   |    -    |  485.8s   |    736.1s   |   238.6s   |       219.7s       |
 | case1_large_0909b_layout |   q1   |    -    |     -     |      -      |  1675.1s   |      1611.2s       |
 | case1_large_0909b_layout |   q2   |    -    |     -     |      -      |      -     |     12692.9s       |
+
+Why? 实测Ubuntu系统运行比Windows快约3倍
