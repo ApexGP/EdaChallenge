@@ -103,7 +103,7 @@ public:
     }
 
     // 插入操作 TODO
-    bool Insert() {}
+    bool Insert() { return false;}
 
     // 获取四叉树所有叶子结点数据
     void GetAllLeafData(std::vector<std::vector<Polygon*>>& outData) {

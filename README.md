@@ -21,7 +21,7 @@
 + trace/ 源码
 + + thirty/ 第三方库, 更多信息请查阅 [第三方库说明](./trace/third_party/README.md)
 + test/ 测试
-+ trace_answer_checker/ 检验答案程序
++ trace_answer_checker/ 检验答案程序 查阅 [检验程序说明](./trace_answer_checker/README.md)
 
 
 ## 3.代码结构
@@ -33,13 +33,17 @@
 + Output.hpp 输出类
 
 ## 4.运行方式
-### 环境
+### 4.1.环境
 ​由于我们使用CGAL6.0+​​, 所以要求​C++17及以上, 即编译器要求: GCC 7+, Clang 5+, MSVC 2017+
 
-### Windows with VS2022
-配置包含目录和库目录，以及链接器-附加依赖项，VC++17
+### 4.2.Windows with VS2022
++ 解决方案属性页，配置VC++目录-包含目录：`$(SolutionDir)third_party` 和 `$(SolutionDir)third_party\gmp-win\include`
++ 配置VC++目录-库目录：`$(SolutionDir)third_party\gmp-win\lib`
++ 配置链接器-输入-附加依赖项：`libgmp-10.lib` 和 `libmpfr-4.lib`
++ 配置常规-C++语言标准：`ISO C++17 标准`
 
-### Linux
+### 4.3.Linux
+#### 4.3.1.手动编译运行
 ```shell
 cd trace
 # 编译
@@ -48,13 +52,30 @@ cd build
 cmake ..
 make
 # 运行
-trace -layout ./layout.txt -rule ./rule.txt [-thread n] -output ./res.txt 
+./trace -layout ./layout.txt -rule ./rule.txt [-thread n] -output ./res.txt 
+# 例: ./trace -layout ../instance/case/case1_small_layout.txt -rule ../instance/Rule/public_small_rule1.txt -output ../solution/case1_small_layout_q1.txt
 ```
 + trace：链路追踪（Net Trace）可执行程序
 + -layout：必选参数，指定版图文件的路径，该文件由出题方提供。
 + -rule:  必选参数，指定规则文件的路径，该文件由出题方提供。
 + -thread：可选参数，指定n个线程的并行计算。
 + -output:  必须参数，指定输出的结果文件的路径，由程序运行产生。
+
+#### 4.3.2.Python脚本自动化
+test/run_trace.py  
+```shell 
+# 调用方式：  
+cd test
+python3 run_trace.py -layout ./layout.txt -rule ./rule.txt [-thread n] -output ./res.txt -ans ans.txt
+# 例: 
+python3 run_trace.py \
+    -layout ../instance/case/case1_small_layout.txt \
+    -rule ../instance/Rule/public_small_rule1.txt \
+    -output ../solution/case1_small_layout_q1.txt \
+    -ans ../answer/small/case1_small_q1.txt \
+    -thread 1
+```
+该脚本自动编译、运行trace、运行checker, 参数与trace程序对应，最后一个`-ans`参数为对应答案的路径
 
 ## 5.可视化脚本
 test/visual.py  
