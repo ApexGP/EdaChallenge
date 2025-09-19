@@ -37,9 +37,10 @@
 ​由于我们使用CGAL6.0+​​, 所以要求​C++17及以上, 即编译器要求: GCC 7+, Clang 5+, MSVC 2017+
 
 ### 4.2.Windows with VS2022
-+ 解决方案属性页，配置VC++目录-包含目录：`$(SolutionDir)third_party` 和 `$(SolutionDir)third_party\gmp-win\include`
++ 解决方案属性页，配置-切换为`所有配置`
++ 配置VC++目录-包含目录：`$(SolutionDir)third_party` 和 `$(SolutionDir)third_party\gmp-win\include`
 + 配置VC++目录-库目录：`$(SolutionDir)third_party\gmp-win\lib`
-+ 配置链接器-输入-附加依赖项：`libgmp-10.lib` 和 `libmpfr-4.lib`
++ 配置链接器-输入-附加依赖项：`gmp.lib` 和 `mpfr.lib`
 + 配置常规-C++语言标准：`ISO C++17 标准`
 
 ### 4.3.Linux
@@ -89,10 +90,12 @@ python visual.py ../solution/res.txt --label
 ```
 
 ## 6.Simple Test
-### 相交检测测试-单线程
+### 相交检测测试-单线程-Windows VS2022
 |            case          |  rule  | n^2暴力 |  空间索引 |  矩形框初筛 |  索引+初筛  | 索引+初筛+提前跳出 |
 |:------------------------:|:------:|:-------:|:---------:|:-----------:|:----------:|:------------------:|
 |    case1_small_layout    |   q1   |    -    |   63.6s   |     33.6s   |    31.0s   |        28.1s       |
 |    case1_small_layout    |   q2   |    -    |  485.8s   |    736.1s   |   238.6s   |       219.7s       |
 | case1_large_0909b_layout |   q1   |    -    |     -     |      -      |  1675.1s   |      1611.2s       |
 | case1_large_0909b_layout |   q2   |    -    |     -     |      -      |      -     |     12692.9s       |
+
+Why? 实测Ubuntu系统运行比Windows快约3倍
