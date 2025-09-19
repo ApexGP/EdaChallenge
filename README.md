@@ -37,9 +37,10 @@
 ​由于我们使用CGAL6.0+​​, 所以要求​C++17及以上, 即编译器要求: GCC 7+, Clang 5+, MSVC 2017+
 
 ### 4.2.Windows with VS2022
-+ 解决方案属性页，配置VC++目录-包含目录：`$(SolutionDir)third_party` 和 `$(SolutionDir)third_party\gmp-win\include`
++ 解决方案属性页，配置-切换为`所有配置`
++ 配置VC++目录-包含目录：`$(SolutionDir)third_party` 和 `$(SolutionDir)third_party\gmp-win\include`
 + 配置VC++目录-库目录：`$(SolutionDir)third_party\gmp-win\lib`
-+ 配置链接器-输入-附加依赖项：`libgmp-10.lib` 和 `libmpfr-4.lib`
++ 配置链接器-输入-附加依赖项：`gmp.lib` 和 `mpfr.lib`
 + 配置常规-C++语言标准：`ISO C++17 标准`
 
 ### 4.3.Linux

@@ -65,34 +65,60 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
 int main(int argc, char* argv[])
 {
     if (argc > 2) { // 命令行运行
-        string layout_path = argv[2];
-        string rule_path = argv[4];
-        int thread = 1;
-        string res_path;
-        if (strcmp(argv[5], "-thread")) {
-            thread = atoi(argv[6]);
-            res_path = argv[8];
-        }
-        else {
-            res_path = argv[6];
+        int thread_count = 1;  // 默认单线程
+        const char* layout_path = nullptr;
+        const char* rule_path = nullptr;
+        const char* output_path = nullptr;
+
+        // 顺序无关参数解析
+        for (int i = 1; i < argc; i++) {
+            if (strcmp(argv[i], "-layout") == 0 && i + 1 < argc) { // strcmp 相等时返回0 T_T
+                layout_path = argv[++i];
+            } else if (strcmp(argv[i], "-rule") == 0 && i + 1 < argc) {
+                rule_path = argv[++i];
+            } else if (strcmp(argv[i], "-thread") == 0 && i + 1 < argc) {
+                thread_count = atoi(argv[++i]);
+            } else if (strcmp(argv[i], "-output") == 0 && i + 1 < argc) {
+                output_path = argv[++i];
+            }
         }
 
-        solve(layout_path, rule_path, thread, res_path);
+        // 验证必需参数
+        if (!layout_path || !rule_path || !output_path) {
+            std::cerr << "错误：缺少必需参数\n";
+            std::cerr << "用法: " << argv[0] 
+                      << " -layout <文件> -rule <文件> [-thread <n>] -output <文件>\n";
+            return 1;
+        }
+
+        // 验证线程数
+        if (thread_count <= 0) {
+            std::cerr << "警告：无效的线程数，使用默认值1\n";
+            thread_count = 1;
+        }
+
+        // 使用参数...
+        // std::cout << "布局文件: " << layout_path << "\n";
+        // std::cout << "规则文件: " << rule_path << "\n";
+        // std::cout << "输出文件: " << output_path << "\n";
+        // std::cout << "线程数: " << thread_count << "\n";
+
+        solve(layout_path, rule_path, thread_count, output_path);
     }
     else {
         // for self-test.
         string dir_path = "C:/Users/PC/Desktop/EdaChallenge/";
-        string layout_path = dir_path + "instance/case/case1_large_0909b_layout.txt";
-        string rule_path = dir_path + "instance/Rule/public_large_rule1.txt";
+        string layout_path = dir_path + "instance/case/case1_small_layout.txt";
+        string rule_path = dir_path + "instance/Rule/public_small_rule1.txt";
 
         size_t pos = layout_path.find_last_of('/');
         std::string case_name = (pos == std::string::npos) ? layout_path: layout_path.substr(pos + 1);
         case_name = case_name.substr(0, case_name.size() - 4);
 
-        string res_path = dir_path + "solution/" + case_name + "_q" + rule_path.substr(rule_path.size() - 5);
-        int thread = 1;
+        string output_path = dir_path + "solution/" + case_name + "_q" + rule_path.substr(rule_path.size() - 5);
+        int thread_count = 1;
 
-        solve(layout_path, rule_path, thread, res_path);
+        solve(layout_path, rule_path, thread_count, output_path);
     }
     return 0;
 }
