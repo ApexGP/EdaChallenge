@@ -73,5 +73,5 @@ python visual.py ../solution/res.txt --label
 |:------------------------:|:------:|:-------:|:---------:|:-----------:|:----------:|:------------------:|
 |    case1_small_layout    |   q1   |    -    |   63.6s   |     33.6s   |    31.0s   |        28.1s       |
 |    case1_small_layout    |   q2   |    -    |  485.8s   |    736.1s   |   238.6s   |       219.7s       |
-| case1_large_0909b_layout |   q1   |    -    |     -     |      -      |  1889.2s ?  |     1611.2s       |
+| case1_large_0909b_layout |   q1   |    -    |     -     |      -      |  1675.1s   |      1611.2s       |
 | case1_large_0909b_layout |   q2   |    -    |     -     |      -      |      -     |     12692.9s       |

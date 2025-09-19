@@ -36,6 +36,7 @@ public:
 						//先看矩形框是否相交
 						if (a->rect.Intersects(b->rect)) {
 							//精细检测是否相交
+							//if (CGAL::do_intersect(a->cgal_poly, b->cgal_poly, CGAL::Tag_false())){ // CGAL5.x 则用这个
 							if (CGAL::do_intersect(a->cgal_poly, b->cgal_poly)) { // 相交则增加一条边
 								edges.push_back(Edge(a->id, b->id));
 							}

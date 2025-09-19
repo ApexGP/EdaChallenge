@@ -61,6 +61,15 @@ cmake-build-*
 *.iobj
 
 # 大文件
-answer/
-instance/
-solution/
+answer/large/*
+answer/small/*
+instance/case/*
+solution/*
+
+# 特赦一些小文件
+!answer/small/case1_small_q1.txt
+!instance/case/case1_small_layout.txt
+!solution/case1_small_layout_q1.txt
+
+# 特赦第三方库所有目录
+!trace/third_party/**
