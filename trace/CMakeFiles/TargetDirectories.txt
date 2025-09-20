@@ -1,0 +1,7 @@
+/mnt/c/users/pojo/Desktop/edachallenge/trace/CMakeFiles/trace.dir
+/mnt/c/users/pojo/Desktop/edachallenge/trace/CMakeFiles/edit_cache.dir
+/mnt/c/users/pojo/Desktop/edachallenge/trace/CMakeFiles/rebuild_cache.dir
+/mnt/c/users/pojo/Desktop/edachallenge/trace/CMakeFiles/list_install_components.dir
+/mnt/c/users/pojo/Desktop/edachallenge/trace/CMakeFiles/install.dir
+/mnt/c/users/pojo/Desktop/edachallenge/trace/CMakeFiles/install/local.dir
+/mnt/c/users/pojo/Desktop/edachallenge/trace/CMakeFiles/install/strip.dir

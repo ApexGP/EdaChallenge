@@ -162,7 +162,7 @@ private:
 		node->_lb = new QuadTreeNode(node->_rect.GetLBRect(), node->_depth + 1);
 		node->_rb = new QuadTreeNode(node->_rect.GetRBRect(), node->_depth + 1);
 
-		// 更智能的内存预分配 - 基于数据分布估算
+		// 基于数据分布估算内存预分配
 		size_t estimated_size = (data_size / 3); // 保守估计，考虑重叠
 		node->_lt->_datas.reserve(estimated_size);
 		node->_rt->_datas.reserve(estimated_size);

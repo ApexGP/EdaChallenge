@@ -1,15 +1,17 @@
 #pragma once
-
 #include "public.h"
 
 class Graph {
 public:
-    Graph(){}
+    Graph() : _node_count(0) {}
+
     // 初始化节点数量
-    explicit Graph(int num_nodes): _node_count(num_nodes), _offsets(num_nodes + 1, 0) {}
+    explicit Graph(int num_nodes) : _node_count(num_nodes), _offsets(num_nodes + 1, 0) {}
 
     // 批量添加边
-    void AddEdges(const std::vector<Edge>& edges) {
+    void AddEdges(const std::vector<std::pair<int, int>>& edges) {
+        if (_node_count == 0 || edges.empty()) return;
+
         // 第一次遍历：统计节点度数
         std::vector<int> degrees(_node_count, 0);
         for (const auto& edge : edges) {
@@ -21,13 +23,13 @@ public:
         }
 
         // 计算CSR偏移量
-        for (size_t i = 1; i <= _node_count; ++i) {
+        for (size_t i = 1; i <= static_cast<size_t>(_node_count); ++i) {
             _offsets[i] = _offsets[i - 1] + degrees[i - 1];
         }
 
         // 分配邻接表内存
         _edges.resize(_offsets[_node_count]);
-        std::vector<size_t> curr_index(_offsets.begin(), _offsets.begin() + _node_count);
+        std::vector<int> curr_index(_offsets.begin(), _offsets.begin() + _node_count);
 
         // 第二次遍历：填充邻接表
         for (const auto& edge : edges) {
@@ -51,7 +53,6 @@ public:
         // 手动管理队列避免deque开销
         std::vector<int> queue(_node_count);
         size_t front = 0, rear = 0;
-
         queue[rear++] = start;
         visited[start] = true;
         component.emplace_back(start);
@@ -61,7 +62,6 @@ public:
             // 遍历当前节点的邻居
             size_t start_idx = _offsets[current];
             size_t end_idx = _offsets[current + 1];
-
             for (size_t i = start_idx; i < end_idx; ++i) {
                 int neighbor = _edges[i];
                 if (!visited[neighbor]) {
@@ -75,7 +75,7 @@ public:
     }
 
 private:
-    int _node_count;                 // 节点总数
-    std::vector<int> _offsets;       // CSR偏移数组
-    std::vector<int> _edges;         // 领接表边存储
+    int _node_count;                     // 节点总数
+    std::vector<int> _offsets;           // CSR偏移数组
+    std::vector<int> _edges;             // 邻接表边存储
 };

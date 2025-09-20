@@ -11,7 +11,7 @@ private:
 	Input& input;
 	Graph graph;  // 层间连接关系图(节点为层id)
 	std::vector<QuadTree*> quad_trees; // 必要层(或合并连通层)的四叉树
-	std::unordered_map<std::string, QuadTree*> layer_name_to_quadtree; // 层名到四叉树的映射
+	robin_hood::unordered_map<std::string, QuadTree*> layer_name_to_quadtree; // 层名到四叉树的映射
 
 public:
 	SpaceIndex(Input& _input) :input(_input) {
@@ -113,7 +113,7 @@ private:
 		else if (input.start_pos.size() == 1 && !input.via_rules.empty()) {
 			// 关于起点层的联通分量
 			int layer_id = input.start_pos[0].first;
-			std::unordered_set<int> concomp = GetConnectComponentofLayer(layer_id);
+			robin_hood::unordered_set<int> concomp = GetConnectComponentofLayer(layer_id);
 
 			// 对Via规则连通层, 两层的多边形合并建立一棵树
 			for (auto& via : input.via_rules) {
@@ -148,9 +148,9 @@ private:
 	}
 
 	// 计算层间联通分量
-	std::unordered_set<int> GetConnectComponentofLayer(int layer_id) const {
+	robin_hood::unordered_set<int> GetConnectComponentofLayer(int layer_id) const {
 		std::vector<int> component = graph.GetConnectedComponent(layer_id);
-		std::unordered_set<int> res;
+		robin_hood::unordered_set<int> res;
 		for (auto& node : component)
 			res.insert(node);
 		return res;

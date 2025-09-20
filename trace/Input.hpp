@@ -7,16 +7,16 @@
 
 class Input {
 public:
-	Rect layout;                                            // 版图的最大矩形框
-	std::unordered_map<std::string, int> layer_name_to_id;  // 层名转层id, 0-index, 代码内使用id指代层
-	std::unordered_map<int, std::string> layer_id_to_name;  // 层id转层名, 方便输出
-	int total_polygon;										// 多边形总数
-	std::vector<Polygon> polygons;							// 所有的多边形列表, 下标对应其多边形id, 0-index
-	std::vector<Range> polygon_id_range_in_layer;			// 每层的多边形的id范围, 双闭区间, 下标对应其层id
-	std::set<Edge> via_rules;								// Via规则集合，表示哪两层连通, 通过输入保证层id小的在前，结合set确保不重复
-	bool has_gate_rule;										// 是否存在Gate规则
-	Edge gate_rule;											// 若存在则表示Gate规则, gate_rule.first为Poly层，gate_rule.second为AA层
-	std::vector<StartPos> start_pos;						// 起点位置, 至少一个, 最多两个, 按输入顺序
+	Rect layout;													// 版图的最大矩形框
+	robin_hood::unordered_map<std::string, int> layer_name_to_id;   // 层名转层id, 0-index, 代码内使用id指代层
+	robin_hood::unordered_map<int, std::string> layer_id_to_name;   // 层id转层名, 方便输出
+	int total_polygon;												// 多边形总数
+	std::vector<Polygon> polygons;									// 所有的多边形列表, 下标对应其多边形id, 0-index
+	std::vector<Range> polygon_id_range_in_layer;					// 每层的多边形的id范围, 双闭区间, 下标对应其层id
+	std::set<Edge> via_rules;										// Via规则集合，表示哪两层连通, 通过输入保证层id小的在前，结合set确保不重复
+	bool has_gate_rule;												// 是否存在Gate规则
+	Edge gate_rule;													// 若存在则表示Gate规则, gate_rule.first为Poly层，gate_rule.second为AA层
+	std::vector<StartPos> start_pos;								// 起点位置, 至少一个, 最多两个, 按输入顺序
 
 
 	// 给定文件路径，获取输入

@@ -97,6 +97,10 @@ public:
 
   bool after_handle_event(Event* e, Status_line_iterator iter, bool flag) {
     auto res = Base::after_handle_event(e, iter, flag);
+    // 检测到边界相交也提前跳出
+    if (Base::m_overlay_traits->found_reg_intersection() || Base::m_overlay_traits->found_boundary_intersection()) {
+        this->surface_sweep()->stop_sweep();
+    }
     if (m_found_x) this->surface_sweep()->stop_sweep();
     return res;
   }

@@ -1,11 +1,10 @@
 #pragma once
 #include <vector>
-#include <unordered_map>
-#include <map>
-#include <set>
 #include <string>
 #include <cassert>
 #include <numeric>
+
+#include "../third_party/robin_hood/robin_hood.h" // 高效哈希表
 
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/Polygon_2.h>
@@ -23,6 +22,18 @@ using Range = std::pair<int, int>;		 // 区间简记
 using Edge = std::pair<int, int>;        // 边: 两个顶点id
 using Point = std::pair<int, int>;		 // 点: x,y坐标
 using StartPos = std::pair<int, Point>;  // 起点: 层id和坐标
+
+// 添加哈希特化
+//namespace std {
+//    template <>
+//    struct hash<std::pair<int, int>> {
+//        std::size_t operator()(const std::pair<int, int>& edge) const {
+//            std::size_t h1 = robin_hood::hash<int>()(edge.first);
+//            std::size_t h2 = robin_hood::hash<int>()(edge.second);
+//            return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+//        }
+//    };
+//}
 
 // 定义矩形
 struct Rect
