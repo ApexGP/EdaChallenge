@@ -23,6 +23,7 @@ public:
 	Input(std::string layout_path, std::string rule_path) {
 		polygons.reserve(1000000); // 预分配一些空间
 		layout = Rect(INT_MAX, INT_MAX, INT_MIN, INT_MIN);
+		has_gate_rule = false;
 
 		std::ifstream layout_file(layout_path); // 创建并打开文件
 		assert(layout_file.is_open() && "无法打开layout文件");
@@ -45,7 +46,7 @@ public:
 		while (std::getline(layout_file, line)) {
 			if (line != "" && line[0] != '(') { // 层名字
 				layer_id++;
-				polygon_id_range_in_layer.emplace_back(Range(polygon_id + 1, 0)); // 新建层, 已知起始多边形id
+				polygon_id_range_in_layer.emplace_back(polygon_id + 1, 0); // 新建层, 已知起始多边形id
 				if (layer_id != 0) {
 					polygon_id_range_in_layer[layer_id - 1].second = polygon_id; // 已知上一层末尾多边形id
 				}
@@ -58,8 +59,8 @@ public:
 				poly.id = polygon_id;
 				poly.layer_id = layer_id;
 
-				iss.clear();          // 清除错误状态
-				iss.str(line);        // 设置流为新行
+				// iss.clear();          // 清除错误状态
+				// iss.str(line);        // 设置流为新行
 
 				//// 解析逻辑
 				//int x, y;
@@ -70,7 +71,8 @@ public:
 				//		poly.cgal_poly.push_back(Point_2(x, y));
 				//	}
 				//}
-				// 避免istringstream
+
+				// 自行解析整型坐标值，避免istringstream
 				fastParseCoordinates(line, poly.cgal_poly);
 				// 多边形的矩形包络框
 				Rect poly_rect = GetRectofPolygon(poly);
@@ -123,7 +125,7 @@ public:
 						first_layer = second_layer; // 确保二者是相邻两层
 					}
 				}
-				else { // 输入Gate规则
+				else if(flag == "Gate"){ // 输入Gate规则
 					has_gate_rule = true;
 					std::string first_layer, second_layer;
 					iss >> first_layer >> second_layer;
@@ -138,7 +140,7 @@ public:
 	// 打印版图信息
 	void PrintLayoutInfo() {
 		// check print
-		std::cout << "【Layout】" << std::endl;
+		std::cout << "[Layout]" << std::endl;
 		std::cout << "total polygon num:" << total_polygon << std::endl;
 		std::cout << "total layer num:" << polygon_id_range_in_layer.size() << std::endl;
 		for (auto& name_id : layer_name_to_id) {
@@ -151,7 +153,7 @@ public:
 	// 打印规则信息
 	void PrintRuleInfo() {
 		// check print
-		std::cout << "【Rule】" << std::endl;
+		std::cout << "[Rule]" << std::endl;
 		for (auto& st : start_pos)
 			std::cout << "StartPos:" << layer_id_to_name[st.first] << " " << st.second.first << " " << st.second.second << std::endl;
 		for (auto& vi : via_rules)

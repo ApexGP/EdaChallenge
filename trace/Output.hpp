@@ -40,15 +40,56 @@ private:
 		}
 	}
 
-	// 输出一个多边形
-	void OutputPolygon(std::ofstream& res_file, Polygon& p) {
-		//输出每个顶点
-		for (int j = 0; j < (int)p.cgal_poly.size(); ++j) {
-			res_file << "(" << static_cast<int>(p.cgal_poly[j].x()) << "," << static_cast<int>(p.cgal_poly[j].y()) << ")";
-			if (j != p.cgal_poly.size() - 1) {
-				res_file << ",";
+	// 高效输出一个多边形
+	void OutputPolygon(std::ofstream &res_file, Polygon &p){
+		// 预计算所需缓冲区大小
+		size_t estimated_size = p.cgal_poly.size() * 20; // 每个顶点约20字符
+		std::string buffer;
+		buffer.reserve(estimated_size);
+
+		// 使用快速整数转换并构建缓冲区
+		for (size_t j = 0; j < p.cgal_poly.size(); ++j){
+			buffer += '(';
+			AppendInt(buffer, static_cast<int>(p.cgal_poly[j].x()));
+			buffer += ',';
+			AppendInt(buffer, static_cast<int>(p.cgal_poly[j].y()));
+			buffer += ')';
+
+			if (j != p.cgal_poly.size() - 1){
+				buffer += ',';
 			}
 		}
-		res_file << std::endl;
+
+		// 一次性输出
+		buffer += '\n';
+		res_file << buffer;
+	}
+
+	// 优化的整数追加函数
+	void AppendInt(std::string &str, int x){
+		if (x == 0){
+			str += '0';
+			return;
+		}
+
+		// 处理负数
+		if (x < 0){
+			str += '-';
+			x = -x;
+		}
+
+		// 使用缓冲区避免递归
+		char num_buf[12]; // 足够存储-2147483648到2147483647
+		int idx = 0;
+		// 转换数字
+		while (x > 0){
+			num_buf[idx++] = '0' + (x % 10);
+			x /= 10;
+		}
+
+		// 反向追加到字符串
+		while (idx > 0){
+			str += num_buf[--idx];
+		}
 	}
 };

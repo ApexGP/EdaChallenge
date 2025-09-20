@@ -21,7 +21,7 @@
 + trace/ 源码
 + + thirty/ 第三方库, 更多信息请查阅 [第三方库说明](./trace/third_party/README.md)
 + test/ 测试
-+ trace_answer_checker/ 检验答案程序 查阅 [检验程序说明](./trace_answer_checker/README.md)
++ checker/ 检验答案程序 查阅 [检验程序说明](./checker/README.md)
 
 
 ## 3.代码结构

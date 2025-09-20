@@ -52,32 +52,32 @@ struct Rect
     // 获取左上角拆分矩形
     Rect GetLTRect() const
     {
-        int xmid = (_xmin + _xmax) >> 1;  // 使用位运算加速除法
-        int ymid = (_ymin + _ymax) >> 1;
+        int xmid = (_xmin + _xmax) / 2;
+        int ymid = (_ymin + _ymax) / 2;
         return Rect(_xmin, ymid, xmid, _ymax);
     }
 
     // 获取右上角拆分矩形  
     Rect GetRTRect() const
     {
-        int xmid = (_xmin + _xmax) >> 1;
-        int ymid = (_ymin + _ymax) >> 1;
+        int xmid = (_xmin + _xmax) / 2;
+        int ymid = (_ymin + _ymax) / 2;
         return Rect(xmid, ymid, _xmax, _ymax);
     }
 
     // 获取左下角拆分矩形
     Rect GetLBRect() const
     {
-        int xmid = (_xmin + _xmax) >> 1;
-        int ymid = (_ymin + _ymax) >> 1;
+        int xmid = (_xmin + _xmax) / 2;
+        int ymid = (_ymin + _ymax) / 2;
         return Rect(_xmin, _ymin, xmid, ymid);
     }
 
     // 获取右下角拆分矩形
     Rect GetRBRect() const
     {
-        int xmid = (_xmin + _xmax) >> 1;
-        int ymid = (_ymin + _ymax) >> 1;
+        int xmid = (_xmin + _xmax) / 2;
+        int ymid = (_ymin + _ymax) / 2;
         return Rect(xmid, _ymin, _xmax, ymid);
     }
 };

@@ -54,7 +54,7 @@ def main():
     print("✅ Trace execution completed!")
     
     # 切换到答案检查器目录
-    checker_dir = project_root / 'trace_answer_checker'
+    checker_dir = project_root / 'checker'
     os.chdir(checker_dir)
     
     # 运行答案检查器
