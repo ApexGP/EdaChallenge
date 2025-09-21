@@ -101,9 +101,9 @@ python visual.py ../solution/res.txt --label
 Why? 实测Ubuntu系统运行比Windows快约3倍
 
 ### 测试-单线程-Ubuntu-22.04 Using High Performance Implementation
-|            case          | High Performance Optimization |
-|:------------------------:|:-----------------------------:|
-|    case1_small_layout    |              0.36s            |
-|    case1_small_layout    |              2.17s            |
-| case1_large_0909b_layout |              22.4s            |
-| case1_large_0909b_layout |             124.2s            |
+|            case          |  rule  | High Performance Optimization |
+|:------------------------:|:------:|:-----------------------------:|
+|    case1_small_layout    |   q1   |              0.36s            |
+|    case1_small_layout    |   q2   |              2.17s            |
+| case1_large_0909b_layout |   q1   |              22.4s            |
+| case1_large_0909b_layout |   q2   |             124.2s            |
