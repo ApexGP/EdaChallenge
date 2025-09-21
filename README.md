@@ -46,7 +46,6 @@
 ### 4.3.Linux
 #### 4.3.1.手动编译运行
 ```shell
-cd trace
 # 编译
 mkdir build
 cd build
