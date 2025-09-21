@@ -166,17 +166,7 @@ public:
 
 	// 获取多边形的矩形包络框
 	Rect GetRectofPolygon(Polygon& poly) {
-		//Rect poly_rect = Rect(INT_MAX, INT_MAX, INT_MIN, INT_MIN);
-		//for (auto& p : poly.cgal_poly.vertices()) {
-		//	if (p.x() < poly_rect._xmin) poly_rect._xmin = static_cast<int>(p.x());
-		//	if (p.x() > poly_rect._xmax) poly_rect._xmax = static_cast<int>(p.x());
-		//	if (p.y() < poly_rect._ymin) poly_rect._ymin = static_cast<int>(p.y());
-		//	if (p.y() > poly_rect._ymax) poly_rect._ymax = static_cast<int>(p.y());
-		//}
-		//return poly_rect;
-		
-		// 这里改进测试似乎不大 
-		// 使用迭代器，避免重复的vertices()调用
+		// 使用迭代器遍历多边形顶点
 		auto vertex_iter = poly.cgal_poly.vertices_begin();
 		auto vertex_end = poly.cgal_poly.vertices_end();
 
@@ -205,9 +195,10 @@ public:
 
 		return Rect(xmin, ymin, xmax, ymax);
 	}
-	private:
-		// 快速坐标解析函数，避免使用istringstream
-		void fastParseCoordinates(const std::string& line, Polygon_2& cgal_poly) {
+	
+private:
+	// 快速坐标解析函数，避免使用istringstream
+	void fastParseCoordinates(const std::string& line, Polygon_2& cgal_poly) {
 			const char* ptr = line.c_str();
 			const char* end = ptr + line.length();
 
@@ -258,8 +249,8 @@ public:
 			}
 		}
 
-		// 边界更新函数
-		inline void updateLayoutBounds(const Rect& poly_rect) {
+	// 版图边界更新函数
+	inline void updateLayoutBounds(const Rect& poly_rect) {
 			if (poly_rect._xmin < layout._xmin) layout._xmin = poly_rect._xmin;
 			if (poly_rect._xmax > layout._xmax) layout._xmax = poly_rect._xmax;
 			if (poly_rect._ymin < layout._ymin) layout._ymin = poly_rect._ymin;

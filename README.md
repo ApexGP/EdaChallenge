@@ -90,7 +90,8 @@ python visual.py ../solution/res.txt --label
 ```
 
 ## 6.Simple Test
-### 相交检测测试-单线程-Windows VS2022
+环境:3.5Ghz CPU, 32G RAM
+### 测试-单线程-Windows VS2022-Using CGAL do_intersect
 |            case          |  rule  | n^2暴力 |  空间索引 |  矩形框初筛 |  索引+初筛  | 索引+初筛+提前跳出 |
 |:------------------------:|:------:|:-------:|:---------:|:-----------:|:----------:|:------------------:|
 |    case1_small_layout    |   q1   |    -    |   63.6s   |     33.6s   |    31.0s   |        28.1s       |
@@ -99,3 +100,11 @@ python visual.py ../solution/res.txt --label
 | case1_large_0909b_layout |   q2   |    -    |     -     |      -      |      -     |     12692.9s       |
 
 Why? 实测Ubuntu系统运行比Windows快约3倍
+
+### 测试-单线程-Ubuntu-22.04 Using High Performance Implementation
+|            case          | High Performance Optimization |
+|:------------------------:|:-----------------------------:|
+|    case1_small_layout    |              0.36s            |
+|    case1_small_layout    |              2.17s            |
+| case1_large_0909b_layout |              22.4s            |
+| case1_large_0909b_layout |             124.2s            |

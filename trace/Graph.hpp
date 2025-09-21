@@ -1,6 +1,12 @@
 #pragma once
 #include "public.h"
 
+/**
+ * @brief 无向图的邻接表表示，支持批量添加边和获取连通分量
+ * @details 使用压缩稀疏行（Compressed Sparse Row, CSR）格式存储邻接表
+ * @note 适用于静态稀疏图，极高的空间效率和快速的遍历性能。缺点：不支持动态添加/删除边
+ * @date 2025-09
+ */
 class Graph {
 public:
     Graph() : _node_count(0) {}
@@ -50,7 +56,7 @@ public:
         std::vector<int> component;
         component.reserve(_node_count / 10); // 预分配内存
 
-        // 手动管理队列避免deque开销
+        // 手动管理队列避免deque开销(若内存敏感可使用std::queue)
         std::vector<int> queue(_node_count);
         size_t front = 0, rear = 0;
         queue[rear++] = start;

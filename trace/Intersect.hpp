@@ -11,8 +11,8 @@
 enum class IntersectionMethod {
 	ORIGINAL_CGAL = 0,           // CGAL方法
 	MANHATTAN_COMPLETE,          // 曼哈顿多边形检测边
-	HYBRID_ADAPTIVE,            // 自适应混合策略
-	PARALLEL_CGAL              // 并行化CGAL
+	HYBRID_ADAPTIVE,             // 自适应混合策略
+	PARALLEL_CGAL                // 并行化CGAL
 };
 
 // ================================================================================================
@@ -110,10 +110,7 @@ private:
 
 	// 边界框相交检测
 	static bool boundingBoxIntersect(const Polygon* poly1, const Polygon* poly2) {
-		return !(poly1->rect._xmax < poly2->rect._xmin ||
-			poly2->rect._xmax < poly1->rect._xmin ||
-			poly1->rect._ymax < poly2->rect._ymin ||
-			poly2->rect._ymax < poly1->rect._ymin);
+		return poly1->rect.Intersects(poly2->rect);
 	}
 
 	// 提取多边形的所有边
@@ -191,20 +188,14 @@ private:
 		return false;
 	}
 
-	// 检测多边形1的任意顶点是否在多边形2内部
+	// 检测多边形1的任意一个顶点是否在多边形2内部
 	static bool anyVertexInside(const Polygon* poly1, const Polygon* poly2) {
-		const auto& points1 = poly1->cgal_poly;
+		// 获取第一个顶点进行检测即可
+		const auto& vertex_iter = poly1->cgal_poly.vertices_begin();
+		int x = static_cast<int>(vertex_iter->x());
+		int y = static_cast<int>(vertex_iter->y());
 
-		for (const auto& point : points1) {
-			int x = static_cast<int>(point.x());
-			int y = static_cast<int>(point.y());
-
-			if (pointInManhattanPolygon(x, y, poly2)) {
-				return true;
-			}
-		}
-
-		return false;
+		return pointInManhattanPolygon(x, y, poly2);
 	}
 
 	// 射线法检测点是否在曼哈顿多边形内部
@@ -403,7 +394,6 @@ private:
 			processWithManhattanComplete(lfd, edges);
 		}
 	}
-
 
 	// 方法4：并行化CGAL
 	void processWithParallelCGAL(const std::vector<Polygon*>& lfd, std::vector<std::pair<int, int>>& edges) {

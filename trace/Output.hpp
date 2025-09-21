@@ -6,6 +6,7 @@ class Output {
 public:
 	// 给定输入数据、输出文件路径、连通分量，解析输出链路追踪结果
 	Output(Input& _input, std::string res_path, std::vector<int>& _component):input(_input), component(_component){
+		output_poly_buffer.reserve(400); // 预分配缓冲区, 按每个顶点约20字符, 20个顶点预估
 		std::ofstream res_file(res_path); // 创建并打开文件
 		assert(res_file.is_open() && "无法打开res文件");
 		printResult(res_file);
@@ -15,6 +16,10 @@ public:
 private:
 	Input& input;
 	std::vector<int>& component;
+
+	// 中间数据结构
+	std::string output_poly_buffer; // 用于存储单个多边形的输出字符串
+	char num_buf[12]; 				// int转str缓冲区, 足够存储-2147483648到2147483647
 
 	void printResult(std::ofstream& res_file) {
 		int layer_num = (int)input.polygon_id_range_in_layer.size();
@@ -42,10 +47,8 @@ private:
 
 	// 高效输出一个多边形
 	void OutputPolygon(std::ofstream &res_file, Polygon &p){
-		// 预计算所需缓冲区大小
-		size_t estimated_size = p.cgal_poly.size() * 20; // 每个顶点约20字符
-		std::string buffer;
-		buffer.reserve(estimated_size);
+		output_poly_buffer.clear();
+		std::string &buffer = output_poly_buffer;
 
 		// 使用快速整数转换并构建缓冲区
 		for (size_t j = 0; j < p.cgal_poly.size(); ++j){
@@ -75,11 +78,14 @@ private:
 		// 处理负数
 		if (x < 0){
 			str += '-';
+			// 处理INT_MIN特殊情况
+    		if (x == INT_MIN) {
+        		str += "2147483648";
+        		return;
+    		}
 			x = -x;
 		}
 
-		// 使用缓冲区避免递归
-		char num_buf[12]; // 足够存储-2147483648到2147483647
 		int idx = 0;
 		// 转换数字
 		while (x > 0){

@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -march=native CMakeFiles/trace.dir/trace.cpp.o -o trace  third_party/gmp-linux/lib/libgmp.a third_party/gmp-linux/lib/libmpfr.a 
