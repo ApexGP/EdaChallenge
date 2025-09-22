@@ -100,7 +100,7 @@ private:
 			poly_ptr.clear();
 			Range& a_layer_range = input.polygon_id_range_in_layer[layer_id];
 			for (int j = a_layer_range.first; j <= a_layer_range.second; j++) { // 取a层多边形
-				poly_ptr.push_back(&input.polygons[j]);
+				poly_ptr.push_back(input.polygons[j]);
 			}
 
 			// 建立四叉树
@@ -122,11 +122,11 @@ private:
 				if (concomp.find(via.first) != concomp.end() && concomp.find(via.second) != concomp.end()) {
 					Range& a_layer_range = input.polygon_id_range_in_layer[via.first];
 					for (int i = a_layer_range.first; i <= a_layer_range.second; i++) { // 取a层多边形
-						poly_ptr.push_back(&input.polygons[i]);
+						poly_ptr.push_back(input.polygons[i]);
 					}
 					Range& b_layer_range = input.polygon_id_range_in_layer[via.second];
 					for (int i = b_layer_range.first; i <= b_layer_range.second; i++) { // 再取b层多边形
-						poly_ptr.push_back(&input.polygons[i]);
+						poly_ptr.push_back(input.polygons[i]);
 					}
 
 					// 建立四叉树
@@ -140,9 +140,39 @@ private:
 				}
 			}
 		}
-		/* 双起点多层：只为与起点层有联通关系的层建立索引，另外还考虑Poly层和AA层*/
+		/* 双起点多层：只为与起点层有联通关系的层建立索引(两个起点)*/
 		else if (input.start_pos.size() == 2 && !input.via_rules.empty()) {
-			// TODO
+			// 关于起点层的联通分量
+			int layer_id_s1 = input.start_pos[0].first;
+			int layer_id_s2 = input.start_pos[1].first;
+			robin_hood::unordered_set<int> concomp_s1 = GetConnectComponentofLayer(layer_id_s1);
+			robin_hood::unordered_set<int> concomp_s2 = GetConnectComponentofLayer(layer_id_s2);
+
+			// 对Via规则连通层, 两层的多边形合并建立一棵树
+			for (auto& via : input.via_rules) {
+				poly_ptr.clear();
+				// 此联通的两层在起点联通分量中
+				if ( (concomp_s1.find(via.first) != concomp_s1.end() && concomp_s1.find(via.second) != concomp_s1.end())
+					|| (concomp_s2.find(via.first) != concomp_s2.end() && concomp_s2.find(via.second) != concomp_s2.end()) ) {
+					Range& a_layer_range = input.polygon_id_range_in_layer[via.first];
+					for (int i = a_layer_range.first; i <= a_layer_range.second; i++) { // 取a层多边形
+						poly_ptr.push_back(input.polygons[i]);
+					}
+					Range& b_layer_range = input.polygon_id_range_in_layer[via.second];
+					for (int i = b_layer_range.first; i <= b_layer_range.second; i++) { // 再取b层多边形
+						poly_ptr.push_back(input.polygons[i]);
+					}
+
+					// 建立四叉树
+					std::string name = input.layer_id_to_name[via.first] + "-" + input.layer_id_to_name[via.second];
+					QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
+					quad_tree->CreatIndex(poly_ptr);
+					quad_trees.push_back(quad_tree);
+					//一个层可能指向多棵合并树，这里任意记录一棵即可
+					layer_name_to_quadtree[input.layer_id_to_name[via.first]] = quad_tree;
+					layer_name_to_quadtree[input.layer_id_to_name[via.second]] = quad_tree;
+				}
+			}
 		}
 		else throw std::logic_error(__func__ + std::string("未定义规则"));
 	}

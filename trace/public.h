@@ -95,8 +95,58 @@ struct Rect
 
 // 定义多边形
 struct Polygon {
-    int id;                      // 多边形id, 0-index
-    int layer_id;				 // 所属层id
+    int id = -1;                      // 多边形id, 0-index
+    int layer_id = -1;				 // 所属层id
     Polygon_2 cgal_poly;         // CGAL多边形
     Rect rect;                   // 包络矩形框
+};
+
+#include <iostream>
+#include <chrono>
+
+// 定义计时器类
+class Timer {
+public:
+    // 构造函数，可选是否立即开始计时
+    Timer(bool startImmediately = true) {
+        if (startImmediately) {
+            Reset();
+        }
+    }
+
+    // 重置计时器，将开始时间设为当前时间
+    void Reset() {
+        m_startTime = std::chrono::steady_clock::now();
+        m_LastCallTime = m_startTime;
+    }
+
+    void LastCallReset() {
+        m_LastCallTime = std::chrono::steady_clock::now();
+    }
+
+    // 获取自上次 Reset() 调用以来经过的时间（默认返回秒，以 double 表示）
+    template<typename Duration = std::chrono::duration<double>>
+    double Elapsed() const {
+        auto currentTime = std::chrono::steady_clock::now();
+        auto elapsedDuration = std::chrono::duration_cast<Duration>(currentTime - m_startTime);
+        return elapsedDuration.count();
+    }
+
+    // 获取自上次 FromLastCallElapsed() 调用以来经过的时间（默认返回秒，以 double 表示）
+    template<typename Duration = std::chrono::duration<double>>
+    typename Duration::rep FromLastCallElapsed() {
+        auto currentTime = std::chrono::steady_clock::now();
+        auto elapsedDuration = std::chrono::duration_cast<Duration>(currentTime - m_LastCallTime);
+        LastCallReset();
+        return elapsedDuration.count();
+    }
+
+    // 获取自上次 FromLastCallElapsed() 调用以来经过的时间（返回毫秒）
+    long long FromLastCallElapsedMs() {
+        return FromLastCallElapsed<std::chrono::milliseconds>();
+    }
+
+private:
+    std::chrono::steady_clock::time_point m_startTime; // 记录开始时间
+	std::chrono::steady_clock::time_point m_LastCallTime;  // 记录上次调用FromLastCallElapsed函数的时间
 };

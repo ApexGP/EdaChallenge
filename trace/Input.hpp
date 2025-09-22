@@ -11,7 +11,7 @@ public:
 	robin_hood::unordered_map<std::string, int> layer_name_to_id;   // 层名转层id, 0-index, 代码内使用id指代层
 	robin_hood::unordered_map<int, std::string> layer_id_to_name;   // 层id转层名, 方便输出
 	int total_polygon;												// 多边形总数
-	std::vector<Polygon> polygons;									// 所有的多边形列表, 下标对应其多边形id, 0-index
+	std::vector<Polygon*> polygons;									// 所有的多边形列表, 下标对应其多边形id, 0-index
 	std::vector<Range> polygon_id_range_in_layer;					// 每层的多边形的id范围, 双闭区间, 下标对应其层id
 	std::set<Edge> via_rules;										// Via规则集合，表示哪两层连通, 通过输入保证层id小的在前，结合set确保不重复
 	bool has_gate_rule;												// 是否存在Gate规则
@@ -35,6 +35,11 @@ public:
 		readRule(rule_file);
 		rule_file.close();
 	}
+	~Input() {
+		for (size_t i = 0; i < polygons.size(); i++){
+			if (polygons[i]) delete polygons[i];
+		}
+	}
 
 	// 读取版图文件
 	void readLayout(std::ifstream& layout_file) {
@@ -55,9 +60,9 @@ public:
 			} 
 			else { // 多边形
 				polygon_id++;
-				Polygon poly;
-				poly.id = polygon_id;
-				poly.layer_id = layer_id;
+				Polygon* poly = new Polygon();
+				poly->id = polygon_id;
+				poly->layer_id = layer_id;
 
 				// iss.clear();          // 清除错误状态
 				// iss.str(line);        // 设置流为新行
@@ -68,15 +73,15 @@ public:
 				//while (iss >> c) {
 				//	if (c == '(') { // 解析坐标
 				//		iss >> x >> c >> y;
-				//		poly.cgal_poly.push_back(Point_2(x, y));
+				//		poly->cgal_poly.push_back(Point_2(x, y));
 				//	}
 				//}
 
 				// 自行解析整型坐标值，避免istringstream
-				fastParseCoordinates(line, poly.cgal_poly);
+				fastParseCoordinates(line, poly->cgal_poly);
 				// 多边形的矩形包络框
 				Rect poly_rect = GetRectofPolygon(poly);
-				poly.rect = poly_rect;
+				poly->rect = poly_rect;
 
 				// 是否扩大版图
 				updateLayoutBounds(poly_rect);
@@ -165,10 +170,10 @@ public:
 	}
 
 	// 获取多边形的矩形包络框
-	Rect GetRectofPolygon(Polygon& poly) {
+	Rect GetRectofPolygon(Polygon* poly) {
 		// 使用迭代器遍历多边形顶点
-		auto vertex_iter = poly.cgal_poly.vertices_begin();
-		auto vertex_end = poly.cgal_poly.vertices_end();
+		auto vertex_iter = poly->cgal_poly.vertices_begin();
+		auto vertex_end = poly->cgal_poly.vertices_end();
 
 		// 初始化边界值
 		double first_x = vertex_iter->x();

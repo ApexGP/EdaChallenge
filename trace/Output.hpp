@@ -28,7 +28,7 @@ private:
 		// 遍历结果, 按层分类
 		auto& polygons = input.polygons;
 		for (auto& poly_id : component) {
-			int layer_id = polygons[poly_id].layer_id;
+			int layer_id = polygons[poly_id]->layer_id;
 			layer_polygons[layer_id].emplace_back(poly_id);
 		}
 
@@ -39,7 +39,7 @@ private:
 				res_file << input.layer_id_to_name[i] << std::endl;
 				//输出每个多边形
 				for (auto& poly_id : layer_polygons[i]) {
-					OutputPolygon(res_file, polygons[poly_id]);
+					OutputPolygon(res_file, *polygons[poly_id]);
 				}
 			}
 		}

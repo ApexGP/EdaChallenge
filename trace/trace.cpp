@@ -1,5 +1,6 @@
 ﻿#include "public.h"
 #include "Input.hpp"
+#include "PolygonCutting.hpp"
 #include "SpaceIndex.hpp"
 #include "Intersect.hpp"
 #include "Graph.hpp"
@@ -7,60 +8,117 @@
 using namespace std;
 using namespace std::chrono;
 
-steady_clock::time_point startWallClockTime = steady_clock::now();
-
-// 获取已运行时间s
-static double getPastSecond() { 
-    return duration_cast<duration<double>>(steady_clock::now() - startWallClockTime).count();
-};
-
 // 求解
 static void solve(string layout_path, string rule_path, int thread, string res_path) {
-    double myStartTime = getPastSecond();
+	Timer myTimer;
      /* 输入 */
     std::cout << "----- Starting Input -----" << std::endl;
     Input input(layout_path, rule_path);
     input.PrintLayoutInfo();
     input.PrintRuleInfo();
-    std::cout << "----- Use Time: " << getPastSecond() - myStartTime << " s" << std::endl << std::endl;
+    std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
-    myStartTime = getPastSecond();
-    /* 根据输入和规则建立空间索引 */
-    std::cout << "----- Starting Space Index -----" << std::endl;
-    SpaceIndex spaceIndex(input);
-    spaceIndex.PrintSpaceIndexInfo();
-    std::cout << "----- Use Time: " << getPastSecond() - myStartTime << " s" << std::endl << std::endl;
+	if (!input.has_gate_rule) // 若没有Gate规则(单起点)
+    { 
+        /* 根据输入和规则建立空间索引 */
+        std::cout << "----- Starting Space Index -----" << std::endl;
+        SpaceIndex spaceIndex(input);
+        spaceIndex.PrintSpaceIndexInfo();
+        std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
-    myStartTime = getPastSecond();
-     /* 获取起点所在多边形id */
-    std::cout << "----- Starting Get StartPos -----" << std::endl;
-    int start_pos_id = spaceIndex.GetStartPosinPolygonId(input.start_pos[0]);
-    std::cout << "StartPos Polygon id:" << start_pos_id << std::endl;
-    std::cout << "----- Use Time: " << getPastSecond() - myStartTime << " s" << std::endl << std::endl;
+        /* 获取起点所在多边形id */
+        std::cout << "----- Starting Get StartPos -----" << std::endl;
+        int start_pos_id = spaceIndex.GetStartPosinPolygonId(input.start_pos[0]);
+        std::cout << "StartPos Polygon id:" << start_pos_id << std::endl;
+        std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
-    myStartTime = getPastSecond();
-    /* 相交检测获取边集 */
-    std::cout << "----- Starting Intersection Test -----" << std::endl;
-    //Intersect intersection(input, spaceIndex);
-    Intersect intersect(input, spaceIndex);
-    std::vector<Edge> edges = intersect.getAllEdge();
-    std::cout << "----- Use Time: " << getPastSecond() - myStartTime << " s" << std::endl << std::endl;
+        /* 相交检测获取边集 */
+        std::cout << "----- Starting Intersection Test -----" << std::endl;
+        Intersect intersect(input, spaceIndex);
+        std::vector<Edge> edges = intersect.getAllEdge();
+        std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
-    myStartTime = getPastSecond();
-     /* 建图并求连通分量 */
-    std::cout << "----- Starting Get Connected Component -----" << std::endl;
-    Graph graph(input.total_polygon);
-    graph.AddEdges(edges);
-    std::vector<int> component = graph.GetConnectedComponent(start_pos_id);
-    std::cout << "----- Use Time: " << getPastSecond() - myStartTime << " s" << std::endl << std::endl;
+        /* 建图并求连通分量 */
+        std::cout << "----- Starting Get Connected Component -----" << std::endl;
+        Graph graph(input.total_polygon);
+        graph.AddEdges(edges);
+        std::vector<int> component = graph.GetConnectedComponent(start_pos_id);
+        std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
-    myStartTime = getPastSecond();
-     /* 输出 */
-    std::cout << "----- Starting Output -----" << std::endl;
-    Output output(input, res_path, component);
-    std::cout << "----- Use Time: " << getPastSecond() - myStartTime << " s" << std::endl << std::endl;
+        /* 输出 */
+        std::cout << "----- Starting Output -----" << std::endl;
+        Output output(input, res_path, component);
+        std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+    }
+    else // 有Gate规则(双起点)
+    { 
+        /* PO层多边形合并与AA层多边形切割 */
+        std::cout << "----- Starting Merge and Cutting Polygon -----" << std::endl;
+        PolygonCutting cutting(input);
+        robin_hood::unordered_map<int, std::list<Edge>> po_cut_edges = cutting.MergePOAndCutAA();
+        std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
-    std::cout << "----- Total Time: " << getPastSecond() << " s" << std::endl;
+        /* 根据输入和规则建立空间索引 */
+        std::cout << "----- Starting Space Index -----" << std::endl;
+        SpaceIndex spaceIndex(input);
+        spaceIndex.PrintSpaceIndexInfo();
+        std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+        /* 获取起点所在多边形id */
+        std::cout << "----- Starting Get StartPos -----" << std::endl;
+        int start_pos_s1_id = spaceIndex.GetStartPosinPolygonId(input.start_pos[0]);
+        int start_pos_s2_id = spaceIndex.GetStartPosinPolygonId(input.start_pos[1]);
+        std::cout << "StartPos s1 Polygon id:" << start_pos_s1_id << std::endl;
+        std::cout << "StartPos s2 Polygon id:" << start_pos_s2_id << std::endl;
+        std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+        /* 相交检测获取边集 */
+        std::cout << "----- Starting Intersection Test -----" << std::endl;
+        Intersect intersect(input, spaceIndex);
+        std::vector<Edge> edges = intersect.getAllEdge();
+        std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+        /* 建图并求连通分量 */
+        std::cout << "----- Starting Get Connected Component -----" << std::endl;
+        Graph graph(input.total_polygon);
+        graph.AddEdges(edges);
+        // s1的联通分量，找到所有高电平PO
+		std::vector<int> component_s1 = graph.GetConnectedComponent(start_pos_s1_id);
+		// 对于高电平PO, 需要考虑增加其切割边
+        for (auto& id : component_s1) {
+			if (input.polygons[id]->layer_id == input.gate_rule.first) { // PO层
+				auto it = po_cut_edges.find(id);
+				if (it != po_cut_edges.end()) { // 有切割边
+					for (auto& e : it->second) {
+						edges.emplace_back(e);
+					}
+				}
+			}
+        }
+		// 重新建图并求s2的联通分量
+		Graph new_graph(input.total_polygon);
+		new_graph.AddEdges(edges);
+		std::vector<int> component_s2 = new_graph.GetConnectedComponent(start_pos_s2_id);
+		// 考虑去除s1的联通分量
+		std::vector<bool> is_s1(input.total_polygon, false);
+		for (auto& id : component_s1) {
+			is_s1[id] = true;
+		}   
+		std::vector<int> final_component_s2;
+		for (auto& id : component_s2) {
+			if (!is_s1[id]) {
+				final_component_s2.push_back(id);
+			}
+		}
+        std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+        /* 输出 */
+        std::cout << "----- Starting Output -----" << std::endl;
+        Output output(input, res_path, final_component_s2);
+        std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+    }
+
+    std::cout << "----- Total Time: " << myTimer.Elapsed() << " s" << std::endl;
 }
 
 int main(int argc, char* argv[])

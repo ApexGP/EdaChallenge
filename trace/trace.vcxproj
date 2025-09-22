@@ -147,6 +147,7 @@
     <ClInclude Include="Input.hpp" />
     <ClInclude Include="Intersect.hpp" />
     <ClInclude Include="Output.hpp" />
+    <ClInclude Include="PolygonCutting.hpp" />
     <ClInclude Include="public.h" />
     <ClInclude Include="QuadTree.hpp" />
     <ClInclude Include="SpaceIndex.hpp" />
