@@ -31,6 +31,7 @@ add_executable(trace
     trace/Input.hpp
     trace/Intersect.hpp
     trace/Output.hpp
+    trace/PolygonCutting.hpp
     trace/public.h
     trace/QuadTree.hpp
     trace/SpaceIndex.hpp
