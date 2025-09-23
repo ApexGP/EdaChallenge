@@ -99,22 +99,12 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
 		Graph new_graph(input.total_polygon);
 		new_graph.AddEdges(edges);
 		std::vector<int> component_s2 = new_graph.GetConnectedComponent(start_pos_s2_id);
-		// 考虑去除s1的联通分量
-		std::vector<bool> is_s1(input.total_polygon, false);
-		for (auto& id : component_s1) {
-			is_s1[id] = true;
-		}   
-		std::vector<int> final_component_s2;
-		for (auto& id : component_s2) {
-			if (!is_s1[id]) {
-				final_component_s2.push_back(id);
-			}
-		}
         std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
         /* 输出 */
         std::cout << "----- Starting Output -----" << std::endl;
-        Output output(input, res_path, final_component_s2);
+		std::cout << "s1 size: " << component_s1.size() << ", s2 size: " << component_s2.size() << std::endl;
+        Output output(input, res_path, component_s2);
         std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
     }
 
@@ -166,10 +156,10 @@ int main(int argc, char* argv[])
     }
     else {
         // for self-test.
-        string dir_path = "C:/Users/PC/Desktop/EdaChallenge/";
+        string dir_path = "C:/Users/lenovo/Desktop/trace/";
         string layout_path = dir_path + "instance/case/case1_small_layout.txt";
         //string layout_path = dir_path + "instance/case/case1_large_0909b_layout.txt";
-        string rule_path = dir_path + "instance/Rule/public_small_rule1.txt";
+        string rule_path = dir_path + "instance/Rule/public_small_rule3.txt";
         //string rule_path = dir_path + "instance/Rule/public_large_rule2.txt";
 
         size_t pos = layout_path.find_last_of('/');

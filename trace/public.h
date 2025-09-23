@@ -8,6 +8,8 @@
 
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/Polygon_2.h>
+#include <CGAL/Polygon_with_holes_2.h>
+#include <CGAL/Polygon_set_2.h>
 #include <CGAL/Boolean_set_operations_2.h>
 
 const int MAX_DEPTH = 12;     // 四叉树允许的最大深度
@@ -17,6 +19,8 @@ using Kernel = CGAL::Simple_cartesian<double> ;
 using Point_2 = Kernel::Point_2;            //点
 using Segment_2 = Kernel::Segment_2;        //线
 using Polygon_2 = CGAL::Polygon_2<Kernel>;  //多边形
+using Polygon_with_holes_2 = CGAL::Polygon_with_holes_2<Kernel>;  //多边形
+using Polygon_set_2 = CGAL::Polygon_set_2<Kernel>;
 
 using Range = std::pair<int, int>;		 // 区间简记
 using Edge = std::pair<int, int>;        // 边: 两个顶点id
@@ -101,7 +105,6 @@ struct Polygon {
     Rect rect;                   // 包络矩形框
 };
 
-#include <iostream>
 #include <chrono>
 
 // 定义计时器类
@@ -126,13 +129,17 @@ public:
 
     // 获取自上次 Reset() 调用以来经过的时间（默认返回秒，以 double 表示）
     template<typename Duration = std::chrono::duration<double>>
-    double Elapsed() const {
+    typename Duration::rep Elapsed() const {
         auto currentTime = std::chrono::steady_clock::now();
         auto elapsedDuration = std::chrono::duration_cast<Duration>(currentTime - m_startTime);
         return elapsedDuration.count();
     }
+    // 获取自上次 Reset() 调用以来经过的时间（返回毫秒）
+    long long ElapsedMs() const {
+        return Elapsed<std::chrono::milliseconds>();
+    }
 
-    // 获取自上次 FromLastCallElapsed() 调用以来经过的时间（默认返回秒，以 double 表示）
+    // 获取自上次 FromLastCallElapsed() 或 FromLastCallElapsedMs() 调用以来经过的时间（默认返回秒，以 double 表示）
     template<typename Duration = std::chrono::duration<double>>
     typename Duration::rep FromLastCallElapsed() {
         auto currentTime = std::chrono::steady_clock::now();
@@ -140,8 +147,7 @@ public:
         LastCallReset();
         return elapsedDuration.count();
     }
-
-    // 获取自上次 FromLastCallElapsed() 调用以来经过的时间（返回毫秒）
+    // 获取自上次 FromLastCallElapsed() 或 FromLastCallElapsedMs() 调用以来经过的时间（返回毫秒）
     long long FromLastCallElapsedMs() {
         return FromLastCallElapsed<std::chrono::milliseconds>();
     }

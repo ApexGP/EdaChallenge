@@ -247,29 +247,13 @@ private:
 
 	// ================================================
 
-	// 计时器辅助类
-	class Timer {
-	public:
-		Timer(double& time_ref) : time_ref_(time_ref),
-			start_(std::chrono::high_resolution_clock::now()) {
-		}
-		~Timer() {
-			auto end = std::chrono::high_resolution_clock::now();
-			auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start_);
-			time_ref_ += duration.count() / 1000.0; // 转换为毫秒
-		}
-	private:
-		double& time_ref_;
-		std::chrono::high_resolution_clock::time_point start_;
-	};
-
 public:
 	Intersect(Input& _input, SpaceIndex& _spaceIndex) : input(_input), spaceIndex(_spaceIndex) {}
 	~Intersect() {}
 
 	// 执行多边形相交检测，获取所有边的集合
 	std::vector<std::pair<int, int>> getAllEdge() {
-		Timer total_timer(stats.total_time_ms);
+		Timer total_timer;
 		stats.reset();
 
 		std::vector<std::pair<int, int>> edges;
@@ -314,6 +298,7 @@ public:
 		removeDuplicateEdges(edges);
 
 		// 打印统计信息
+		stats.total_time_ms = total_timer.ElapsedMs();
 		stats.print();
 
 		return edges;

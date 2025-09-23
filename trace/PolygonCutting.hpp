@@ -1,6 +1,70 @@
 #pragma once
 #include "public.h"
 #include "Input.hpp"
+#include "QuadTree.hpp"
+#include "Intersect.hpp"
+
+// 并查集类定义
+class UnionFindSet {
+private:
+	std::vector<int> parent;
+	int n;
+
+public:
+	// 构造函数，初始化并查集
+	UnionFindSet(int size) : n(size) {
+		parent.resize(n);
+		for (int i = 0; i < n; i++) {
+			parent[i] = i;
+		}
+	}
+
+	// 查找操作（带路径压缩）
+	int find(int x) {
+		if (parent[x] != x) {
+			parent[x] = find(parent[x]);  // 路径压缩
+		}
+		return parent[x];
+	}
+
+	// 合并操作
+	void join(int x, int y) {
+		int rootX = find(x);
+		int rootY = find(y);
+		if (rootX == rootY) return;
+
+		// 按大小合并
+		if (rootX < rootY) {
+			parent[rootX] = rootY;
+		}
+		else {
+			parent[rootY] = rootX;
+		}
+	}
+
+	// 获取所有连通分量
+	std::vector<std::vector<int>> getComponents() {
+		// 确保所有路径都已压缩
+		std::vector<int> roots(n);
+		for (int i = 0; i < n; i++) {
+			roots[i] = find(i);
+		}
+
+		// 创建根节点到组件的映射
+		robin_hood::unordered_map<int, std::vector<int>> componentsMap;
+		for (int i = 0; i < n; i++) {
+			componentsMap[roots[i]].push_back(i);
+		}
+
+		// 将映射转换为向量
+		std::vector<std::vector<int>> components;
+		for (auto& pair : componentsMap) {
+			components.push_back(pair.second);
+		}
+
+		return components;
+	}
+};
 
 // 空间索引类定义
 class PolygonCutting
@@ -18,6 +82,7 @@ public:
 		std::vector<Polygon*> po_polygons;
 		int po_layer_id = input.gate_rule.first;
 		Range& po_layer_range = input.polygon_id_range_in_layer[po_layer_id];
+		po_polygons.reserve(po_layer_range.second - po_layer_range.first + 1);
 		for (int i = po_layer_range.first; i <= po_layer_range.second; ++i) {
 			po_polygons.push_back(input.polygons[i]);
 		}
@@ -25,6 +90,7 @@ public:
 		std::vector<Polygon*> aa_polygons;
 		int aa_layer_id = input.gate_rule.second;
 		Range& aa_layer_range = input.polygon_id_range_in_layer[aa_layer_id];
+		aa_polygons.reserve(aa_layer_range.second - aa_layer_range.first + 1);
 		for (int i = aa_layer_range.first; i <= aa_layer_range.second; ++i) {
 			aa_polygons.push_back(input.polygons[i]);
 		}
@@ -33,10 +99,10 @@ public:
 		Merge_PO(po_polygons);
 
 		// PO层多边形切割AA层多边形
-		robin_hood::unordered_map<int, std::list<Edge>> po_cut_edges; // 各个po对应的切割边, key使用的是po多边形数组下标, value为切割边列表, 边节点使用的是aa多边形数组下标
+		robin_hood::unordered_map<int, std::list<Edge>> po_cut_edges; // 各个po对应的切割边, 此时key使用的是po多边形数组下标, value为切割边列表, 切割边节点使用的是aa多边形数组下标
 		Cut_AA(po_polygons, aa_polygons, po_cut_edges);
 
-		// 由于数量变化，故重建多边形id
+		// 由于数量变化和id被修改，故按序重建所有多边形id
 		int new_id = 0;
 		std::vector<Polygon*> new_polygons;
 		for (int i = 0; i < input.polygons.size(); i++) {
@@ -49,10 +115,10 @@ public:
 				i = po_layer_range.second; // 跳过旧的PO层多边形
 			}
 			else if (i == aa_layer_range.first) {
-				// 插入未变化的AA层多边形
-				for (int j = aa_layer_range.first; j <= aa_layer_range.second; j++) {
-					input.polygons[j]->id = new_id++;
-					new_polygons.push_back(input.polygons[j]);
+				// 插入切割后的AA层多边形
+				for (auto& p : aa_polygons) {
+					p->id = new_id++;
+					new_polygons.push_back(p);
 				}
 				i = aa_layer_range.second; // 跳过旧的AA层多边形
 			}
@@ -84,6 +150,8 @@ public:
 				begin += layer_size;
 			}
 		}
+		std::cout << "After Merge and Cutting Polygons" << std::endl;
+		input.PrintLayoutInfo();
 
 		// 新的id已确定，可更新po_cut_edges为使用对应的多边形id表示
 		robin_hood::unordered_map<int, std::list<Edge>> updated_po_cut_edges;
@@ -101,15 +169,248 @@ public:
 		return updated_po_cut_edges;
 	}
 
+private:
 	// 合并PO层重叠多边形
 	void Merge_PO(std::vector<Polygon*>& po_polygons) {
-
+		// 重排id, 与下标对应
+		 for (int i = 0; i < po_polygons.size(); i++) {
+			 po_polygons[i]->id = i;
+		 }
+		// 建立空间索引
+		std::string name = input.layer_id_to_name[input.gate_rule.first];
+		QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, "PO:" + name);
+		quad_tree->CreatIndex(po_polygons);
+		// 相交检测求边
+		std::vector<Edge> edges = getEdgeofQuadTree_mergePO(quad_tree);
+		// 并查集获取所有联通分量
+		UnionFindSet unionfs(po_polygons.size());
+		for (auto& e : edges) unionfs.join(e.first, e.second);
+		std::vector<std::vector<int>> components = unionfs.getComponents();
+		// 合并每个联通分量的多边形
+		std::vector<Polygon*> po_merged_polygons;
+		for (auto& comp : components) {
+			if (comp.size() == 1) {
+				po_merged_polygons.push_back(po_polygons[comp[0]]);
+			}
+			else {
+				Polygon_set_2 merged_poly_set;
+				for (auto& idx : comp) {
+					Polygon_2& cgal_poly = po_polygons[idx]->cgal_poly;
+					if (merged_poly_set.is_empty()) {
+						merged_poly_set.insert(cgal_poly);
+					}
+					else {
+						merged_poly_set.join(cgal_poly);
+					}
+				}
+				// 合并后的多边形转回自定义Polygon类
+				std::list<Polygon_with_holes_2> res;
+				merged_poly_set.polygons_with_holes(std::back_inserter(res));
+				assert(res.size() == 1 && "合并后多边形应为单一多边形");
+				// 假设没孔洞
+				if (res.front().has_holes()) {
+					std::cout << "Warning: Merged polygon has holes!" << std::endl;
+				}
+				Polygon_2 merged_poly = res.front().outer_boundary();
+				Polygon* new_poly = new Polygon();
+				new_poly->layer_id = po_polygons[comp[0]]->layer_id; // 保持层id不变
+				new_poly->cgal_poly = merged_poly;
+				new_poly->rect = input.GetRectofPolygon(new_poly);
+				po_merged_polygons.push_back(new_poly);
+				// 释放旧多边形内存
+				for (auto& idx : comp) {
+					delete po_polygons[idx];
+					po_polygons[idx] = nullptr;
+				}
+			}
+		}
+		// 更新po_polygons
+		po_polygons = std::move(po_merged_polygons);
+		// 释放四叉树内存
+		delete quad_tree;
 	}
 
 	// PO层多边形切割AA层多边形
 	void Cut_AA(std::vector<Polygon*>& po_polygons, std::vector<Polygon*>& aa_polygons, 
 		robin_hood::unordered_map<int, std::list<Edge>>& po_cut_edges) 
-	{
+	{	
+		// PO和AA合并重排id, 与下标对应
+		std::vector<Polygon*> poly_ptr;
+		poly_ptr.reserve(po_polygons.size() + aa_polygons.size());
+		for (int i = 0; i < po_polygons.size(); i++) {
+			po_polygons[i]->id = i;
+			poly_ptr.push_back(po_polygons[i]);
+		}
+		for (int i = 0; i < aa_polygons.size(); i++) {
+			aa_polygons[i]->id = po_polygons.size() + i;
+			poly_ptr.push_back(aa_polygons[i]);
+		}
+		// 两层合并建立空间索引
+		std::string name = input.layer_id_to_name[input.gate_rule.first] +"-"+ input.layer_id_to_name[input.gate_rule.second];
+		QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, "PO-AA:" + name);
+		quad_tree->CreatIndex(poly_ptr);
+		// 相交检测求边，要求边的两点属于不同层
+		std::vector<Edge> edges = getEdgeofQuadTree_cutAA(quad_tree); 
 
+		// 对每个AA多边形，记录其被哪些PO多边形切割
+		robin_hood::unordered_map<int, std::vector<int>> aa_cut_by_po; // key为AA多边形此时id, value为切割它的PO多边形此时id
+		for (auto& e : edges) {
+			// 已保证边顺序e.first < e.second , 所以e.first为PO多边形, e.second为AA多边形
+			int po_id = e.first;
+			int aa_id = e.second;
+			aa_cut_by_po[aa_id].push_back(po_id);
+		}
+
+		// 对每个AA多边形，执行切割
+		std::vector<Polygon*> aa_cut_polygons; // 用于记录切割后所有的AA多边形
+		for (auto& item : aa_cut_by_po) {
+			int aa_id = item.first;
+			std::vector<int>& cutting_po = item.second; // 切割它的PO多边形id列表
+			// 未被PO切割
+			if (cutting_po.size() == 0){
+				aa_cut_polygons.push_back(poly_ptr[aa_id]);
+			}
+			// 被一个PO切割
+			else if (cutting_po.size() == 1) {
+				Polygon_set_2 cut_poly_set;
+				cut_poly_set.insert(poly_ptr[aa_id]->cgal_poly);
+				cut_poly_set.difference(poly_ptr[cutting_po[0]]->cgal_poly);
+				std::list<Polygon_with_holes_2> res;
+				cut_poly_set.polygons_with_holes(std::back_inserter(res));
+				assert(res.size() > 1 && "切割后多边形应不止一个");
+				// 切割后多边形转回自定义Polygon类
+				bool first = true;
+				for (auto it = res.begin(); it != res.end(); ++it) {
+					Polygon_2 new_aa_cgal_poly = it->outer_boundary();
+					Polygon* new_poly = new Polygon();
+					new_poly->layer_id = poly_ptr[aa_id]->layer_id; // 保持层id不变
+					new_poly->cgal_poly = new_aa_cgal_poly;
+					new_poly->rect = input.GetRectofPolygon(new_poly);
+					aa_cut_polygons.push_back(new_poly);
+					if (!first) {
+						// 链式记录该PO的切割边(注意节点对应的是aa_cut_polygons数组的下标)
+						po_cut_edges[cutting_po[0]].emplace_back(Edge(aa_cut_polygons.size() - 2, aa_cut_polygons.size() - 1));
+					}
+					first = false;
+				}
+				// 释放旧多边形内存
+				delete poly_ptr[aa_id];
+				poly_ptr[aa_id] = nullptr;
+			}
+			// 被多个PO切割
+			else {
+				Polygon_set_2 cut_poly_set;
+				cut_poly_set.insert(poly_ptr[aa_id]->cgal_poly);
+				for (auto& po_id : cutting_po) { // 逐个求差集
+					cut_poly_set.difference(poly_ptr[po_id]->cgal_poly);
+				}
+				std::list<Polygon_with_holes_2> res;
+				cut_poly_set.polygons_with_holes(std::back_inserter(res));
+				assert(res.size() > 1 && "切割后多边形应不止一个");
+				// 切割后多边形转回自定义Polygon类
+				robin_hood::unordered_map<int, std::vector<int>> po_cut_nodes; // 记录该AA被切割后,各PO连接的AA多边形节点
+				for (auto it = res.begin(); it != res.end(); ++it) {
+					Polygon_2 new_aa_cgal_poly = it->outer_boundary();
+					Polygon* new_poly = new Polygon();
+					new_poly->layer_id = poly_ptr[aa_id]->layer_id; // 保持层id不变
+					new_poly->cgal_poly = new_aa_cgal_poly;
+					new_poly->rect = input.GetRectofPolygon(new_poly);
+					aa_cut_polygons.push_back(new_poly);
+
+					for (auto& po_id : cutting_po) { // 检查该新多边形属于哪个PO切割的
+						if (ManhattanCompleteIntersectionDetector::manhattanPolygonsIntersect(new_poly, poly_ptr[po_id])){
+							po_cut_nodes[po_id].push_back(aa_cut_polygons.size() - 1);
+						}
+					}
+				}
+				// AA被多个PO切割, 故遍历所有切割它的PO, 为每个PO链式记录他的切割边
+				for (auto& item : po_cut_nodes) {
+					int po_id = item.first;
+					std::vector<int>& nodes = item.second; // 该PO连接的AA多边形节点
+					// 链式记录该PO的切割边(注意节点对应的是aa_cut_polygons数组的下标)
+					for (int i = 1; i < nodes.size(); i++) {
+						po_cut_edges[po_id].emplace_back(Edge(nodes[i - 1], nodes[i]));
+					}
+				}
+				// 释放旧多边形内存
+				delete poly_ptr[aa_id];
+				poly_ptr[aa_id] = nullptr;
+			}
+		}
+		// 更新aa_polygons
+		aa_polygons = std::move(aa_cut_polygons);
+		// 释放四叉树内存
+		delete quad_tree;
+	}
+
+	// 执行给定索引的多边形相交检测，获取其边的集合
+	std::vector<std::pair<int, int>> getEdgeofQuadTree_mergePO(QuadTree* qtree) {
+		std::vector<std::pair<int, int>> edges;
+		edges.reserve(500000);
+		// 收集空间索引
+		std::vector<std::vector<Polygon*>> leafData;
+		std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
+		qtree->GetAllLeafData(leafData);
+
+		// 根据空间索引（小格子内），对其内多边形执行相交检测
+		for (auto& lfd : leafData) {
+			if (lfd.size() < 2) continue;
+			for (int i = 0; i < (int)lfd.size(); i++) {
+				Polygon* a = lfd[i];
+				for (int j = i + 1; j < (int)lfd.size(); j++) {
+					Polygon* b = lfd[j];
+					// 使用曼哈顿多边形相交检测
+					if (ManhattanCompleteIntersectionDetector::manhattanPolygonsIntersect(a, b)) {
+						edges.emplace_back(a->id, b->id);
+					}
+				}
+			}
+		}
+		// 规范边
+		for (auto& edge : edges) {
+			if (edge.first > edge.second) {
+				std::swap(edge.first, edge.second);
+			}
+		}
+		// 排序并去重
+		std::sort(edges.begin(), edges.end());
+		edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+		return edges;
+	}
+
+	// 执行给定索引的多边形相交检测，获取其边的集合
+	std::vector<std::pair<int, int>> getEdgeofQuadTree_cutAA(QuadTree* qtree) {
+		std::vector<std::pair<int, int>> edges;
+		edges.reserve(500000);
+		// 收集空间索引
+		std::vector<std::vector<Polygon*>> leafData;
+		std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
+		qtree->GetAllLeafData(leafData);
+
+		// 根据空间索引（小格子内），对其内多边形执行相交检测
+		for (auto& lfd : leafData) {
+			if (lfd.size() < 2) continue;
+			for (int i = 0; i < (int)lfd.size(); i++) {
+				Polygon* a = lfd[i];
+				for (int j = i + 1; j < (int)lfd.size(); j++) {
+					Polygon* b = lfd[j];
+					if (a->layer_id == b->layer_id) continue; // 同层不检测
+					// 使用曼哈顿多边形相交检测
+					if (ManhattanCompleteIntersectionDetector::manhattanPolygonsIntersect(a, b)) {
+						edges.emplace_back(a->id, b->id);
+					}
+				}
+			}
+		}
+		// 规范边
+		for (auto& edge : edges) {
+			if (edge.first > edge.second) {
+				std::swap(edge.first, edge.second);
+			}
+		}
+		// 排序并去重
+		std::sort(edges.begin(), edges.end());
+		edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+		return edges;
 	}
 };
