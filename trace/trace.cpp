@@ -47,6 +47,7 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
 
         /* 输出 */
         std::cout << "----- Starting Output -----" << std::endl;
+        std::cout << "s1 connected polygon size: " << component.size() << std::endl;
         Output output(input, res_path, component);
         std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
     }
@@ -88,7 +89,7 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
         for (auto& id : component_s1) {
 			if (input.polygons[id]->layer_id == input.gate_rule.first) { // PO层
 				auto it = po_cut_edges.find(id);
-				if (it != po_cut_edges.end()) { // 有切割边
+				if (it != po_cut_edges.end()) { // 有切割边则增加进去
 					for (auto& e : it->second) {
 						edges.emplace_back(e);
 					}
@@ -103,7 +104,7 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
 
         /* 输出 */
         std::cout << "----- Starting Output -----" << std::endl;
-		std::cout << "s1 size: " << component_s1.size() << ", s2 size: " << component_s2.size() << std::endl;
+		std::cout << "s1 connected polygon size: " << component_s1.size() << ", s2 connected polygon size: " << component_s2.size() << std::endl;
         Output output(input, res_path, component_s2);
         std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
     }

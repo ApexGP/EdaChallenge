@@ -63,7 +63,7 @@ def calculate_polygon_area(vertices):
         area -= vertices[j][0] * vertices[i][1]
     return abs(area) / 2.0
 
-def visualize_polygons(data, show_labels=False):
+def visualize_polygons(title, data, show_labels=False, save_file=None):
     if not data:
         print("No valid polygon data found.")
         return
@@ -85,7 +85,7 @@ def visualize_polygons(data, show_labels=False):
     ax.grid(color='#AAAAAA', linestyle='--', linewidth=0.5, alpha=0.5)  # 浅灰网格
     
     # 设置高对比度文本颜色
-    ax.set_title('Multi-layer Polygons Visualization', color='#000000', fontsize=14, fontweight='bold')
+    ax.set_title(title + ' Polygons Visualization', color='#000000', fontsize=14, fontweight='bold')
     ax.tick_params(colors='#000000')
     
     # 为不同层分配颜色
@@ -97,7 +97,8 @@ def visualize_polygons(data, show_labels=False):
     legend_proxies = []
     
     # 按层深度排序（从深到浅绘制） 多边形多的在浅层（因为小而多）
-    sorted_layers = sorted(layers, key=lambda l: len(data[l]))
+    # sorted_layers = sorted(layers, key=lambda l: len(data[l]))
+    sorted_layers = layers  # 保持原始顺序
     
     # 绘制每个多边形（从大到小，从深到浅）
     for i, layer in enumerate(sorted_layers):
@@ -145,8 +146,8 @@ def visualize_polygons(data, show_labels=False):
             patches,
             facecolor=colors[i],
             alpha=0.4,          # 动态透明度
-            edgecolor='#000000',  # 黑色边界
-            linewidth=2,        # 边界线宽
+            # edgecolor='#000000',  # 黑色边界
+            # linewidth=2,        # 边界线宽
             hatch=None            # 不使用填充图案（避免冲突）
         )
         ax.add_collection(collection)
@@ -191,13 +192,19 @@ def visualize_polygons(data, show_labels=False):
     )
     
     plt.tight_layout()
-    plt.show()
+    if save_file:
+        plt.savefig(save_file, dpi=300)
+    else:
+        plt.show()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Visualize multi-layer polygons from a file.')
     parser.add_argument('filename', type=str, help='Path to the polygon data file')
     parser.add_argument('--labels', '-l', action='store_true', 
                         help='Show layer names and polygon numbers inside each polygon')
+    parser.add_argument('--save', '-s', type=str, default=None,
+                        help='Path to save the output image (e.g., output.png). If not provided, display on screen.')
+    
     
     args = parser.parse_args()
     
@@ -205,7 +212,8 @@ if __name__ == "__main__":
         # 解析文件并可视化
         polygon_data = parse_polygon_file(args.filename)
         if polygon_data:
-            visualize_polygons(polygon_data, show_labels=args.labels)
+            title = args.filename.split('/')[-1].split('.')[0]
+            visualize_polygons(title, polygon_data, show_labels=args.labels, save_file=args.save)
         else:
             print("No valid polygon data found in the file.")
     except FileNotFoundError:

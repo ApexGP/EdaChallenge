@@ -86,6 +86,8 @@ python visual.py ../solution/res.txt
 # 在每个多边形内部显示层名和编号 -l 或 --label 参数
 python visual.py ../solution/res.txt -l
 python visual.py ../solution/res.txt --label
+# 设置图片保存路径 -s 或 --save 参数
+python visual.py ../solution/res.txt -s ./output.png
 ```
 
 ## 6.Simple Test
@@ -105,5 +107,7 @@ Why? 实测Ubuntu系统运行比Windows快约3倍
 |:------------------------:|:------:|:-----------------------------:|
 |    case1_small_layout    |   q1   |              0.36s            |
 |    case1_small_layout    |   q2   |              2.17s            |
+|    case1_small_layout    |   q3   |              5.10s            |
 | case1_large_0909b_layout |   q1   |              22.4s            |
 | case1_large_0909b_layout |   q2   |             124.2s            |
+| case1_large_0909b_layout |   q3   |             356.3s            |

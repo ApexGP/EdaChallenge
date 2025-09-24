@@ -3,6 +3,7 @@
 #include "Input.hpp"
 #include "QuadTree.hpp"
 #include "Intersect.hpp"
+#include "Output.hpp"
 
 // 并查集类定义
 class UnionFindSet {
@@ -66,7 +67,7 @@ public:
 	}
 };
 
-// 空间索引类定义
+// 多边形切割类定义
 class PolygonCutting
 {
 private:
@@ -261,17 +262,20 @@ private:
 			aa_cut_by_po[aa_id].push_back(po_id);
 		}
 
-		// 对每个AA多边形，执行切割
+		// 对每个AA多边形，执行切割（即使不被切割的也要遍历，因为要重新插入到aa_cut_polygons）
 		std::vector<Polygon*> aa_cut_polygons; // 用于记录切割后所有的AA多边形
-		for (auto& item : aa_cut_by_po) {
-			int aa_id = item.first;
-			std::vector<int>& cutting_po = item.second; // 切割它的PO多边形id列表
-			// 未被PO切割
-			if (cutting_po.size() == 0){
+		for (auto& aa_poly : aa_polygons) {
+			int aa_id = aa_poly->id;
+			auto it = aa_cut_by_po.find(aa_id);
+			// 未被任何PO切割
+			if (it == aa_cut_by_po.end()) {
 				aa_cut_polygons.push_back(poly_ptr[aa_id]);
+				continue;
 			}
+			// 若被PO切割
+			std::vector<int>& cutting_po = it->second; // 切割它的PO多边形id列表
 			// 被一个PO切割
-			else if (cutting_po.size() == 1) {
+			if (cutting_po.size() == 1) {
 				Polygon_set_2 cut_poly_set;
 				cut_poly_set.insert(poly_ptr[aa_id]->cgal_poly);
 				cut_poly_set.difference(poly_ptr[cutting_po[0]]->cgal_poly);
