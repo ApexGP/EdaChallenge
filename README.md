@@ -30,6 +30,7 @@
 + QuadTree.hpp 四叉树实现类
 + SpaceIndex.hpp 使用四叉树建立空间索引类
 + Graph.hpp 拓扑图类，根据边集建图，求连通分量
++ PolygonCutting.hpp 多边形合并与切割类，合并PO层，切割AA层
 + Output.hpp 输出类
 
 ## 4.运行方式

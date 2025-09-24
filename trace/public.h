@@ -156,3 +156,65 @@ private:
     std::chrono::steady_clock::time_point m_startTime; // 记录开始时间
 	std::chrono::steady_clock::time_point m_LastCallTime;  // 记录上次调用FromLastCallElapsed函数的时间
 };
+
+// 并查集类定义
+class UnionFindSet {
+private:
+	std::vector<int> parent;
+	int n;
+
+public:
+	// 构造函数，初始化并查集
+	UnionFindSet(int size) : n(size) {
+		parent.resize(n);
+		for (int i = 0; i < n; i++) {
+			parent[i] = i;
+		}
+	}
+
+	// 查找操作（带路径压缩）
+	int find(int x) {
+		if (parent[x] != x) {
+			parent[x] = find(parent[x]);  // 路径压缩
+		}
+		return parent[x];
+	}
+
+	// 合并操作
+	void join(int x, int y) {
+		int rootX = find(x);
+		int rootY = find(y);
+		if (rootX == rootY) return;
+
+		// 按大小合并
+		if (rootX < rootY) {
+			parent[rootX] = rootY;
+		}
+		else {
+			parent[rootY] = rootX;
+		}
+	}
+
+	// 获取所有连通分量
+	std::vector<std::vector<int>> getComponents() {
+		// 确保所有路径都已压缩
+		std::vector<int> roots(n);
+		for (int i = 0; i < n; i++) {
+			roots[i] = find(i);
+		}
+
+		// 创建根节点到组件的映射
+		robin_hood::unordered_map<int, std::vector<int>> componentsMap;
+		for (int i = 0; i < n; i++) {
+			componentsMap[roots[i]].push_back(i);
+		}
+
+		// 将映射转换为向量
+		std::vector<std::vector<int>> components;
+		for (auto& pair : componentsMap) {
+			components.push_back(pair.second);
+		}
+
+		return components;
+	}
+};

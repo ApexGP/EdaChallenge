@@ -251,7 +251,7 @@ public:
 	Intersect(Input& _input, SpaceIndex& _spaceIndex) : input(_input), spaceIndex(_spaceIndex) {}
 	~Intersect() {}
 
-	// 执行多边形相交检测，获取所有边的集合
+	// 执行多边形相交检测，获取所有边的集合(不一定是所有边，因为我们只需要保证联通分量一致即可，成环的边可以不检测)
 	std::vector<std::pair<int, int>> getAllEdge() {
 		Timer total_timer;
 		stats.reset();
@@ -353,15 +353,18 @@ private:
 	// 方法2：曼哈顿多边形相交检测
 	void processWithManhattanComplete(const std::vector<Polygon*>& lfd, std::vector<std::pair<int, int>>& edges) {
 		stats.manhattan_complete_used++;
-
+		// 建立小型并查集
+		UnionFindSet ufs((int)lfd.size());
+		// n方遍历 内部的多边形对
 		for (int i = 0; i < (int)lfd.size(); i++) {
 			Polygon* a = lfd[i];
 			for (int j = i + 1; j < (int)lfd.size(); j++) {
 				Polygon* b = lfd[j];
-
+				if(ufs.find(i) == ufs.find(j)) continue; // 已经连通的跳过
 				// 使用曼哈顿多边形相交检测
 				if (ManhattanCompleteIntersectionDetector::manhattanPolygonsIntersect(a, b)) {
 					edges.emplace_back(a->id, b->id);
+					ufs.join(i, j);
 					stats.intersections_found++;
 				}
 			}
