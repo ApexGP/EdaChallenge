@@ -44,5 +44,20 @@
     <ClInclude Include="PolygonCutting.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="ManhattanBooleanSetOperation\const\Const.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\Bbox.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\Point_2.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\Segment.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\Grid.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

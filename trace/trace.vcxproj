@@ -146,6 +146,11 @@
     <ClInclude Include="Graph.hpp" />
     <ClInclude Include="Input.hpp" />
     <ClInclude Include="Intersect.hpp" />
+    <ClInclude Include="ManhattanBooleanSetOperation\const\Const.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\Bbox.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\Grid.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\Point_2.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\Segment.h" />
     <ClInclude Include="Output.hpp" />
     <ClInclude Include="PolygonCutting.hpp" />
     <ClInclude Include="public.h" />
