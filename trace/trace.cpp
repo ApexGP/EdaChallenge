@@ -157,7 +157,7 @@ int main(int argc, char* argv[])
     }
     else {
         // for self-test.
-        string dir_path = "C:/Users/lenovo/Desktop/trace/";
+        string dir_path = "C:/Users/PC/Desktop/EdaChallenge/";
         string layout_path = dir_path + "instance/case/case1_small_layout.txt";
         //string layout_path = dir_path + "instance/case/case1_large_0909b_layout.txt";
         string rule_path = dir_path + "instance/Rule/public_small_rule3.txt";

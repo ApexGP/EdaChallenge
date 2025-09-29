@@ -7,9 +7,11 @@
 #include "../utils/Bbox.h"
 #include "../utils/Grid.h"
 #include <unordered_set>
-using std::vector;
+
 
 namespace MBSO {
+	using std::vector;
+
 	class Overlay {
 	public:
 		MPolygonSet* mps1;		//多边形集A
@@ -45,7 +47,7 @@ namespace MBSO {
 		int outPointsIndex;
 
 	public:
-		Overlay() : equalPoints(2){};
+		Overlay() : grid(101, 101), equalPoints(2) {};
 		~Overlay();
 
 		/* @brief 传入两个多边形集，根据布尔运算类型OP_TYPE,返回结果多边形集

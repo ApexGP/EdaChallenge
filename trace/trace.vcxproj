@@ -140,6 +140,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ManhattanBooleanSetOperation\model\MEdge.cpp" />
+    <ClCompile Include="ManhattanBooleanSetOperation\model\MPolygon.cpp" />
     <ClCompile Include="ManhattanBooleanSetOperation\solve\Overlay.cpp" />
     <ClCompile Include="trace.cpp" />
   </ItemGroup>

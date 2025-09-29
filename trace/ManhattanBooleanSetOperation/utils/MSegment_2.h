@@ -202,6 +202,7 @@ namespace MBSO {
 			if (x1 <= v_edge->start.getX() && v_edge->start.getX() <= x2 &&
 				y1 <= h_edge->start.getY() && h_edge->start.getY() <= y2) {
 				p = MPoint_2(v_edge->start.getX(), h_edge->start.getY());
+				return INTER_POINT;
 			}
 			else return NOT_INTER;
 		}

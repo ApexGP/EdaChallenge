@@ -3,6 +3,7 @@
 #include "Input.hpp"
 #include "QuadTree.hpp"
 #include "Intersect.hpp"
+#include "../ManhattanBooleanSetOperation/ManhattanBooleanSetOperation.h"
 
 // 多边形切割类定义
 class PolygonCutting
@@ -131,25 +132,43 @@ private:
 				po_merged_polygons.push_back(po_polygons[comp[0]]);
 			}
 			else {
-				Polygon_set_2 merged_poly_set;
+				//Polygon_set_2 merged_poly_set;
+				//for (auto& idx : comp) {
+				//	Polygon_2& cgal_poly = po_polygons[idx]->cgal_poly;
+				//	if (merged_poly_set.is_empty()) {
+				//		merged_poly_set.insert(cgal_poly);
+				//	}
+				//	else {
+				//		merged_poly_set.join(cgal_poly);
+				//	}
+				//}
+				//// 合并后的多边形转回自定义Polygon类
+				//std::list<Polygon_with_holes_2> res;
+				//merged_poly_set.polygons_with_holes(std::back_inserter(res));
+				//assert(res.size() == 1 && "合并后多边形应为单一多边形");
+				//// 假设没孔洞
+				//if (res.front().has_holes()) {
+				//	std::cout << "Warning: Merged polygon has holes!" << std::endl;
+				//}
+				//Polygon_2 merged_poly = res.front().outer_boundary();
+				MBSO::myPolygonSet merged_poly_set;
 				for (auto& idx : comp) {
 					Polygon_2& cgal_poly = po_polygons[idx]->cgal_poly;
-					if (merged_poly_set.is_empty()) {
-						merged_poly_set.insert(cgal_poly);
+					MBSO::myPolygon mpoly;
+					mpoly.reserve(cgal_poly.size());
+					for (auto& p : cgal_poly) {
+						mpoly.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
 					}
-					else {
-						merged_poly_set.join(cgal_poly);
-					}
+					reverse(mpoly.begin(), mpoly.end());
+					merged_poly_set = MBSO::join(merged_poly_set, mpoly);
 				}
 				// 合并后的多边形转回自定义Polygon类
-				std::list<Polygon_with_holes_2> res;
-				merged_poly_set.polygons_with_holes(std::back_inserter(res));
-				assert(res.size() == 1 && "合并后多边形应为单一多边形");
-				// 假设没孔洞
-				if (res.front().has_holes()) {
-					std::cout << "Warning: Merged polygon has holes!" << std::endl;
+				assert(merged_poly_set.size() == 1 && "合并后多边形应为单一多边形");
+				reverse(merged_poly_set[0].begin(), merged_poly_set[0].end());
+				Polygon_2 merged_poly;
+				for (auto& p : merged_poly_set[0]) {
+					merged_poly.push_back(Point_2(p.getX(), p.getY()));
 				}
-				Polygon_2 merged_poly = res.front().outer_boundary();
 				Polygon* new_poly = new Polygon();
 				new_poly->layer_id = po_polygons[comp[0]]->layer_id; // 保持层id不变
 				new_poly->cgal_poly = merged_poly;

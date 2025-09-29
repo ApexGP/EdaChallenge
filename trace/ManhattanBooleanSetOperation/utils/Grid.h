@@ -1,8 +1,10 @@
 #pragma once
 #include <vector>
-using std::vector;
-using std::pair;
+
 namespace MBSO {
+	using std::vector;
+	using std::pair;
+
 	// 网格类，存储二维网格，每个网格存储一个vector
 	template<class T>
 	class Grid

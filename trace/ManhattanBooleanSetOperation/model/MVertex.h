@@ -1,6 +1,5 @@
 #pragma once
-#include "MEdge.h"
-#include "MPolygon.h"
+#include "../utils/MPoint_2.h"
 
 namespace MBSO {
 	class MPolygon;
