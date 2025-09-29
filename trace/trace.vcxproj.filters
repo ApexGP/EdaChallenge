@@ -18,6 +18,9 @@
     <ClCompile Include="trace.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="ManhattanBooleanSetOperation\solve\Overlay.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="public.h">
@@ -50,13 +53,31 @@
     <ClInclude Include="ManhattanBooleanSetOperation\utils\Bbox.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="ManhattanBooleanSetOperation\utils\Point_2.h">
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\MPoint_2.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="ManhattanBooleanSetOperation\utils\Segment.h">
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\MSegment_2.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="ManhattanBooleanSetOperation\utils\Grid.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ManhattanBooleanSetOperation\model\MVertex.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ManhattanBooleanSetOperation\model\MEdge.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ManhattanBooleanSetOperation\model\MPolygon.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ManhattanBooleanSetOperation\model\MPolygonSet.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ManhattanBooleanSetOperation\solve\Overlay.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ManhattanBooleanSetOperation\ManhattanBooleanSetOperation.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

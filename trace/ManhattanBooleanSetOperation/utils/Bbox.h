@@ -1,6 +1,6 @@
 #pragma once
 #include "../const/Const.h"
-#include "Point_2.h"
+#include "MPoint_2.h"
 #include <algorithm> // Include this header for std::min and std::max
 
 namespace MBSO
@@ -20,19 +20,22 @@ namespace MBSO
 			minX(_minx), minY(_miny), maxX(_maxx), maxY(_maxy){}
 
 		Bbox(const Bbox& p) : minX(p.minX), minY(p.minY), maxX(p.maxX), maxY(p.maxY) {}
-	
+		
+		// 重置包围盒
 		void reset()
 		{
 			minX = minY = INT_MAX;
 			maxX = maxY = INT_MIN;
 		}
-		void update(const Point_2& p)
+		// 使用点更新当前包围盒(只可能扩大包围盒)
+		void update(const MPoint_2& p)
 		{
 			minX = std::min(minX, p.getX());
 			minY = std::min(minY, p.getY());
 			maxX = std::max(maxX, p.getX());
 			maxY = std::max(maxY, p.getY());
 		}
+		// 使用包围盒更新当前包围盒(只可能扩大包围盒)
 		void update(const Bbox& p)
 		{
 			minX = std::min(minX, p.minX);
@@ -59,6 +62,7 @@ namespace MBSO
 			return { std::max(minX, p.minX), std::max(minY, p.minY), std::min(maxX, p.maxX), std::min(maxY, p.maxY) };
 		}
 
+		// 获取包围盒的四个边界值
 		int getMinX() const
 		{
 			return minX;
@@ -75,10 +79,12 @@ namespace MBSO
 		{
 			return maxY;
 		}
+		// 获取包围盒宽
 		int getWidth() const
 		{
 			return getMaxX() - getMinX();
 		}
+		// 获取包围盒高
 		int getHeight() const
 		{
 			return getMaxY() - getMinY();

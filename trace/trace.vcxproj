@@ -140,6 +140,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ManhattanBooleanSetOperation\solve\Overlay.cpp" />
     <ClCompile Include="trace.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -147,10 +148,16 @@
     <ClInclude Include="Input.hpp" />
     <ClInclude Include="Intersect.hpp" />
     <ClInclude Include="ManhattanBooleanSetOperation\const\Const.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\ManhattanBooleanSetOperation.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\model\MEdge.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\model\MPolygon.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\model\MPolygonSet.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\model\MVertex.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\solve\Overlay.h" />
     <ClInclude Include="ManhattanBooleanSetOperation\utils\Bbox.h" />
     <ClInclude Include="ManhattanBooleanSetOperation\utils\Grid.h" />
-    <ClInclude Include="ManhattanBooleanSetOperation\utils\Point_2.h" />
-    <ClInclude Include="ManhattanBooleanSetOperation\utils\Segment.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\MPoint_2.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\MSegment_2.h" />
     <ClInclude Include="Output.hpp" />
     <ClInclude Include="PolygonCutting.hpp" />
     <ClInclude Include="public.h" />

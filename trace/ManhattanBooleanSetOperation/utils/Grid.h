@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
-using namespace std;
-
+using std::vector;
+using std::pair;
 namespace MBSO {
 	// 网格类，存储二维网格，每个网格存储一个vector
 	template<class T>
@@ -22,6 +22,7 @@ namespace MBSO {
 		}
 		Grid() : sizeX(0), sizeY(0) {}
 
+		// 调整grid大小
 		void resize(int _sizeX, int _sizeY)
 		{
 			sizeX = _sizeX;
@@ -33,11 +34,13 @@ namespace MBSO {
 			usedId.reserve(sizeX * sizeY);
 		}
 
+		// 重置grid大小
 		void reset(int _sizeX, int _sizeY)
 		{
 			resize(_sizeX, _sizeY);
 		}
 
+		// 清空所有使用过的grid
 		void clear()
 		{
 			int n = usedId.size();
@@ -49,12 +52,14 @@ namespace MBSO {
 			usedId.clear();
 		}
 
+		// 在grid[x][y]中添加元素element
 		void emplace_back(int x, int y, T& element)
 		{
 			grid[x][y].emplace_back(element);
 			usedId.emplace_back(x, y);
 		}
 
+		// 获取grid[x][y]中的vector
 		vector<T>& getGridID(int x, int y)
 		{
 			return grid[x][y];

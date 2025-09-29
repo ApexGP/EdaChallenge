@@ -2,6 +2,17 @@
 #include <numeric>
 namespace MBSO
 {
+
+	static constexpr double eps_double = 1e-7;
+	static constexpr int INF = 0x3f3f3f3f;
+	// 符号函数
+	inline int sgn(const double& x, const double& eps)
+	{
+		if (fabs(x) < eps)
+			return 0;
+		return x < 0 ? -1 : 1;
+	}
+
 	using PII = std::pair<int, int>;
 
 	struct pair_hash
@@ -23,11 +34,11 @@ namespace MBSO
 		DIFF,   // 求差集
 	};
 
-	// 多边形方向
+	// 多边形方向，外轮廓的点顺序为顺时针，孔洞的点顺序为逆时针
 	enum DIR
 	{
-		CW,		// 顺时针，轮廓
-		CCW,	// 逆时针，洞
+		CW,		// 顺时针，外轮廓
+		CCW,	// 逆时针，孔洞
 	};
 
 	// 相交类型
