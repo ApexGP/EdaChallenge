@@ -47,6 +47,10 @@ def main():
     # 添加-output参数
     trace_cmd.extend(['-output', str(Path(args.output).resolve())])
     
+    # 切换bin目录
+    bin_dir = project_root / 'bin'
+    os.chdir(bin_dir)
+
     # 运行trace程序
     print("\n🚀 === Running trace program ===")
     print("🔧 Command:", ' '.join(trace_cmd))

@@ -53,6 +53,7 @@ cd build
 cmake ..
 make
 # 运行
+cd ../bin
 ./trace -layout ./layout.txt -rule ./rule.txt [-thread n] -output ./res.txt 
 # 例: ./trace -layout ../instance/case/case1_small_layout.txt -rule ../instance/Rule/public_small_rule1.txt -output ../solution/case1_small_layout_q1.txt
 ```

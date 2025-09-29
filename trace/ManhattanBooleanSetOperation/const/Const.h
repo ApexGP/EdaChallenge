@@ -1,5 +1,10 @@
 #pragma once
 #include <numeric>
+#include <utility>
+#include <functional>
+#include <algorithm>
+#include <cmath>
+#include <climits>
 namespace MBSO
 {
 

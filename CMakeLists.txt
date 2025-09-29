@@ -6,6 +6,9 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build" FORCE)
 endif()
 
+# 设置可执行文件输出目录
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+
 # 设置 C++ 标准
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,7 +25,11 @@ set(GMP_LINUX_DIR ${THIRD_PARTY_DIR}/gmp-linux)
 include_directories(
     ${THIRD_PARTY_DIR} # CGAL的和Boost的header
     ${GMP_LINUX_DIR}/include
+    ${CMAKE_SOURCE_DIR}/trace/ManhattanBooleanSetOperation # MBSO头文件
 )
+
+# 添加子目录（编译MBSO库）
+add_subdirectory(trace/ManhattanBooleanSetOperation)
 
 # 添加可执行文件
 add_executable(trace
@@ -48,6 +55,7 @@ add_executable(trace
 # 链接静态库文件
 target_link_libraries(trace
     PRIVATE
+    MBSO  # 链接新创建的MBSO库
     ${GMP_LINUX_DIR}/lib/libgmp.a
     ${GMP_LINUX_DIR}/lib/libmpfr.a
 )
