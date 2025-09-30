@@ -6,91 +6,89 @@
 namespace MBSO {
     using std::vector;
     using std::list;
-    
+
     template <class T>
     struct MemoryPool
     {
     private:
-    	vector<vector<T>> allElements;
-    	list<T*> reuseElements;
-    	int curPoolIndex;		// å½“å‰æ˜¯ç¬¬å¤šå°‘å—
-    	int curEleSize;			// å½“å‰å—éå†åˆ°ç¬¬å‡ ä¸ªå…ƒç´ äº†
-    	int MAX_ELE_SIZE;		// æ¯å—å…ƒç´ çš„å¤§å°
-    	int MAX_POOL_SIZE;		// æœ€å¤šæœ‰å¤šå°‘å—
+        vector<vector<T>> allElements;
+        list<T*> reuseElements;
+        int curPoolIndex;       // µ±Ç°ÊÇµÚ¶àÉÙ¿é
+        int curEleSize;         // µ±Ç°¿é±éÀúµ½µÚ¼¸¸öÔªËØÁË
+        int MAX_ELE_SIZE;       // Ã¿¿éÔªËØµÄ´óĞ¡
+        int MAX_POOL_SIZE;      // ×î¶àÓĞ¶àÉÙ¿é
     public:
-    	MemoryPool()
-    	{
-    		init(10000, 10);
-    	}
-    	MemoryPool(int _size, int _poolSize = 10)
-    	{
-    		init(_size, _poolSize);
-    	}
-    	void init(int _size, int _poolSize)
-    	{
-    		curPoolIndex = 0;
-    		curEleSize = 0;
-    		MAX_ELE_SIZE = _size * 2;
-    		MAX_POOL_SIZE = _poolSize;
-    		allElements.reserve(MAX_POOL_SIZE);
-    		allElements.emplace_back(vector<T>());
-    		allElements[curPoolIndex].resize(MAX_ELE_SIZE);
-    	}
-    	T* newElement(const T& p)
-    	{
-    		T* ptr = newElement();
-    		(*ptr) = p;
-    		return ptr;
-    	}
+        MemoryPool()
+        {
+            init(10000, 10);
+        }
+        MemoryPool(int _size, int _poolSize = 10)
+        {
+            init(_size, _poolSize);
+        }
+        void init(int _size, int _poolSize)
+        {
+            curPoolIndex = 0;
+            curEleSize = 0;
+            MAX_ELE_SIZE = _size * 2;
+            MAX_POOL_SIZE = _poolSize;
+            allElements.reserve(MAX_POOL_SIZE);
+            allElements.emplace_back(vector<T>());
+            allElements[curPoolIndex].resize(MAX_ELE_SIZE);
+        }
+        T* newElement(const T& p)
+        {
+            T* ptr = newElement();
+            (*ptr) = p;
+            return ptr;
+        }
 
-    	T* newElement()
-    	{
-    		if (reuseElements.size() > 0) {
-    			T* tmp = reuseElements.front();
-    			reuseElements.pop_front();
-    			return tmp;
-    		}
-    		if (curEleSize == MAX_ELE_SIZE)
-    		{
-    			curPoolIndex++;
-    			if (curPoolIndex >= MAX_POOL_SIZE)
-    			{
-    				cerr << "å†…å­˜æ± å¤ªå°äº†" << endl;
-    				cerr << "å†…å­˜æ± å¤ªå°äº†" << endl;
-    				exit(-1);
-    			}
-    			cerr << "å†…å­˜æ± æ‰©å®¹" << endl;
-    			allElements.emplace_back(vector<T>());
-    			allElements[curPoolIndex].resize(MAX_ELE_SIZE);
-    			curEleSize = 0;
-    		}
-    		return &allElements[curPoolIndex][curEleSize++];
-    	}
+        T* newElement()
+        {
+            if (reuseElements.size() > 0) {
+                T* tmp = reuseElements.front();
+                reuseElements.pop_front();
+                return tmp;
+            }
+            if (curEleSize == MAX_ELE_SIZE)
+            {
+                curPoolIndex++;
+                if (curPoolIndex >= MAX_POOL_SIZE)
+                {
+                    throw std::runtime_error("ÄÚ´æ³ØÌ«Ğ¡ÁË");
+                }
+                std::cerr << "ÄÚ´æ³ØÀ©Èİ" << std::endl;
+                allElements.emplace_back(vector<T>());
+                allElements[curPoolIndex].resize(MAX_ELE_SIZE);
+                curEleSize = 0;
+            }
+            return &allElements[curPoolIndex][curEleSize++];
+        }
 
-    	void pushReuseElement(T* t)
-    	{
-    		reuseElements.push_back(t);
-    	}
+        void pushReuseElement(T* t)
+        {
+            reuseElements.push_back(t);
+        }
 
-    	int getMaxPoolSize()
-    	{
-    		return MAX_POOL_SIZE;
-    	}
-    	int getMaxEleSize()
-    	{
-    		return MAX_ELE_SIZE;
-    	}
-    	int getUsedPoolNum()
-    	{
-    		return curPoolIndex + 1;
-    	}
-    	long long getAllEleSize()
-    	{
-    		return 1ll * MAX_POOL_SIZE * MAX_ELE_SIZE;
-    	}
-    	long long getUsedEleNum()
-    	{
-    		return (1ll * curPoolIndex * MAX_ELE_SIZE) + curEleSize;
-    	}
+        int getMaxPoolSize()
+        {
+            return MAX_POOL_SIZE;
+        }
+        int getMaxEleSize()
+        {
+            return MAX_ELE_SIZE;
+        }
+        int getUsedPoolNum()
+        {
+            return curPoolIndex + 1;
+        }
+        long long getAllEleSize()
+        {
+            return 1ll * MAX_POOL_SIZE * MAX_ELE_SIZE;
+        }
+        long long getUsedEleNum()
+        {
+            return (1ll * curPoolIndex * MAX_ELE_SIZE) + curEleSize;
+        }
     };
 } // namespace MBSO

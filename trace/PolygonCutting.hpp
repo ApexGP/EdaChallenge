@@ -3,13 +3,14 @@
 #include "Input.hpp"
 #include "QuadTree.hpp"
 #include "Intersect.hpp"
-#include "../ManhattanBooleanSetOperation/ManhattanBooleanSetOperation.h"
+#include "../ManhattanBooleanSetOperation/solve/MBSOCore.h"
 
 // 多边形切割类定义
 class PolygonCutting
 {
 private:
 	Input& input;
+	MBSO::MBSOCore mbsoCore; // 曼哈顿多边形布尔运算核心类
 
 public:
 	PolygonCutting(Input& _input) :input(_input) {
@@ -127,49 +128,30 @@ private:
 		std::vector<std::vector<int>> components = unionfs.getComponents();
 		// 合并每个联通分量的多边形
 		std::vector<Polygon*> po_merged_polygons;
-		MBSO::Overlay overlay;
 		for (auto& comp : components) {
 			if (comp.size() == 1) {
 				po_merged_polygons.push_back(po_polygons[comp[0]]);
 			}
 			else {
-				//Polygon_set_2 merged_poly_set;
-				//for (auto& idx : comp) {
-				//	Polygon_2& cgal_poly = po_polygons[idx]->cgal_poly;
-				//	if (merged_poly_set.is_empty()) {
-				//		merged_poly_set.insert(cgal_poly);
-				//	}
-				//	else {
-				//		merged_poly_set.join(cgal_poly);
-				//	}
-				//}
-				//// 合并后的多边形转回自定义Polygon类
-				//std::list<Polygon_with_holes_2> res;
-				//merged_poly_set.polygons_with_holes(std::back_inserter(res));
-				//assert(res.size() == 1 && "合并后多边形应为单一多边形");
-				//// 假设没孔洞
-				//if (res.front().has_holes()) {
-				//	std::cout << "Warning: Merged polygon has holes!" << std::endl;
-				//}
-				//Polygon_2 merged_poly = res.front().outer_boundary();
-				MBSO::myPolygonSet merged_poly_set;
-				for (auto& idx : comp) {
-					Polygon_2& cgal_poly = po_polygons[idx]->cgal_poly;
-					MBSO::myPolygon mpoly;
-					mpoly.reserve(cgal_poly.size());
+				Polygon_2& cgal_poly = po_polygons[0]->cgal_poly;
+				std::vector<MBSO::MPoint_2> mpoly;
+				mpoly.reserve(cgal_poly.size());
+				for (auto& p : cgal_poly) {
+					mpoly.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
+				}
+				reverse(mpoly.begin(), mpoly.end());
+				mbsoCore.setMPS(mpoly);
+				for (int i = 1; i < comp.size(); ++i) {
+					int idx = comp[i];
+					cgal_poly = po_polygons[idx]->cgal_poly;
+					mpoly.clear();
 					for (auto& p : cgal_poly) {
 						mpoly.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
 					}
 					reverse(mpoly.begin(), mpoly.end());
-					MBSO::MPolygonSet mps1(merged_poly_set);
-					MBSO::myPolygonSet mpoly_2;
-					mpoly_2.push_back(mpoly);
-					MBSO::MPolygonSet mps2(mpoly_2);
-					MBSO::MPolygonSet res;
-					overlay.solve(&mps1, &mps2, &res, MBSO::OP_TYPE::UNION);
-					merged_poly_set = MBSO::getResult(&res);
-					// merged_poly_set = MBSO::join(merged_poly_set, mpoly);
+					mbsoCore.join(mpoly);
 				}
+				std::vector<std::vector<MBSO::MPoint_2>> merged_poly_set = mbsoCore.getResult();
 				// 合并后的多边形转回自定义Polygon类
 				assert(merged_poly_set.size() == 1 && "合并后多边形应为单一多边形");
 				reverse(merged_poly_set[0].begin(), merged_poly_set[0].end());
@@ -228,7 +210,6 @@ private:
 
 		// 对每个AA多边形，执行切割（即使不被切割的也要遍历，因为要重新插入到aa_cut_polygons）
 		std::vector<Polygon*> aa_cut_polygons; // 用于记录切割后所有的AA多边形
-		MBSO::Overlay overlay;
 		for (auto& aa_poly : aa_polygons) {
 			int aa_id = aa_poly->id;
 			auto it = aa_cut_by_po.find(aa_id);
@@ -241,39 +222,22 @@ private:
 			std::vector<int>& cutting_po = it->second; // 切割它的PO多边形id列表
 			// 被一个PO切割
 			if (cutting_po.size() == 1) {
-				// Polygon_set_2 cut_poly_set;
-				// cut_poly_set.insert(poly_ptr[aa_id]->cgal_poly);
-				// cut_poly_set.difference(poly_ptr[cutting_po[0]]->cgal_poly);
-				// std::list<Polygon_with_holes_2> res;
-				// cut_poly_set.polygons_with_holes(std::back_inserter(res));
-				// assert(res.size() > 1 && "切割后多边形应不止一个");
-				// // 切割后多边形转回自定义Polygon类
-				// bool first = true;
-				// for (auto it = res.begin(); it != res.end(); ++it) {
-				// 	Polygon_2 new_aa_cgal_poly = it->outer_boundary();
-				MBSO::myPolygonSet cut_poly_set;
-				MBSO::myPolygon mpoly1;
+				std::vector<MBSO::MPoint_2> mpoly1;
 				mpoly1.reserve(poly_ptr[aa_id]->cgal_poly.size());
 				for (auto& p : poly_ptr[aa_id]->cgal_poly) {
 					mpoly1.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
 				}
 				reverse(mpoly1.begin(), mpoly1.end());
-				cut_poly_set.push_back(mpoly1);
-				MBSO::MPolygonSet mps1(cut_poly_set);
+				mbsoCore.setMPS(mpoly1);
 
-				MBSO::myPolygon mpoly2;
+				std::vector<MBSO::MPoint_2> mpoly2;
 				mpoly2.reserve(poly_ptr[cutting_po[0]]->cgal_poly.size());
 				for (auto& p : poly_ptr[cutting_po[0]]->cgal_poly) {
 					mpoly2.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
 				}
 				reverse(mpoly2.begin(), mpoly2.end());
-				MBSO::myPolygonSet mpolys_2;
-				mpolys_2.push_back(mpoly2);
-				MBSO::MPolygonSet mps2(mpolys_2);
-
-				MBSO::MPolygonSet res;
-				overlay.solve(&mps1, &mps2, &res, MBSO::OP_TYPE::DIFF);
-				cut_poly_set = MBSO::getResult(&res);
+				mbsoCore.difference(mpoly2);
+				std::vector<std::vector<MBSO::MPoint_2>> cut_poly_set = mbsoCore.getResult();
 				assert(cut_poly_set.size() > 1 && "切割后多边形应不止一个");
 				// 切割后多边形转回自定义Polygon类
 				bool first = true;
@@ -301,31 +265,17 @@ private:
 			}
 			// 被多个PO切割
 			else {
-				// Polygon_set_2 cut_poly_set;
-				// cut_poly_set.insert(poly_ptr[aa_id]->cgal_poly);
-				// for (auto& po_id : cutting_po) { // 逐个求差集
-				// 	cut_poly_set.difference(poly_ptr[po_id]->cgal_poly);
-				// }
-				// std::list<Polygon_with_holes_2> res;
-				// cut_poly_set.polygons_with_holes(std::back_inserter(res));
-				// assert(res.size() > 1 && "切割后多边形应不止一个");
-				// // 切割后多边形转回自定义Polygon类
-				// robin_hood::unordered_map<int, std::vector<int>> po_cut_nodes; // 记录该AA被切割后,各PO连接的AA多边形节点
-				// for (auto it = res.begin(); it != res.end(); ++it) {
-				// 	Polygon_2 new_aa_cgal_poly = it->outer_boundary();
-				MBSO::myPolygonSet cut_poly_set;
-				MBSO::myPolygon mpoly1;
+				std::vector<MBSO::MPoint_2> mpoly1;
 				mpoly1.reserve(poly_ptr[aa_id]->cgal_poly.size());
 				for (auto& p : poly_ptr[aa_id]->cgal_poly) {
 					mpoly1.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
 				}
 				reverse(mpoly1.begin(), mpoly1.end());
-				cut_poly_set.push_back(mpoly1);
-				MBSO::MPolygonSet mps1(cut_poly_set);
+				mbsoCore.setMPS(mpoly1);
 
-				MBSO::myPolygonSet mpolys_2;
+				std::vector<std::vector<MBSO::MPoint_2>> mpolys_2;
 				for (auto& po_id : cutting_po) { // 逐个求差集
-					MBSO::myPolygon mpoly2;
+					std::vector<MBSO::MPoint_2> mpoly2;
 					mpoly2.reserve(poly_ptr[po_id]->cgal_poly.size());
 					for (auto& p : poly_ptr[po_id]->cgal_poly) {
 						mpoly2.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
@@ -333,11 +283,8 @@ private:
 					reverse(mpoly2.begin(), mpoly2.end());
 					mpolys_2.push_back(mpoly2);
 				}
-				MBSO::MPolygonSet mps2(mpolys_2);
-
-				MBSO::MPolygonSet res;
-				overlay.solve(&mps1, &mps2, &res, MBSO::OP_TYPE::DIFF);
-				cut_poly_set = MBSO::getResult(&res);
+				mbsoCore.difference(mpolys_2);
+				std::vector<std::vector<MBSO::MPoint_2>> cut_poly_set = mbsoCore.getResult();
 				assert(cut_poly_set.size() > 1 && "切割后多边形应不止一个");
 				// 切割后多边形转回自定义Polygon类
 				robin_hood::unordered_map<int, std::vector<int>> po_cut_nodes; // 记录该AA被切割后,各PO连接的AA多边形节点

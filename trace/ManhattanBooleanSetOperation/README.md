@@ -19,7 +19,6 @@
 
 ## 文件结构
 ```
-ManhattanBooleanSetOperation.h 通用接口
 const/
     ———— Const.h 常量定义
 utils/ 底层数据结构支持
@@ -27,12 +26,13 @@ utils/ 底层数据结构支持
     ———— Grid.h 网格实现
     ———— MPoint_2.h 二维点或向量实现
     ———— MSegment_2.h 曼哈顿二维线段类
+    ———— MemoryPool.h 内存池模板
 model/ 多边形几何元素拓扑
     ———— MVertex.h 曼哈顿顶点拓扑信息类
     ———— MEdge.h 曼哈顿边拓扑信息类
     ———— MPolygon.h 曼哈顿多边形轮廓类
     ———— MPolygonSet.h 曼哈顿多边形集类
 solve/ 布尔运算核心处理
-    ———— Overlay.h 
-    ———— Overlay.cpp 布尔运算核心处理逻辑
+    ———— MBSOCore.h 
+    ———— MBSOCore.cpp 布尔运算核心处理逻辑
 ```

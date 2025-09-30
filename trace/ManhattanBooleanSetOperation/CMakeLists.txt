@@ -6,12 +6,11 @@ project(ManhattanBooleanSetOperation)
 set(SOURCES
     model/MEdge.cpp
     model/MPolygon.cpp
-    solve/Overlay.cpp
+    solve/MBSOCore.cpp
 )
 
 # 设置头文件路径
 include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/const
     ${CMAKE_CURRENT_SOURCE_DIR}/model
     ${CMAKE_CURRENT_SOURCE_DIR}/solve

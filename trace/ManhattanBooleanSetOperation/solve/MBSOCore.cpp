@@ -1,44 +1,184 @@
-#include "./Overlay.h"
+#include "./MBSOCore.h"
 
 namespace MBSO {
 	using std::min;
 	using std::max;
 
-	Overlay::~Overlay() {}
-
-	void Overlay::setMPS(const std::vector<MPoint_2> &poly) { 
+	/* --------------- 支持序列式运算的外部接口 --------------- */
+	void MBSOCore::setMPS(const std::vector<MPoint_2> &poly) { 
 		// 回收旧的
-		for (auto& outer : resultMps->mpolygons) 
-			for (auto& seg : outer.edges){
-				vertexsMemoryPool.pushReuseElement(seg->ori);
-				edgesMemoryPool.pushReuseElement(seg);
-			}
-		delete resultMps;
+		if (resultMps != nullptr) {
+			for (auto& outer : resultMps->mpolygons)
+				for (auto& seg : outer.edges) {
+					vertexsMemoryPool.pushReuseElement(seg->ori);
+					edgesMemoryPool.pushReuseElement(seg);
+				}
+			delete resultMps;
+		}
 		// 设置新的
 		resultMps = convertToMPS(poly);
 	}
-	
-	ivoid Overlay::setMPS(const std::vector<std::vector<MPoint_2>> &polyset) { 
+	void MBSOCore::setMPS(const std::vector<std::vector<MPoint_2>> &polyset) { 
 		// 回收旧的
-		for (auto& outer : resultMps->mpolygons) 
-			for (auto& seg : outer.edges){
-				edgesMemoryPool.pushReuseElement(seg);
-				vertexsMemoryPool.pushReuseElement(seg->ori);
-			}
-		delete resultMps;
+		if (resultMps != nullptr) {
+			for (auto& outer : resultMps->mpolygons)
+				for (auto& seg : outer.edges) {
+					edgesMemoryPool.pushReuseElement(seg);
+					vertexsMemoryPool.pushReuseElement(seg->ori);
+				}
+			delete resultMps;
+		}
 		// 设置新的
 		resultMps = convertToMPS(polyset); 
 	}
 
-	void intersect(const std::vector<MPoint_2> &poly);
-	void intersect(const std::vector<std::vector<MPoint_2>> &polyset);
-	void join(const std::vector<MPoint_2> &poly);
-	void join(const std::vector<std::vector<MPoint_2>> &polyset);
-	void differnece(const std::vector<MPoint_2> &poly);
-	void differnece(const std::vector<std::vector<MPoint_2>> &polyset);
-	std::vector<std::vector<MPoint_2>> getResult();
+	void MBSOCore::intersect(const std::vector<MPoint_2>& poly) {
+		// 改变指针
+		mps1 = resultMps;
+		mps2 = convertToMPS(poly);
+		resultMps = new MPolygonSet;
+		// 求解
+		solve(mps1, mps2, resultMps, INTER);
+	}
+	void MBSOCore::intersect(const std::vector<std::vector<MPoint_2>>& polyset) {
+		// 改变指针
+		mps1 = resultMps;
+		mps2 = convertToMPS(polyset);
+		resultMps = new MPolygonSet;
+		// 求解
+		solve(mps1, mps2, resultMps, INTER);
+	}
 
-	MPolygonSet* Overlay::convertToMPS(const std::vector<MPoint_2> & poly){
+	void MBSOCore::join(const std::vector<MPoint_2>& poly) {
+		// 改变指针
+		mps1 = resultMps;
+		mps2 = convertToMPS(poly);
+		resultMps = new MPolygonSet;
+		// 求解
+		solve(mps1, mps2, resultMps, UNION);
+	}
+	void MBSOCore::join(const std::vector<std::vector<MPoint_2>>& polyset) {
+		// 改变指针
+		mps1 = resultMps;
+		mps2 = convertToMPS(polyset);
+		resultMps = new MPolygonSet;
+		// 求解
+		solve(mps1, mps2, resultMps, UNION);
+	}
+
+	void MBSOCore::difference(const std::vector<MPoint_2>& poly) {
+		// 改变指针
+		mps1 = resultMps;
+		mps2 = convertToMPS(poly);
+		resultMps = new MPolygonSet;
+		// 求解
+		solve(mps1, mps2, resultMps, DIFF);
+	}
+	void MBSOCore::difference(const std::vector<std::vector<MPoint_2>>& polyset) {
+		// 改变指针
+		mps1 = resultMps;
+		mps2 = convertToMPS(polyset);
+		resultMps = new MPolygonSet;
+		// 求解
+		solve(mps1, mps2, resultMps, DIFF);
+	}
+
+	std::vector<std::vector<MPoint_2>> MBSOCore::getResult() {
+		std::vector<std::vector<MPoint_2>> ans;
+		int polygonSize = resultMps->getMPolygonSize();
+		ans.resize(polygonSize);
+		// 提取每个多边形
+		for (int i = 0; i < polygonSize; ++i) {
+			auto& ansPolygon = ans[i];
+			ansPolygon.reserve(resultMps->mpolygons[i].edges.size());
+			// 提取每个点
+			for (auto& edgePtr : resultMps->mpolygons[i].edges) {
+				ansPolygon.emplace_back(edgePtr->ori->point);
+			}
+		}
+		return ans;
+	}
+
+	/* --------------- 支持二元运算外部接口 --------------- */
+	std::vector<std::vector<MPoint_2>> MBSOCore::solve(const std::vector<MPoint_2>& poly1, OP_TYPE opt, const std::vector<MPoint_2>& poly2) {
+		setMPS(poly1);
+		switch (opt)
+		{
+		case MBSO::INTER:
+			intersect(poly2);
+			break;
+		case MBSO::UNION:
+			join(poly2);
+			break;
+		case MBSO::DIFF:
+			difference(poly2);
+			break;
+		default:
+			throw std::logic_error(__func__ + std::string("未定义布尔操作"));
+		}
+		//返回结果
+		return getResult();
+	}
+	std::vector<std::vector<MPoint_2>> MBSOCore::solve(const std::vector<std::vector<MPoint_2>>& polyset1, OP_TYPE opt, const std::vector<MPoint_2>& poly2) {
+		setMPS(polyset1);
+		switch (opt)
+		{
+		case MBSO::INTER:
+			intersect(poly2);
+			break;
+		case MBSO::UNION:
+			join(poly2);
+			break;
+		case MBSO::DIFF:
+			difference(poly2);
+			break;
+		default:
+			throw std::logic_error(__func__ + std::string("未定义布尔操作"));
+		}
+		//返回结果
+		return getResult();
+	}
+	std::vector<std::vector<MPoint_2>> MBSOCore::solve(const std::vector<MPoint_2>& poly1, OP_TYPE opt, const std::vector<std::vector<MPoint_2>>& polyset2) {
+		setMPS(poly1);
+		switch (opt)
+		{
+		case MBSO::INTER:
+			intersect(polyset2);
+			break;
+		case MBSO::UNION:
+			join(polyset2);
+			break;
+		case MBSO::DIFF:
+			difference(polyset2);
+			break;
+		default:
+			throw std::logic_error(__func__ + std::string("未定义布尔操作"));
+		}
+		//返回结果
+		return getResult();
+	}
+	std::vector<std::vector<MPoint_2>> MBSOCore::solve(const std::vector<std::vector<MPoint_2>>& polyset1, OP_TYPE opt, const std::vector<std::vector<MPoint_2>>& polyset2) {
+		setMPS(polyset1);
+		switch (opt)
+		{
+		case MBSO::INTER:
+			intersect(polyset2);
+			break;
+		case MBSO::UNION:
+			join(polyset2);
+			break;
+		case MBSO::DIFF:
+			difference(polyset2);
+			break;
+		default:
+			throw std::logic_error(__func__ + std::string("未定义布尔操作"));
+		}
+		//返回结果
+		return getResult();
+	}
+
+	/* --------------- 将外部多边形表示转成内部多边形集 --------------- */
+	MPolygonSet* MBSOCore::convertToMPS(const std::vector<MPoint_2> & poly){
 		MPolygonSet *mps = new MPolygonSet;
 		mps->edgeCnt = 0;
 		// 只需构造一个多边形
@@ -50,7 +190,7 @@ namespace MBSO {
 		// 构造点集
 		std::vector<MVertex*> vertexs;
 		vertexs.reserve(_mpolySize);
-		for (const auto& _mpoint : _mpoly) {
+		for (const auto& _mpoint : poly) {
 			MVertex* mvertex = vertexsMemoryPool.newElement(MVertex(_mpoint));
 			vertexs.emplace_back(mvertex);
 		}
@@ -58,7 +198,7 @@ namespace MBSO {
 		for (int i = 0; i < _mpolySize; ++i) {
 			const auto& start = vertexs[i];
 			const auto& end = vertexs[(i + 1) % _mpolySize];
-			MEdge* medge = new MEdge(start, end);
+			MEdge* medge = edgesMemoryPool.newElement(MEdge(start, end));
 			mpolygon.edges.emplace_back(medge);
 			mpolygon.box.update(start->point);
 		}
@@ -77,8 +217,7 @@ namespace MBSO {
 		
 		return mps;
 	}
-
-	MPolygonSet* Overlay::convertToMPS(const std::vector<std::vector<MPoint_2>> & polyset){
+	MPolygonSet* MBSOCore::convertToMPS(const std::vector<std::vector<MPoint_2>> & polyset){
 		MPolygonSet *mps = new MPolygonSet;
 		mps->edgeCnt = 0;
 		// 依次构造每个多边形
@@ -92,14 +231,14 @@ namespace MBSO {
 			std::vector<MVertex*> vertexs;
 			vertexs.reserve(_mpolySize);
 			for (const auto& _mpoint : _mpoly) {
-				MVertex* mvertex = new MVertex(_mpoint);
+				MVertex* mvertex = vertexsMemoryPool.newElement(MVertex(_mpoint));
 				vertexs.emplace_back(mvertex);
 			}
 			// 基于点集构造边集
 			for (int i = 0; i < _mpolySize; ++i) {
 				const auto& start = vertexs[i];
 				const auto& end = vertexs[(i + 1) % _mpolySize];
-				MEdge* medge = new MEdge(start, end);
+				MEdge* medge = edgesMemoryPool.newElement(MEdge(start, end));
 				mpolygon.edges.emplace_back(medge);
 				mpolygon.box.update(start->point);
 			}
@@ -120,14 +259,7 @@ namespace MBSO {
 	}
 
 
-
-
-
-
-
-
-
-	void Overlay::solve(MPolygonSet* _mps1, MPolygonSet* _mps2, MPolygonSet* _resultMps, OP_TYPE _opt) {
+	void MBSOCore::solve(MPolygonSet* _mps1, MPolygonSet* _mps2, MPolygonSet* _resultMps, OP_TYPE _opt) {
 		// 赋值
 		mps1 = _mps1, mps2 = _mps2, resultMps = _resultMps, opt = _opt;
 		// 判断是否需要进行布尔运算
@@ -146,7 +278,7 @@ namespace MBSO {
 		memoryRecycle();
 	}
 
-	bool Overlay::isNeedSolve()
+	bool MBSOCore::isNeedSolve()
 	{
 		box.reset();
 		blkBox.reset();
@@ -211,7 +343,7 @@ namespace MBSO {
 		return ret;
 	}
 
-	inline void Overlay::initial() {
+	inline void MBSOCore::initial() {
 
 		int allSegsSize = mps1->edgeCnt + mps2->edgeCnt;
 
@@ -225,7 +357,7 @@ namespace MBSO {
 		blockWidth = blockHeight = 0;
 	}
 
-	inline void Overlay::caculateIntersBasedOnBlocks() {
+	inline void MBSOCore::caculateIntersBasedOnBlocks() {
 		chooseBlkCntBasedOnInterRegion();
 		// 遍历碰撞的多边形，找出所有轮廓边经过的格子
 		for (auto& outer : beCollided) {
@@ -278,7 +410,7 @@ namespace MBSO {
 		}
 	}
 
-	void Overlay::chooseBlkCntBasedOnInterRegion() {
+	void MBSOCore::chooseBlkCntBasedOnInterRegion() {
 		// 获取他们的交集区域包围盒
 		blkBox = mps1->box.getInterBox(mps2->box);
 
@@ -330,7 +462,7 @@ namespace MBSO {
 		inPointsIndex = outPointsIndex = 0;
 	}
 
-	inline void Overlay::findEdgePassedBlockOnInterRegion(MEdge* v) {
+	inline void MBSOCore::findEdgePassedBlockOnInterRegion(MEdge* v) {
 		// 曼哈顿边必然是水平或垂直的
 		Bbox v_box;
 		v_box.update(v->ori->point), v_box.update(v->dest->point);
@@ -364,7 +496,7 @@ namespace MBSO {
 		}
 	}
 
-	bool Overlay::caculateInterSSself(MEdge* seg1, MEdge* seg2)
+	bool MBSOCore::caculateInterSSself(MEdge* seg1, MEdge* seg2)
 	{
 		MPoint_2 p, q;
 		POINT_TYPE ret;
@@ -382,7 +514,7 @@ namespace MBSO {
 		return true;
 	}
 
-	void Overlay::dealSSInterWhenPoint(MEdge* seg1, MEdge* seg2, MPoint_2& inter_p) {
+	void MBSOCore::dealSSInterWhenPoint(MEdge* seg1, MEdge* seg2, MPoint_2& inter_p) {
 		if (seg1->polygonSetId != 0) std::swap(seg1, seg2);	// 保证seg1指向A，seg2指向B
 		int equalPointsSize = 0;
 		MEdge* anotherSeg = nullptr; // 只有当 equalPointsSize = 1 时有用
@@ -417,7 +549,7 @@ namespace MBSO {
 		{
 			// 交点不在端点处
 			// 新建交点
-			MVertex* p1 = new MVertex(inter_p);
+			MVertex* p1 = vertexsMemoryPool.newElement(MVertex(inter_p));
 			p1->isInter = true;
 			p1->pointType = SEG_SEG;
 			p1->isFinished = true;
@@ -440,7 +572,7 @@ namespace MBSO {
 		}
 	}
 
-	void Overlay::insertAnddealLR()
+	void MBSOCore::insertAnddealLR()
 	{
 		MVertex* cur = nullptr, * pre = nullptr;
 		// 先把所有的交点插入到线段中
@@ -462,7 +594,7 @@ namespace MBSO {
 				points.insert(node);
 				cur = node;
 				// 生成新边
-				MEdge* curSeg = new MEdge();
+				MEdge* curSeg = edgesMemoryPool.newElement();
 				noNeedSegs.emplace_back(curSeg);
 				curSeg->setOriDest(pre, cur, seg->polygonSetId);
 				curSeg->polygonPtr = seg->polygonPtr;
@@ -476,7 +608,7 @@ namespace MBSO {
 			}
 
 			// 最后一条边
-			MEdge* curSeg = new MEdge();
+			MEdge* curSeg = edgesMemoryPool.newElement();
 			noNeedSegs.emplace_back(curSeg);
 			curSeg->setOriDest(pre, seg->dest, seg->polygonSetId);
 			curSeg->polygonPtr = seg->polygonPtr;
@@ -512,7 +644,7 @@ namespace MBSO {
 	先假设已经拆开，如果拆开的两个点都是0，则最终不拆，而且是0
 	两个点不同时为0，则真正的拆开。
 	*/
-	void Overlay::splitPoint(MVertex* point)
+	void MBSOCore::splitPoint(MVertex* point)
 	{
 		MVertex* cur = point, * another = nullptr;
 		cur->isFinished = true;
@@ -624,7 +756,7 @@ namespace MBSO {
 			return;
 		}
 		// 两个不相等，因此只能拆点了，并且一正一负
-		MVertex* p = new MVertex(*cur);
+		MVertex* p = vertexsMemoryPool.newElement(*cur);
 		p->polygonSetId = cur->polygonSetId, p->isInter = cur->isInter, p->pointType = cur->pointType;
 		p->frontEdgeA = cur->frontEdgeA, p->nextEdgeA = cur->nextEdgeA;
 		p->frontEdgeB = cur->frontEdgeB, p->nextEdgeB = cur->nextEdgeB;
@@ -635,8 +767,8 @@ namespace MBSO {
 		pushBackInterPoint(cur);
 
 		// 需要创建一条边，
-		MEdge* segA = new MEdge();
-		MEdge* segB = new MEdge();
+		MEdge* segA = edgesMemoryPool.newElement();
+		MEdge* segB = edgesMemoryPool.newElement();
 		noNeedSegs.emplace_back(segA);
 		noNeedSegs.emplace_back(segB);
 		MVertex* pre = nullptr, * next = nullptr;
@@ -684,7 +816,7 @@ namespace MBSO {
 	2.3差集：A的，被B的包含，丢弃；找不到即未被包含，保留
 			 B的，被A的包含(会出现孔洞，暂不考虑有洞的情形)，丢弃；找不到即未被包含，丢弃
 	*/
-	void Overlay::dealIsolatedMPolygon()
+	void MBSOCore::dealIsolatedMPolygon()
 	{
 		vector<MEdge*> isolatedSegs;			// 存孤立轮廓的点
 		int isolated_size = isolatedBeContained.size();
@@ -759,7 +891,7 @@ namespace MBSO {
 	}
 
 	// 传入 mps1 轮廓上的起点（即从多边形A开始）
-	void Overlay::crossEdges()
+	void MBSOCore::crossEdges()
 	{
 		MVertex* curPt = nullptr;
 		MVertex* s = nullptr;
@@ -918,7 +1050,7 @@ namespace MBSO {
 
 	// 如果还存在带尾巴的情况，直接强行截断，
 	// 差集好像会出现，不知道怎么解决。
-	void Overlay::interceptOuter(vector<MEdge*>& outer, MVertex* start)
+	void MBSOCore::interceptOuter(vector<MEdge*>& outer, MVertex* start)
 	{
 		int index = -1;
 		int n = outer.size();
@@ -948,19 +1080,23 @@ namespace MBSO {
 		}
 	}
 
-	void Overlay::memoryRecycle()
+	void MBSOCore::memoryRecycle()
 	{
 		for (auto& outer : mps1->mpolygons)
 		{
 			if (!outer.existInterPoint) continue;
-			for (auto& seg : outer.edges) delete seg;
+			for (auto& seg : outer.edges) edgesMemoryPool.pushReuseElement(seg);
 		}
+		delete mps1;
+		mps1 = nullptr;
 		for (auto& outer : mps2->mpolygons)
 		{
 			if (!outer.existInterPoint) continue;
-			for (auto& seg : outer.edges) delete seg;
+			for (auto& seg : outer.edges) edgesMemoryPool.pushReuseElement(seg);
 		}
-		for (auto& seg : noNeedSegs) delete seg;
+		delete mps2;
+		mps2 = nullptr;
+		for (auto& seg : noNeedSegs) edgesMemoryPool.pushReuseElement(seg);
 	}
 
 } // namespace MBSO

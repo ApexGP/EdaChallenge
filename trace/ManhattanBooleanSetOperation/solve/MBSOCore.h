@@ -13,7 +13,7 @@
 namespace MBSO {
 	using std::vector;
 
-	class Overlay {
+	class MBSOCore {
 	public:
 		MPolygonSet* mps1;		//多边形集A
 		MPolygonSet* mps2;		//多边形集B
@@ -52,40 +52,38 @@ namespace MBSO {
 
 	public:
 		/* 构造和析构 */
-		Overlay() : grid(101, 101), equalPoints(2) {};
-		~Overlay();
+		MBSOCore() : vertexsMemoryPool(1000000,200), edgesMemoryPool(10000000, 200), resultMps(new MPolygonSet), grid(101, 101), equalPoints(2) {};
+		~MBSOCore() {
+			// 释放曾经new的MPolygonSet, 边和点由内存池统一管理
+			if (mps1 != nullptr) {
+				delete mps1;
+			}
+			if (mps2 != nullptr) {
+				delete mps2;
+			}
+			if (resultMps != nullptr) {
+				delete resultMps;
+			}
+		};
 
-		/* --------------- 支持序列式运算的接口 --------------- */
-		/* 通过 poly 设置初始多边形集 */
-		void setMPS(const std::vector<MPoint_2> &poly) { 
-			// 回收旧的
-			for (auto& outer : resultMps->mpolygons) 
-				for (auto& seg : outer.edges)
-					edgesMemoryPool.pushReuseElement(seg);
-			delete resultMps;
-			// 设置新的
-			resultMps = convertToMPS(poly);
-		}
-		/* 通过 polyset 设置初始多边形集 */
-		ivoid setMPS(const std::vector<std::vector<MPoint_2>> &polyset) { 
-			for (auto& outer : resultMps->mpolygons) // 回收旧的
-				for (auto& seg : outer.edges)
-					edgesMemoryPool.pushReuseElement(seg);
-			resultMps = convertToMPS(polyset); 
-		}
-		/* 求交集 */
+		/* --------------- 支持序列式运算的外部接口 --------------- */
+		/* 通过 poly 设置初始多边形集 : 构造内部多边形集对象并将其赋值给 resultMps */
+		void setMPS(const std::vector<MPoint_2>& poly);
+		/* 通过 polyset 设置初始多边形集 : 构造内部多边形集对象并将其赋值给 resultMps */
+		void setMPS(const std::vector<std::vector<MPoint_2>>& polyset);
+		/* 求交集 : 与初始多边形集 resultMps 求交，结果还放在 resultMps */
 		void intersect(const std::vector<MPoint_2> &poly);
 		void intersect(const std::vector<std::vector<MPoint_2>> &polyset);
-		/* 求并集 */
+		/* 求并集 : 与初始多边形集 resultMps 求并，结果还放在 resultMps  */
 		void join(const std::vector<MPoint_2> &poly);
 		void join(const std::vector<std::vector<MPoint_2>> &polyset);
-		/* 求差集 */
-		void differnece(const std::vector<MPoint_2> &poly);
-		void differnece(const std::vector<std::vector<MPoint_2>> &polyset);
-		/* 提取结果 */
+		/* 求差集 : 初始多边形集 resultMps 差 poly(set)，结果还放在 resultMps  */
+		void difference(const std::vector<MPoint_2> &poly);
+		void difference(const std::vector<std::vector<MPoint_2>> &polyset);
+		/* 提取 resultMps 结果 */
 		std::vector<std::vector<MPoint_2>> getResult();
 
-		/* --------------- 支持二元运算接口 --------------- */
+		/* --------------- 支持二元运算外部接口 --------------- */
 		std::vector<std::vector<MPoint_2>> solve(const std::vector<MPoint_2> &poly1, OP_TYPE opt, const std::vector<MPoint_2> &poly2);
 		std::vector<std::vector<MPoint_2>> solve(const std::vector<std::vector<MPoint_2>> &polyset1, OP_TYPE opt, const std::vector<MPoint_2> &poly2);
 		std::vector<std::vector<MPoint_2>> solve(const std::vector<MPoint_2> &poly1, OP_TYPE opt, const std::vector<std::vector<MPoint_2>> &polyset2);
@@ -98,7 +96,6 @@ namespace MBSO {
 		/* 将多边形集合的点集 polyset 转换成 MPolygonSet* 类型 */
 		MPolygonSet* convertToMPS(const std::vector<std::vector<MPoint_2>> & polyset);
 		
-	private:
 		/* @brief 传入两个多边形集，根据布尔运算类型OP_TYPE,返回结果多边形集
 		 * @param mps1: 多边形集A
 		 * @param mps2: 多边形集B
@@ -181,124 +178,124 @@ namespace MBSO {
 		int getBlockYId(double y);
 	};
 
-	inline int Overlay::getBlockXId(double x)
+	inline int MBSOCore::getBlockXId(double x)
 	{
 		int blockX = (x - blkBox.minX) / blockWidth;
 		return blockX;
 	}
 
-	inline int Overlay::getBlockYId(double y)
+	inline int MBSOCore::getBlockYId(double y)
 	{
 		int blockY = (y - blkBox.minY) / blockHeight;
 		return blockY;
 	}
 
-	inline void Overlay::pushBackInterPoint(MVertex* p)
+	inline void MBSOCore::pushBackInterPoint(MVertex* p)
 	{
 		if (!p->isInter) return;
 		if (p->interType == IN_POINT) inPoints.emplace_back(p);
 		else if (p->interType == OUT_POINT) outPoints.emplace_back(p);
 	}
 
-	inline double Overlay::getBlockHeight()
+	inline double MBSOCore::getBlockHeight()
 	{
 		return blockHeight;
 	}
 
-	inline MPolygonSet* Overlay::getResultMps()
+	inline MPolygonSet* MBSOCore::getResultMps()
 	{
 		return this->resultMps;
 	}
 
-	inline void Overlay::getResultMps(MPolygonSet& p)
+	inline void MBSOCore::getResultMps(MPolygonSet& p)
 	{
 		this->resultMps->copy(p);
 	}
 
-	inline MPolygonSet* Overlay::getMps1()
+	inline MPolygonSet* MBSOCore::getMps1()
 	{
 		return mps1;
 	}
 
-	inline MPolygonSet* Overlay::getMps2()
+	inline MPolygonSet* MBSOCore::getMps2()
 	{
 		return mps2;
 	}
 
-	inline OP_TYPE Overlay::getOpt()
+	inline OP_TYPE MBSOCore::getOpt()
 	{
 		return OP_TYPE(this->opt);
 	}
 
-	inline int Overlay::getMaxX()
+	inline int MBSOCore::getMaxX()
 	{
 		return box.maxX;
 	}
 
-	inline int Overlay::getInputSize()
+	inline int MBSOCore::getInputSize()
 	{
 		return mps1->edgeCnt + mps2->edgeCnt;
 	}
-	inline int Overlay::getResultSize()
+	inline int MBSOCore::getResultSize()
 	{
 		return resultMps->edgeCnt;
 	}
 
-	inline int Overlay::getBlockCnt()
+	inline int MBSOCore::getBlockCnt()
 	{
 		return blockCount;
 	}
 
-	inline double Overlay::getBlockWidth()
+	inline double MBSOCore::getBlockWidth()
 	{
 		return blockWidth;
 	}
 
-	inline int Overlay::getMaxY()
+	inline int MBSOCore::getMaxY()
 	{
 		return box.getMaxY();
 	}
 
-	inline int Overlay::getWidth()
+	inline int MBSOCore::getWidth()
 	{
 		return box.getWidth();
 	}
 
-	inline int Overlay::getHeight()
+	inline int MBSOCore::getHeight()
 	{
 		return box.getHeight();
 	}
 
-	inline Bbox Overlay::getBox()
+	inline Bbox MBSOCore::getBox()
 	{
 		return box;
 	}
 
-	inline std::pair<int, int> Overlay::getBlockId(int x, int y)
+	inline std::pair<int, int> MBSOCore::getBlockId(int x, int y)
 	{
 		int blockX = (x - box.minX) / blockWidth;
 		int blockY = (y - box.minY) / blockHeight;
 		return std::move(std::make_pair(blockX, blockY));
 	}
 
-	inline std::pair<int, int> Overlay::getBlockId(MPoint_2& p)
+	inline std::pair<int, int> MBSOCore::getBlockId(MPoint_2& p)
 	{
 		return getBlockId(p.getX(), p.getY());
 	}
 
-	inline MEdge* Overlay::findNextEdge(MVertex* curPt) {
+	inline MEdge* MBSOCore::findNextEdge(MVertex* curPt) {
 		if (curMps == 0) return curPt->nextEdgeA;
 		else return curPt->nextEdgeB;
 	}
 
-	inline MEdge* Overlay::findFrontEdge(MVertex* curPt) {
+	inline MEdge* MBSOCore::findFrontEdge(MVertex* curPt) {
 		//[csg] fix 原项目bug吧
 		//if (curMps == 0) return curPt->frontEdgeB;
 		if (curMps == 0) return curPt->frontEdgeA;
 		else return curPt->frontEdgeB;
 	}
 
-	inline MVertex* Overlay::findFirstInter(INTER_TYPE interType)
+	inline MVertex* MBSOCore::findFirstInter(INTER_TYPE interType)
 	{
 		if (interType == OUT_POINT) {
 			while (outPointsIndex < outPoints.size() && outPoints[outPointsIndex]->isVisted) {
@@ -317,7 +314,7 @@ namespace MBSO {
 		return nullptr;
 	}
 
-	inline void Overlay::pushBackToResultMps(MPolygon& mpolygon)
+	inline void MBSOCore::pushBackToResultMps(MPolygon& mpolygon)
 	{
 		if (mpolygon.edges.size() == 0) return;
 		resultMps->edgeCnt += mpolygon.edges.size();
@@ -327,7 +324,7 @@ namespace MBSO {
 			resultMps->mpolygons.emplace_back(std::move(mpolygon));
 	}
 
-	inline void Overlay::pushBackToResultMps(vector<MEdge*>& outer)
+	inline void MBSOCore::pushBackToResultMps(vector<MEdge*>& outer)
 	{
 		MPolygon newMPolygon(CW);
 		newMPolygon.isNeedInit = true;

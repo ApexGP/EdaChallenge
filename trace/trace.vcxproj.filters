@@ -18,7 +18,13 @@
     <ClCompile Include="trace.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="ManhattanBooleanSetOperation\solve\Overlay.cpp">
+    <ClCompile Include="ManhattanBooleanSetOperation\solve\MBSOCore.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ManhattanBooleanSetOperation\model\MEdge.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ManhattanBooleanSetOperation\model\MPolygon.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -74,10 +80,10 @@
     <ClInclude Include="ManhattanBooleanSetOperation\model\MPolygonSet.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="ManhattanBooleanSetOperation\solve\Overlay.h">
+    <ClInclude Include="ManhattanBooleanSetOperation\solve\MBSOCore.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="ManhattanBooleanSetOperation\ManhattanBooleanSetOperation.h">
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\MemoryPool.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
