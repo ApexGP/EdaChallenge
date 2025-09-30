@@ -127,6 +127,7 @@ private:
 		std::vector<std::vector<int>> components = unionfs.getComponents();
 		// 合并每个联通分量的多边形
 		std::vector<Polygon*> po_merged_polygons;
+		MBSO::Overlay overlay;
 		for (auto& comp : components) {
 			if (comp.size() == 1) {
 				po_merged_polygons.push_back(po_polygons[comp[0]]);
@@ -160,7 +161,14 @@ private:
 						mpoly.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
 					}
 					reverse(mpoly.begin(), mpoly.end());
-					merged_poly_set = MBSO::join(merged_poly_set, mpoly);
+					MBSO::MPolygonSet mps1(merged_poly_set);
+					MBSO::myPolygonSet mpoly_2;
+					mpoly_2.push_back(mpoly);
+					MBSO::MPolygonSet mps2(mpoly_2);
+					MBSO::MPolygonSet res;
+					overlay.solve(&mps1, &mps2, &res, MBSO::OP_TYPE::UNION);
+					merged_poly_set = MBSO::getResult(&res);
+					// merged_poly_set = MBSO::join(merged_poly_set, mpoly);
 				}
 				// 合并后的多边形转回自定义Polygon类
 				assert(merged_poly_set.size() == 1 && "合并后多边形应为单一多边形");
@@ -220,6 +228,7 @@ private:
 
 		// 对每个AA多边形，执行切割（即使不被切割的也要遍历，因为要重新插入到aa_cut_polygons）
 		std::vector<Polygon*> aa_cut_polygons; // 用于记录切割后所有的AA多边形
+		MBSO::Overlay overlay;
 		for (auto& aa_poly : aa_polygons) {
 			int aa_id = aa_poly->id;
 			auto it = aa_cut_by_po.find(aa_id);
@@ -232,16 +241,49 @@ private:
 			std::vector<int>& cutting_po = it->second; // 切割它的PO多边形id列表
 			// 被一个PO切割
 			if (cutting_po.size() == 1) {
-				Polygon_set_2 cut_poly_set;
-				cut_poly_set.insert(poly_ptr[aa_id]->cgal_poly);
-				cut_poly_set.difference(poly_ptr[cutting_po[0]]->cgal_poly);
-				std::list<Polygon_with_holes_2> res;
-				cut_poly_set.polygons_with_holes(std::back_inserter(res));
-				assert(res.size() > 1 && "切割后多边形应不止一个");
+				// Polygon_set_2 cut_poly_set;
+				// cut_poly_set.insert(poly_ptr[aa_id]->cgal_poly);
+				// cut_poly_set.difference(poly_ptr[cutting_po[0]]->cgal_poly);
+				// std::list<Polygon_with_holes_2> res;
+				// cut_poly_set.polygons_with_holes(std::back_inserter(res));
+				// assert(res.size() > 1 && "切割后多边形应不止一个");
+				// // 切割后多边形转回自定义Polygon类
+				// bool first = true;
+				// for (auto it = res.begin(); it != res.end(); ++it) {
+				// 	Polygon_2 new_aa_cgal_poly = it->outer_boundary();
+				MBSO::myPolygonSet cut_poly_set;
+				MBSO::myPolygon mpoly1;
+				mpoly1.reserve(poly_ptr[aa_id]->cgal_poly.size());
+				for (auto& p : poly_ptr[aa_id]->cgal_poly) {
+					mpoly1.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
+				}
+				reverse(mpoly1.begin(), mpoly1.end());
+				cut_poly_set.push_back(mpoly1);
+				MBSO::MPolygonSet mps1(cut_poly_set);
+
+				MBSO::myPolygon mpoly2;
+				mpoly2.reserve(poly_ptr[cutting_po[0]]->cgal_poly.size());
+				for (auto& p : poly_ptr[cutting_po[0]]->cgal_poly) {
+					mpoly2.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
+				}
+				reverse(mpoly2.begin(), mpoly2.end());
+				MBSO::myPolygonSet mpolys_2;
+				mpolys_2.push_back(mpoly2);
+				MBSO::MPolygonSet mps2(mpolys_2);
+
+				MBSO::MPolygonSet res;
+				overlay.solve(&mps1, &mps2, &res, MBSO::OP_TYPE::DIFF);
+				cut_poly_set = MBSO::getResult(&res);
+				assert(cut_poly_set.size() > 1 && "切割后多边形应不止一个");
 				// 切割后多边形转回自定义Polygon类
 				bool first = true;
-				for (auto it = res.begin(); it != res.end(); ++it) {
-					Polygon_2 new_aa_cgal_poly = it->outer_boundary();
+				for (auto it = cut_poly_set.begin(); it != cut_poly_set.end(); ++it) {
+					reverse(it->begin(), it->end());
+					Polygon_2 new_aa_cgal_poly;
+					for (auto& p : *it) {
+						new_aa_cgal_poly.push_back(Point_2(p.getX(), p.getY()));
+					}
+
 					Polygon* new_poly = new Polygon();
 					new_poly->layer_id = poly_ptr[aa_id]->layer_id; // 保持层id不变
 					new_poly->cgal_poly = new_aa_cgal_poly;
@@ -259,18 +301,52 @@ private:
 			}
 			// 被多个PO切割
 			else {
-				Polygon_set_2 cut_poly_set;
-				cut_poly_set.insert(poly_ptr[aa_id]->cgal_poly);
-				for (auto& po_id : cutting_po) { // 逐个求差集
-					cut_poly_set.difference(poly_ptr[po_id]->cgal_poly);
+				// Polygon_set_2 cut_poly_set;
+				// cut_poly_set.insert(poly_ptr[aa_id]->cgal_poly);
+				// for (auto& po_id : cutting_po) { // 逐个求差集
+				// 	cut_poly_set.difference(poly_ptr[po_id]->cgal_poly);
+				// }
+				// std::list<Polygon_with_holes_2> res;
+				// cut_poly_set.polygons_with_holes(std::back_inserter(res));
+				// assert(res.size() > 1 && "切割后多边形应不止一个");
+				// // 切割后多边形转回自定义Polygon类
+				// robin_hood::unordered_map<int, std::vector<int>> po_cut_nodes; // 记录该AA被切割后,各PO连接的AA多边形节点
+				// for (auto it = res.begin(); it != res.end(); ++it) {
+				// 	Polygon_2 new_aa_cgal_poly = it->outer_boundary();
+				MBSO::myPolygonSet cut_poly_set;
+				MBSO::myPolygon mpoly1;
+				mpoly1.reserve(poly_ptr[aa_id]->cgal_poly.size());
+				for (auto& p : poly_ptr[aa_id]->cgal_poly) {
+					mpoly1.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
 				}
-				std::list<Polygon_with_holes_2> res;
-				cut_poly_set.polygons_with_holes(std::back_inserter(res));
-				assert(res.size() > 1 && "切割后多边形应不止一个");
+				reverse(mpoly1.begin(), mpoly1.end());
+				cut_poly_set.push_back(mpoly1);
+				MBSO::MPolygonSet mps1(cut_poly_set);
+
+				MBSO::myPolygonSet mpolys_2;
+				for (auto& po_id : cutting_po) { // 逐个求差集
+					MBSO::myPolygon mpoly2;
+					mpoly2.reserve(poly_ptr[po_id]->cgal_poly.size());
+					for (auto& p : poly_ptr[po_id]->cgal_poly) {
+						mpoly2.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
+					}
+					reverse(mpoly2.begin(), mpoly2.end());
+					mpolys_2.push_back(mpoly2);
+				}
+				MBSO::MPolygonSet mps2(mpolys_2);
+
+				MBSO::MPolygonSet res;
+				overlay.solve(&mps1, &mps2, &res, MBSO::OP_TYPE::DIFF);
+				cut_poly_set = MBSO::getResult(&res);
+				assert(cut_poly_set.size() > 1 && "切割后多边形应不止一个");
 				// 切割后多边形转回自定义Polygon类
 				robin_hood::unordered_map<int, std::vector<int>> po_cut_nodes; // 记录该AA被切割后,各PO连接的AA多边形节点
-				for (auto it = res.begin(); it != res.end(); ++it) {
-					Polygon_2 new_aa_cgal_poly = it->outer_boundary();
+				for (auto it = cut_poly_set.begin(); it != cut_poly_set.end(); ++it) {
+					reverse(it->begin(), it->end());
+					Polygon_2 new_aa_cgal_poly;
+					for (auto& p : *it) {
+						new_aa_cgal_poly.push_back(Point_2(p.getX(), p.getY()));
+					}
 					Polygon* new_poly = new Polygon();
 					new_poly->layer_id = poly_ptr[aa_id]->layer_id; // 保持层id不变
 					new_poly->cgal_poly = new_aa_cgal_poly;

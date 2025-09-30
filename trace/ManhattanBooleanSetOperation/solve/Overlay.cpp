@@ -6,6 +6,127 @@ namespace MBSO {
 
 	Overlay::~Overlay() {}
 
+	void Overlay::setMPS(const std::vector<MPoint_2> &poly) { 
+		// 回收旧的
+		for (auto& outer : resultMps->mpolygons) 
+			for (auto& seg : outer.edges){
+				vertexsMemoryPool.pushReuseElement(seg->ori);
+				edgesMemoryPool.pushReuseElement(seg);
+			}
+		delete resultMps;
+		// 设置新的
+		resultMps = convertToMPS(poly);
+	}
+	
+	ivoid Overlay::setMPS(const std::vector<std::vector<MPoint_2>> &polyset) { 
+		// 回收旧的
+		for (auto& outer : resultMps->mpolygons) 
+			for (auto& seg : outer.edges){
+				edgesMemoryPool.pushReuseElement(seg);
+				vertexsMemoryPool.pushReuseElement(seg->ori);
+			}
+		delete resultMps;
+		// 设置新的
+		resultMps = convertToMPS(polyset); 
+	}
+
+	void intersect(const std::vector<MPoint_2> &poly);
+	void intersect(const std::vector<std::vector<MPoint_2>> &polyset);
+	void join(const std::vector<MPoint_2> &poly);
+	void join(const std::vector<std::vector<MPoint_2>> &polyset);
+	void differnece(const std::vector<MPoint_2> &poly);
+	void differnece(const std::vector<std::vector<MPoint_2>> &polyset);
+	std::vector<std::vector<MPoint_2>> getResult();
+
+	MPolygonSet* Overlay::convertToMPS(const std::vector<MPoint_2> & poly){
+		MPolygonSet *mps = new MPolygonSet;
+		mps->edgeCnt = 0;
+		// 只需构造一个多边形
+		mps->mpolygons.reserve(1);
+		int _mpolySize = poly.size(); // 该多边形边数
+		// 创建多边形
+		MPolygon mpolygon;
+		mpolygon.edges.reserve(_mpolySize);
+		// 构造点集
+		std::vector<MVertex*> vertexs;
+		vertexs.reserve(_mpolySize);
+		for (const auto& _mpoint : _mpoly) {
+			MVertex* mvertex = vertexsMemoryPool.newElement(MVertex(_mpoint));
+			vertexs.emplace_back(mvertex);
+		}
+		// 基于点集构造边集
+		for (int i = 0; i < _mpolySize; ++i) {
+			const auto& start = vertexs[i];
+			const auto& end = vertexs[(i + 1) % _mpolySize];
+			MEdge* medge = new MEdge(start, end);
+			mpolygon.edges.emplace_back(medge);
+			mpolygon.box.update(start->point);
+		}
+		// 建立点到边的连接
+		for (int i = 0; i < _mpolySize; ++i)
+		{
+			const auto& start = vertexs[i];
+			const auto& end = vertexs[(i + 1) % _mpolySize];
+			start->nextEdgeA = start->nextEdgeB = mpolygon.edges[i];
+			end->frontEdgeA = end->frontEdgeB = mpolygon.edges[i];
+		}
+		// 放入多边形集中
+		box.update(mpolygon.box);
+		mps->mpolygons.emplace_back(std::move(mpolygon));
+		mps->edgeCnt += _mpolySize;
+		
+		return mps;
+	}
+
+	MPolygonSet* Overlay::convertToMPS(const std::vector<std::vector<MPoint_2>> & polyset){
+		MPolygonSet *mps = new MPolygonSet;
+		mps->edgeCnt = 0;
+		// 依次构造每个多边形
+		mps->mpolygons.reserve(polyset.size());
+		for (const auto& _mpoly : polyset) {
+			int _mpolySize = _mpoly.size(); // 该多边形边数
+			// 创建多边形
+			MPolygon mpolygon;
+			mpolygon.edges.reserve(_mpolySize);
+			// 构造点集
+			std::vector<MVertex*> vertexs;
+			vertexs.reserve(_mpolySize);
+			for (const auto& _mpoint : _mpoly) {
+				MVertex* mvertex = new MVertex(_mpoint);
+				vertexs.emplace_back(mvertex);
+			}
+			// 基于点集构造边集
+			for (int i = 0; i < _mpolySize; ++i) {
+				const auto& start = vertexs[i];
+				const auto& end = vertexs[(i + 1) % _mpolySize];
+				MEdge* medge = new MEdge(start, end);
+				mpolygon.edges.emplace_back(medge);
+				mpolygon.box.update(start->point);
+			}
+			// 建立点到边的连接
+			for (int i = 0; i < _mpolySize; ++i)
+			{
+				const auto& start = vertexs[i];
+				const auto& end = vertexs[(i + 1) % _mpolySize];
+				start->nextEdgeA = start->nextEdgeB = mpolygon.edges[i];
+				end->frontEdgeA = end->frontEdgeB = mpolygon.edges[i];
+			}
+			// 放入多边形集中
+			box.update(mpolygon.box);
+			mps->mpolygons.emplace_back(std::move(mpolygon));
+			mps->edgeCnt += _mpolySize;
+		}
+		return mps;
+	}
+
+
+
+
+
+
+
+
+
 	void Overlay::solve(MPolygonSet* _mps1, MPolygonSet* _mps2, MPolygonSet* _resultMps, OP_TYPE _opt) {
 		// 赋值
 		mps1 = _mps1, mps2 = _mps2, resultMps = _resultMps, opt = _opt;

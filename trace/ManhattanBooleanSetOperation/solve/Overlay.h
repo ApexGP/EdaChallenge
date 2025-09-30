@@ -4,6 +4,7 @@
 #include "../model/MEdge.h"
 #include "../model/MPolygon.h"
 #include "../model/MPolygonSet.h"
+#include "../utils/MemoryPool.h"
 #include "../utils/Bbox.h"
 #include "../utils/Grid.h"
 #include <unordered_set>
@@ -19,6 +20,9 @@ namespace MBSO {
 	private:
 		MPolygonSet* resultMps;	//结果多边形集
 		OP_TYPE opt;			//操作类型
+
+		MemoryPool<MVertex> vertexsMemoryPool;  // 点内存池
+		MemoryPool<MEdge> edgesMemoryPool;		// 边内存池
 
 		Bbox box;				//两个多边形集整体包围盒
 		Bbox blkBox;			//两个多边形集相交区域包围盒
@@ -47,9 +51,54 @@ namespace MBSO {
 		int outPointsIndex;
 
 	public:
+		/* 构造和析构 */
 		Overlay() : grid(101, 101), equalPoints(2) {};
 		~Overlay();
 
+		/* --------------- 支持序列式运算的接口 --------------- */
+		/* 通过 poly 设置初始多边形集 */
+		void setMPS(const std::vector<MPoint_2> &poly) { 
+			// 回收旧的
+			for (auto& outer : resultMps->mpolygons) 
+				for (auto& seg : outer.edges)
+					edgesMemoryPool.pushReuseElement(seg);
+			delete resultMps;
+			// 设置新的
+			resultMps = convertToMPS(poly);
+		}
+		/* 通过 polyset 设置初始多边形集 */
+		ivoid setMPS(const std::vector<std::vector<MPoint_2>> &polyset) { 
+			for (auto& outer : resultMps->mpolygons) // 回收旧的
+				for (auto& seg : outer.edges)
+					edgesMemoryPool.pushReuseElement(seg);
+			resultMps = convertToMPS(polyset); 
+		}
+		/* 求交集 */
+		void intersect(const std::vector<MPoint_2> &poly);
+		void intersect(const std::vector<std::vector<MPoint_2>> &polyset);
+		/* 求并集 */
+		void join(const std::vector<MPoint_2> &poly);
+		void join(const std::vector<std::vector<MPoint_2>> &polyset);
+		/* 求差集 */
+		void differnece(const std::vector<MPoint_2> &poly);
+		void differnece(const std::vector<std::vector<MPoint_2>> &polyset);
+		/* 提取结果 */
+		std::vector<std::vector<MPoint_2>> getResult();
+
+		/* --------------- 支持二元运算接口 --------------- */
+		std::vector<std::vector<MPoint_2>> solve(const std::vector<MPoint_2> &poly1, OP_TYPE opt, const std::vector<MPoint_2> &poly2);
+		std::vector<std::vector<MPoint_2>> solve(const std::vector<std::vector<MPoint_2>> &polyset1, OP_TYPE opt, const std::vector<MPoint_2> &poly2);
+		std::vector<std::vector<MPoint_2>> solve(const std::vector<MPoint_2> &poly1, OP_TYPE opt, const std::vector<std::vector<MPoint_2>> &polyset2);
+		std::vector<std::vector<MPoint_2>> solve(const std::vector<std::vector<MPoint_2>> &polyset1, OP_TYPE opt, const std::vector<std::vector<MPoint_2>> &polyset2);
+
+
+	private:
+		/* 将多边形点集 poly 转换成 MPolygonSet* 类型 */
+		MPolygonSet* convertToMPS(const std::vector<MPoint_2> & poly);
+		/* 将多边形集合的点集 polyset 转换成 MPolygonSet* 类型 */
+		MPolygonSet* convertToMPS(const std::vector<std::vector<MPoint_2>> & polyset);
+		
+	private:
 		/* @brief 传入两个多边形集，根据布尔运算类型OP_TYPE,返回结果多边形集
 		 * @param mps1: 多边形集A
 		 * @param mps2: 多边形集B
@@ -57,7 +106,7 @@ namespace MBSO {
 		 * @param opt: 操作类型
 		 * @return void
 		*/
-		void solve(MPolygonSet*, MPolygonSet*, MPolygonSet*, OP_TYPE);
+		void solve(MPolygonSet *mps1, MPolygonSet *mps2, MPolygonSet* resultMps, OP_TYPE opt);
 
 		//判断是否需要求解
 		bool isNeedSolve();
@@ -297,7 +346,7 @@ namespace MBSO {
 		for (int i = 0; i < outerSize; ++i) {
 			auto start = vertexs[i];
 			auto end = vertexs[(i + 1) % outerSize];
-			MEdge* edgePtr = new MEdge();
+			MEdge* edgePtr = edgesMemoryPool.newElement();
 			edgePtr->setOriDest(start, end);
 			newMPolygon.box.update(start->point);
 			edgePtr->interPoints.clear();
