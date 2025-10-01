@@ -3,7 +3,7 @@
 namespace MBSO {
 
 	MPolygon::~MPolygon() {}
-	MPolygon::MPolygon(DIR _dir) : dir(_dir), startPt(nullptr),
+	MPolygon::MPolygon(DIR _dir) : dir(_dir),
 		polygonSetId(0), existInterPoint(false),
 		avgLength(0), isNested(false), isResultRecycle(false)
 	{
@@ -12,7 +12,6 @@ namespace MBSO {
 	MPolygon& MPolygon::operator=(const MPolygon& mpolygon)
 	{
 		if (this == &mpolygon) return *this;
-		startPt = mpolygon.startPt;
 		edges = mpolygon.edges;
 		dir = mpolygon.dir;
 		polygonSetId = mpolygon.polygonSetId;
@@ -26,7 +25,6 @@ namespace MBSO {
 	MPolygon::MPolygon(const MPolygon& mpolygon)
 	{
 		if (this == &mpolygon) return;
-		startPt = mpolygon.startPt;
 		edges = mpolygon.edges;
 		dir = mpolygon.dir;
 		polygonSetId = mpolygon.polygonSetId;
@@ -38,8 +36,6 @@ namespace MBSO {
 	}
 	MPolygon& MPolygon::operator=(MPolygon&& mpolygon) noexcept {
 		if (this != &mpolygon) {
-			startPt = mpolygon.startPt;
-			mpolygon.startPt = nullptr;
 			edges = move(mpolygon.edges);
 			dir = mpolygon.dir;
 			polygonSetId = mpolygon.polygonSetId;
@@ -54,8 +50,6 @@ namespace MBSO {
 	MPolygon::MPolygon(MPolygon&& mpolygon) noexcept
 	{
 		if (this == &mpolygon) return;
-		startPt = mpolygon.startPt;
-		mpolygon.startPt = nullptr;
 		edges = move(mpolygon.edges);
 		dir = mpolygon.dir;
 		polygonSetId = mpolygon.polygonSetId;
@@ -75,10 +69,12 @@ namespace MBSO {
 		isResultRecycle = false;
 
 		int n = edges.size();
+		if (n == 0)return;
+		// 遍历边集
 		for (int i = 0; i < n; ++i) {
 			// 点相关初始化
 			auto vertex = edges[i]->ori; // 取边起点
-			edges[i]->dest = edges[(i + 1) % n]->ori;
+			edges[i]->dest = edges[(i + 1) % n]->ori; // 连接
 			vertex->resetFlags();
 			vertex->polygonPtr = this;
 			vertex->nextEdgeA = vertex->nextEdgeB = edges[i];

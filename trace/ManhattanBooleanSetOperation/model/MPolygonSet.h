@@ -12,7 +12,9 @@ namespace MBSO {
 		std::vector<MPolygon> mpolygons;// 存储集合所有的多边形轮廓
 		Bbox box;						// 整个集合的包围盒
 		int edgeCnt;					// 该多边形集包含的边数
-		bool isNeedResetStatus;			// 是否需要重置该多边形集内部的几何元素状态
+		bool isNeedResetStatus;			// 是否需要重置该多边形集内部的几何元素状态 
+										/*(利用标志位惰性初始化，比如产生结果集后，将标志位置true，
+										   如果它被用于参与下次运算，就会真正的被调用初始化，如果它不参与后续运算了，那么内部状态无须重置，节省开销) */
 
 		MPolygonSet() { edgeCnt = 0; isNeedResetStatus = true; }
 		~MPolygonSet() {}
@@ -27,7 +29,7 @@ namespace MBSO {
 			{
 				auto& mpoly = mpolygons[i];
 				mpoly.dir = CW;
-				mpoly.resetStatus();
+				mpoly.resetStatus(); // 重置各个多边形内部几何元素状态
 				box.update(mpoly.box);
 				edgeCnt += mpoly.edges.size();
 			}

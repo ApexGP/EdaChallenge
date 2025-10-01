@@ -55,9 +55,9 @@ namespace MBSO {
                 curPoolIndex++;
                 if (curPoolIndex >= MAX_POOL_SIZE)
                 {
-                    throw std::runtime_error("内存池太小了");
+                    throw std::runtime_error("MemoryPool is too small!");
                 }
-                std::cerr << "内存池扩容" << std::endl;
+                std::cerr << "MemoryPool Expand Capacity" << std::endl;
                 allElements.emplace_back(vector<T>());
                 allElements[curPoolIndex].resize(MAX_ELE_SIZE);
                 curEleSize = 0;
@@ -67,7 +67,6 @@ namespace MBSO {
 
         void pushReuseElement(T* t)
         {
-            t->isResultRecycle = false;
             reuseElements.push_back(t);
         }
 

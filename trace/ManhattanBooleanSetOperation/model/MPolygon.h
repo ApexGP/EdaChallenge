@@ -13,7 +13,6 @@ namespace MBSO {
 	{
 		/* 拓扑信息 */
 		std::vector<MEdge*> edges;	// 轮廓所包含的所有的边
-		MVertex* startPt;			// 轮廓绕边起点
 		int polygonSetId;			// 所属曼哈顿多边形集的id （0或1，多边形集A则为0，多边形集B则为1）
 		DIR dir;					// 类型(外轮廓or空洞)
 		/* 标记信息 */
@@ -32,7 +31,7 @@ namespace MBSO {
 		MPolygon& operator=(MPolygon&& mpolygon) noexcept;
 		MPolygon(MPolygon&& mpolygon) noexcept;
 
-		// 重置部分内部状态
+		// 重置部或初始化内部几何元素状态
 		void resetStatus();
 
 		// 判断两个轮廓的包含关系的时候，如果不存在交点，那么就需要判断某个点是否在另一个多边形内部

@@ -55,7 +55,7 @@ namespace MBSO {
 		MBSOCore(): mps1(new MPolygonSet), mps2(new MPolygonSet), resultMps(new MPolygonSet), opt(UNION),
 					grid(101, 101), blockWidth(0), blockHeight(0), blockCount(0),
 					inPointsIndex(0), outPointsIndex(0), equalPoints(2), curMps(0),
-					vertexsMemoryPool(10000000, 200), edgesMemoryPool(10000000, 200)
+					vertexsMemoryPool(10000, 20), edgesMemoryPool(10000, 20)
 		{};
 		~MBSOCore() {
 			// 释放曾经new的MPolygonSet, 边和点由内存池统一管理
@@ -323,7 +323,6 @@ namespace MBSO {
 		if (mpolygon.edges.size() == 0) return;
 		resultMps->edgeCnt += mpolygon.edges.size();
 		resultMps->box.update(mpolygon.box);
-		int size = mpolygon.edges.size();
 		resultMps->mpolygons.emplace_back(std::move(mpolygon));
 		// 多边形标记为被结果复用
 		mpolygon.isResultRecycle = true;
@@ -354,9 +353,9 @@ namespace MBSO {
 			newMPolygon.box.update(start->point);
 			// newMPolygon.edges.emplace_back(edgePtr);
 			newMPolygon.edges.emplace_back(outer[i]);
-			// 标记边为已复用
+			// 标记边为被结果复用
 			outer[i]->isResultRecycle = true;
-			// 标记点为已复用
+			// 标记点为被结果复用
 			start->isResultRecycle = true;
 			end->isResultRecycle = true;
 		}

@@ -210,7 +210,7 @@ namespace MBSO {
 		}
 		// 放入多边形集中
 		mps->mpolygons.emplace_back(std::move(mpolygon));
-		// 其他初始化
+		// 初始化多边形集内部几何元素状态
 		mps->isNeedResetStatus = true;
 		mps->resetStatus();
 	}
@@ -242,7 +242,7 @@ namespace MBSO {
 			// 放入多边形集中
 			mps->mpolygons.emplace_back(std::move(mpolygon));
 		}
-		// 其他初始化
+		// 初始化多边形集内部几何元素状态
 		mps->isNeedResetStatus = true;
 		mps->resetStatus();
 	}
@@ -578,7 +578,7 @@ namespace MBSO {
 			auto& interPs = seg->interPoints;
 			// 如果没有交点，跳过
 			if (interPs.size() == 0) continue;
-			// 交点大于2则先按交点到边起点的距离从小到大排序
+			// 交点大于等于2则先按交点到边起点的距离从小到大排序
 			if (interPs.size() >= 2) {
 				sort(interPs.begin(), interPs.end(), [&](const MVertex* x, const MVertex* y) {return seg->seg.distanceFromOri(x->point) < seg->seg.distanceFromOri(y->point); });
 			}
@@ -592,6 +592,7 @@ namespace MBSO {
 				newEdges.emplace_back(curSeg);
 				curSeg->setOriDest(pre, cur, seg->polygonSetId);
 				curSeg->polygonPtr = seg->polygonPtr;
+				curSeg->isResultRecycle = false;
 
 				// 连接拓扑
 				if (seg->polygonSetId == 0) // 属于多边形集A
@@ -606,12 +607,13 @@ namespace MBSO {
 			newEdges.emplace_back(curSeg);
 			curSeg->setOriDest(pre, seg->dest, seg->polygonSetId);
 			curSeg->polygonPtr = seg->polygonPtr;
+			curSeg->isResultRecycle = false;
 			if (seg->polygonSetId == 0) pre->nextEdgeA = curSeg, seg->dest->frontEdgeA = curSeg;
 			else pre->nextEdgeB = curSeg, seg->dest->frontEdgeB = curSeg;
-			seg->resetFlags(); // 该边已经被拆分完了，重置
+			seg->resetFlags(); // 该边已经被拆分完了，重置内部状态(释放存储的交点)
 		}
 
-		// 处理端点
+		// 处理端点相交的情况
 		for (auto& seg : hasInterEdges)
 		{
 			for (int i = 0; i <= 1; ++i)
@@ -765,6 +767,8 @@ namespace MBSO {
 		MEdge* segB = edgesMemoryPool.newElement();
 		newEdges.emplace_back(segA);
 		newEdges.emplace_back(segB);
+		segA->isResultRecycle = false;
+		segB->isResultRecycle = false;
 		MVertex* pre = nullptr, * next = nullptr;
 		// 在 A 中插入 p;
 		if (minPtA == cur->frontEdgeA->ori->point) {	// cur 之前插入
@@ -845,7 +849,7 @@ namespace MBSO {
 				int polygonSetId = anotherIsolated[j]->polygonSetId;
 				if (!outer->box.isBeContained(anotherIsolated[j]->box)) continue;
 				//检测多边形outer的任意一个顶点是否在多边形anotherIsolated[j]内部, 是则能发生嵌套
-				if (anotherIsolated[j]->isInside(outer->startPt->point))
+				if (anotherIsolated[j]->isInside(outer->edges[0]->ori->point))
 				{
 					if (opt == UNION)
 					{
@@ -901,7 +905,6 @@ namespace MBSO {
 				// 找到第一个没被访问的交点，标记为 S
 				curPt = findFirstInter(nextInterType);
 				if (curPt == nullptr) break;
-				//if (curPt == startPt || curPt->isInter == false) break;
 				if (!curPt->isInter || curPt->interType != nextInterType) continue;
 				s = curPt;
 				firstCross = true;
@@ -945,7 +948,6 @@ namespace MBSO {
 				curMps = 0;
 				curPt = findFirstInter(nextInterType);
 				if (curPt == nullptr) break;
-				//if (curPt == startPt || curPt->isInter == false) break;
 				if (!curPt->isInter || curPt->interType != nextInterType) continue;
 				s = curPt;
 				firstCross = true;
@@ -992,7 +994,6 @@ namespace MBSO {
 				INTER_TYPE nextInterType = INTER_TYPE::OUT_POINT;
 				curPt = findFirstInter(nextInterType);
 				if (curPt == nullptr) break;
-				//if (curPt == startPt || curPt->isInter == false) break;
 				if (!curPt->isInter || curPt->interType != nextInterType) continue;
 				s = curPt;
 				firstCross = true;
@@ -1076,6 +1077,8 @@ namespace MBSO {
 
 	void MBSOCore::memoryRecycle()
 	{
+		std::unordered_set<MVertex*> points;
+
 		// 回收mps1
 		for (auto& mpoly : mps1->mpolygons)
 		{
@@ -1087,10 +1090,13 @@ namespace MBSO {
 				if (edge->isResultRecycle) continue;
 				// 否则回收边
 				edgesMemoryPool.pushReuseElement(edge);
-				// 再看点
+				// 再看该边的起点
 				if (edge->ori->isResultRecycle) continue;
-				// 否则回收点
-				vertexsMemoryPool.pushReuseElement(edge->ori);
+				// 否则回收点（点必须未回收过，不然会产生重回收的bug）
+				if (points.count(edge->ori) == 0) {
+					vertexsMemoryPool.pushReuseElement(edge->ori);
+					points.insert(edge->ori);
+				}
 			}
 		}
 		mps1->clear();
@@ -1103,20 +1109,29 @@ namespace MBSO {
 				if (edge->isResultRecycle) continue;
 				edgesMemoryPool.pushReuseElement(edge);
 				if (edge->ori->isResultRecycle) continue;
-				vertexsMemoryPool.pushReuseElement(edge->ori);
+				if (points.count(edge->ori) == 0) {
+					vertexsMemoryPool.pushReuseElement(edge->ori);
+					points.insert(edge->ori);
+				}
 			}
 		}
 		mps2->clear();
 
-		resultMps->isNeedResetStatus = true; // 这样如果还要用它参与下次运算，则会在 initial() 函数被初始化
+		//置结果集初始化标志位，这样如果还要用它参与下次运算，则其内部几何元素的状态才会在下次运算前于 initial() 函数被初始化
+		resultMps->isNeedResetStatus = true; 
 
 		// 回收未被复用的新边
 		for (auto& edge : newEdges) 
-			if (edge->isResultRecycle) edgesMemoryPool.pushReuseElement(edge);
+			if (!edge->isResultRecycle) edgesMemoryPool.pushReuseElement(edge);
 		
 		// 回收未被复用的新点
 		for (auto& vertex : newVertexs) 
-			if (vertex->isResultRecycle) vertexsMemoryPool.pushReuseElement(vertex);
+			if (!vertex->isResultRecycle) {
+				if (points.count(vertex) == 0) {
+					vertexsMemoryPool.pushReuseElement(vertex);
+					points.insert(vertex);
+				}
+			}
 	}
 
 } // namespace MBSO
