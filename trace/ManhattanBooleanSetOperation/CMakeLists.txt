@@ -4,6 +4,7 @@ project(ManhattanBooleanSetOperation)
 
 # 设置源文件
 set(SOURCES
+    model/MVertex.cpp
     model/MEdge.cpp
     model/MPolygon.cpp
     solve/MBSOCore.cpp

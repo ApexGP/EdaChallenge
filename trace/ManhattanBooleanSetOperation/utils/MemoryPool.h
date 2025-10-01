@@ -67,6 +67,7 @@ namespace MBSO {
 
         void pushReuseElement(T* t)
         {
+            t->isResultRecycle = false;
             reuseElements.push_back(t);
         }
 

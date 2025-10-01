@@ -355,10 +355,10 @@ namespace MBSO {
 
 		// 内存复用相关
 		int allSegsSize = mps1->edgeCnt + mps2->edgeCnt;
-		noNeedVertexs.clear();
-		noNeedEdges.clear();
-		noNeedVertexs.reserve(allSegsSize);
-		noNeedEdges.reserve(allSegsSize);
+		newVertexs.clear();
+		newEdges.clear();
+		newVertexs.reserve(allSegsSize);
+		newEdges.reserve(allSegsSize);
 	}
 
 	inline void MBSOCore::caculateIntersBasedOnBlocks() {
@@ -375,14 +375,14 @@ namespace MBSO {
 		}
 
 		std::unordered_set <pair<MEdge*, MEdge*>, pair_hash> calculated;
-		// 遍历所有的格子，然后遍历格子里面的所有线段 [csg]?为啥不直接只遍历有线段的格子
-		for(auto& pa:grid.usedId)
-		//for (int i = 0; i <= blockCount; ++i)
-		//{
-			//for (int j = 0; j <= blockCount; ++j)
+		// 遍历所有的格子，然后遍历格子里面的所有线段 [csg]?直接只遍历有线段的格子竟然更慢
+		// for(auto& pa:grid.usedId)
+		// int i = pa.first;
+		// int j = pa.second;
+		for (int i = 0; i <= blockCount; ++i)
+		{
+			for (int j = 0; j <= blockCount; ++j)
 			{
-			int i = pa.first;
-			int j = pa.second;
 				if (grid.grid[i][j].size() <= 1) continue;
 				int n = grid.grid[i][j].size();
 				for (int ii = 0; ii < n; ++ii)
@@ -406,7 +406,7 @@ namespace MBSO {
 					}
 				}
 			}
-		//}
+		}
 	}
 
 	void MBSOCore::chooseBlkCntBasedOnInterRegion() {
@@ -545,6 +545,7 @@ namespace MBSO {
 			// 交点不在端点处
 			// 新建交点
 			MVertex* p1 = vertexsMemoryPool.newElement(MVertex(inter_p));
+			newVertexs.emplace_back(p1);
 			p1->isInter = true;
 			p1->pointType = SEG_SEG;
 			p1->isFinished = true;
@@ -571,7 +572,6 @@ namespace MBSO {
 	{
 		MVertex* cur = nullptr, * pre = nullptr;
 		// 先把所有的交点插入到线段中
-		std::unordered_set<MVertex*> points;
 		// 遍历所有有交点的线段
 		for (auto& seg : hasInterEdges)
 		{
@@ -586,11 +586,10 @@ namespace MBSO {
 			pre = seg->ori;
 			for (auto& node : interPs)
 			{
-				points.insert(node);
 				cur = node;
 				// 生成新边
 				MEdge* curSeg = edgesMemoryPool.newElement();
-				noNeedEdges.emplace_back(curSeg);
+				newEdges.emplace_back(curSeg);
 				curSeg->setOriDest(pre, cur, seg->polygonSetId);
 				curSeg->polygonPtr = seg->polygonPtr;
 
@@ -604,7 +603,7 @@ namespace MBSO {
 
 			// 最后一条边
 			MEdge* curSeg = edgesMemoryPool.newElement();
-			noNeedEdges.emplace_back(curSeg);
+			newEdges.emplace_back(curSeg);
 			curSeg->setOriDest(pre, seg->dest, seg->polygonSetId);
 			curSeg->polygonPtr = seg->polygonPtr;
 			if (seg->polygonSetId == 0) pre->nextEdgeA = curSeg, seg->dest->frontEdgeA = curSeg;
@@ -619,7 +618,6 @@ namespace MBSO {
 			{
 				auto& cur = (i == 0 ? seg->ori : seg->dest);
 				if (!cur->isInter || cur->isFinished) continue;
-				points.insert(cur);
 				// 是交点，判断交点类型
 				if (cur->pointType == POINT_POINT) // 两个端点相交
 				{
@@ -752,6 +750,7 @@ namespace MBSO {
 		}
 		// 两个不相等，因此只能拆点了，并且一正一负
 		MVertex* p = vertexsMemoryPool.newElement(*cur);
+		newVertexs.emplace_back(p);
 		p->polygonSetId = cur->polygonSetId, p->isInter = cur->isInter, p->pointType = cur->pointType;
 		p->frontEdgeA = cur->frontEdgeA, p->nextEdgeA = cur->nextEdgeA;
 		p->frontEdgeB = cur->frontEdgeB, p->nextEdgeB = cur->nextEdgeB;
@@ -764,8 +763,8 @@ namespace MBSO {
 		// 需要创建一条边，
 		MEdge* segA = edgesMemoryPool.newElement();
 		MEdge* segB = edgesMemoryPool.newElement();
-		noNeedEdges.emplace_back(segA);
-		noNeedEdges.emplace_back(segB);
+		newEdges.emplace_back(segA);
+		newEdges.emplace_back(segB);
 		MVertex* pre = nullptr, * next = nullptr;
 		// 在 A 中插入 p;
 		if (minPtA == cur->frontEdgeA->ori->point) {	// cur 之前插入
@@ -1077,23 +1076,47 @@ namespace MBSO {
 
 	void MBSOCore::memoryRecycle()
 	{
-		for (auto& outer : mps1->mpolygons)
+		// 回收mps1
+		for (auto& mpoly : mps1->mpolygons)
 		{
-			if (!outer.existInterPoint) continue;
-			for (auto& seg : outer.edges) edgesMemoryPool.pushReuseElement(seg);
+			// 若是被结果复用了的多边形，跳过
+			if (mpoly.isResultRecycle) continue; 
+			// 否则遍历边列表
+			for (auto& edge : mpoly.edges){
+				// 如果边被复用，跳过 (原始边被复用，两个原始顶点一定也被复用了吗？)
+				if (edge->isResultRecycle) continue;
+				// 否则回收边
+				edgesMemoryPool.pushReuseElement(edge);
+				// 再看点
+				if (edge->ori->isResultRecycle) continue;
+				// 否则回收点
+				vertexsMemoryPool.pushReuseElement(edge->ori);
+			}
 		}
 		mps1->clear();
 
-		for (auto& outer : mps2->mpolygons)
+		// 回收mps2
+		for (auto& mpoly : mps2->mpolygons)
 		{
-			if (!outer.existInterPoint) continue;
-			for (auto& seg : outer.edges) edgesMemoryPool.pushReuseElement(seg);
+			if (mpoly.isResultRecycle) continue; 
+			for (auto& edge : mpoly.edges){
+				if (edge->isResultRecycle) continue;
+				edgesMemoryPool.pushReuseElement(edge);
+				if (edge->ori->isResultRecycle) continue;
+				vertexsMemoryPool.pushReuseElement(edge->ori);
+			}
 		}
 		mps2->clear();
 
 		resultMps->isNeedResetStatus = true; // 这样如果还要用它参与下次运算，则会在 initial() 函数被初始化
 
-		for (auto& seg : noNeedEdges) edgesMemoryPool.pushReuseElement(seg);
+		// 回收未被复用的新边
+		for (auto& edge : newEdges) 
+			if (edge->isResultRecycle) edgesMemoryPool.pushReuseElement(edge);
+		
+		// 回收未被复用的新点
+		for (auto& vertex : newVertexs) 
+			if (vertex->isResultRecycle) vertexsMemoryPool.pushReuseElement(vertex);
 	}
 
 } // namespace MBSO

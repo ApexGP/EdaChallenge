@@ -47,8 +47,8 @@ namespace MBSO {
 		// 内存复用相关
 		MemoryPool<MVertex> vertexsMemoryPool;  // 点内存池
 		MemoryPool<MEdge> edgesMemoryPool;		// 边内存池
-		vector<MVertex*> noNeedVertexs;			// 无用点记录，把最终不属于结果多边形集的点都记录下来，运算结束后统一回收
-		vector<MEdge*> noNeedEdges;				// 无用边记录，把最终不属于结果多边形集的边都记录下来，运算结束后统一回收
+		vector<MVertex*> newVertexs;			// 记录运算过程中新生成的点，运算结束后统一回收 未被结果多边形集复用的点
+		vector<MEdge*> newEdges;				// 记录运算过程中新生成的边，运算结束后统一回收 未被结果多边形集复用的边
 
 	public:
 		/* 默认构造和析构 */
@@ -324,8 +324,9 @@ namespace MBSO {
 		resultMps->edgeCnt += mpolygon.edges.size();
 		resultMps->box.update(mpolygon.box);
 		int size = mpolygon.edges.size();
-		if (mpolygon.dir == CW)
-			resultMps->mpolygons.emplace_back(std::move(mpolygon));
+		resultMps->mpolygons.emplace_back(std::move(mpolygon));
+		// 多边形标记为被结果复用
+		mpolygon.isResultRecycle = true;
 	}
 
 	inline void MBSOCore::pushBackToResultMps(vector<MEdge*>& outer)
@@ -346,11 +347,18 @@ namespace MBSO {
 		for (int i = 0; i < outerSize; ++i) {
 			auto start = vertexs[i];
 			auto end = vertexs[(i + 1) % outerSize];
-			MEdge* edgePtr = edgesMemoryPool.newElement();
-			edgePtr->setOriDest(start, end);
+			// 复用边
+			outer[i]->setOriDest(start, end);
+			// MEdge* edgePtr = edgesMemoryPool.newElement();
+			// edgePtr->setOriDest(start, end);
 			newMPolygon.box.update(start->point);
-			edgePtr->interPoints.clear();
-			newMPolygon.edges.emplace_back(edgePtr);
+			// newMPolygon.edges.emplace_back(edgePtr);
+			newMPolygon.edges.emplace_back(outer[i]);
+			// 标记边为已复用
+			outer[i]->isResultRecycle = true;
+			// 标记点为已复用
+			start->isResultRecycle = true;
+			end->isResultRecycle = true;
 		}
 		pushBackToResultMps(newMPolygon);
 	}
