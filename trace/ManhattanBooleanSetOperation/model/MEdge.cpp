@@ -2,18 +2,30 @@
 
 namespace MBSO {
 
-	MEdge::MEdge() : ori(nullptr), dest(nullptr), polygonSetId(-1), polygonPtr(nullptr)
+	MEdge::MEdge() : ori(nullptr), dest(nullptr), polygonSetId(-1), polygonPtr(nullptr), isResultRecycle(false)
 	{
 	}
 
-	MEdge::MEdge(MVertex* s, MVertex* e) : ori(s), dest(e), polygonSetId(-1), polygonPtr(nullptr), seg(s->point, e->point)
+	MEdge::MEdge(MVertex* s, MVertex* e) : ori(s), dest(e), polygonSetId(-1), polygonPtr(nullptr), seg(s->point, e->point), isResultRecycle(false)
 	{
 	}
 
-	void MEdge::init()
+	void MEdge::resetAll()
+	{
+		ori = nullptr;
+		dest = nullptr;
+		polygonSetId = -1;
+		polygonPtr = nullptr;
+		seg = MSegment_2();
+		interPoints.clear();
+		isResultRecycle = false;
+	}
+
+	void MEdge::resetFlags()
 	{
 		seg.setSeg(ori->point, dest->point);
 		interPoints.clear();
+		isResultRecycle = false;
 	}
 
 	void MEdge::reverse()

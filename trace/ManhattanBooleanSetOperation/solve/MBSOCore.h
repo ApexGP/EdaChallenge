@@ -14,35 +14,23 @@ namespace MBSO {
 	using std::vector;
 
 	class MBSOCore {
-	public:
+	private:
 		MPolygonSet* mps1;		//多边形集A
 		MPolygonSet* mps2;		//多边形集B
-	private:
 		MPolygonSet* resultMps;	//结果多边形集
 		OP_TYPE opt;			//操作类型
 
-		MemoryPool<MVertex> vertexsMemoryPool;  // 点内存池
-		MemoryPool<MEdge> edgesMemoryPool;		// 边内存池
-
 		Bbox box;				//两个多边形集整体包围盒
 		Bbox blkBox;			//两个多边形集相交区域包围盒
-		Grid<MEdge*> grid;		//网格
-		double blockWidth, blockHeight; // 网格大小
-		int blockCount;		    // 网格数量，一行或一列的网格数量，行和列数相等
 
-		int curMps;				//走边公共变量 标识当前走边多边形集Id: 即polygonSetId
+		Grid<MEdge*> grid;		//网格存边
+		double blockWidth;		//当前每个小网格宽度
+		double blockHeight;		//当前每个小网格高度
+		int blockCount;		    //当前划分的一行或一列的网格数量，行和列数是相等的
 
-		std::vector<MVertex*> equalPoints;	// 需要初始化为 2
-
-		// 记忆存在交点的边，缩小遍历范围
-		std::unordered_set<MEdge*> hasInterEdges;
-
-		// 内存回收相关，需要把临时 new 出来的放进去，把非孤立轮廓的边，全放入空闲链表。
-		vector<MEdge*> noNeedSegs;
-
-		// 公用的多边形数据信息
+		// 其他公用的多边形数据信息，用于网格、嵌套、绕边
 		vector<MPolygon*> isolatedBeContained;		// 存交集区域包围盒内部的多边形轮廓
-		vector<MPolygon*> beCollided;				// 存与交集区域碰撞的多边形轮廓
+		vector<MPolygon*> beCollided;				// 存与交集区域包围盒碰撞的多边形轮廓（相交的+在内部的）
 		vector<MPolygon*> isolated1;				// 存多边形集A: mps1的所有轮廓
 		vector<MPolygon*> isolated2;				// 存多边形集B: mps2的所有轮廓
 		vector<MVertex*> inPoints;					// 存所有的入点
@@ -50,27 +38,40 @@ namespace MBSO {
 		int inPointsIndex;
 		int outPointsIndex;
 
+		// 记忆存在交点的边，用于将交点插入边拓扑时缩小遍历范围
+		std::unordered_set<MEdge*> hasInterEdges;
+
+		std::vector<MVertex*> equalPoints;	//用于处理端点相交的情况，size需要初始化为 2
+		int curMps;	 //绕边变量，标识当前绕边的多边形集Id: 即polygonSetId
+
+		// 内存复用相关
+		MemoryPool<MVertex> vertexsMemoryPool;  // 点内存池
+		MemoryPool<MEdge> edgesMemoryPool;		// 边内存池
+		vector<MVertex*> noNeedVertexs;			// 无用点记录，把最终不属于结果多边形集的点都记录下来，运算结束后统一回收
+		vector<MEdge*> noNeedEdges;				// 无用边记录，把最终不属于结果多边形集的边都记录下来，运算结束后统一回收
+
 	public:
-		/* 构造和析构 */
-		MBSOCore() : vertexsMemoryPool(1000000,200), edgesMemoryPool(10000000, 200), resultMps(new MPolygonSet), grid(101, 101), equalPoints(2) {};
+		/* 默认构造和析构 */
+		MBSOCore(): mps1(new MPolygonSet), mps2(new MPolygonSet), resultMps(new MPolygonSet), opt(UNION),
+					grid(101, 101), blockWidth(0), blockHeight(0), blockCount(0),
+					inPointsIndex(0), outPointsIndex(0), equalPoints(2), curMps(0),
+					vertexsMemoryPool(10000000, 200), edgesMemoryPool(10000000, 200)
+		{};
 		~MBSOCore() {
 			// 释放曾经new的MPolygonSet, 边和点由内存池统一管理
-			if (mps1 != nullptr) {
-				delete mps1;
-			}
-			if (mps2 != nullptr) {
-				delete mps2;
-			}
-			if (resultMps != nullptr) {
-				delete resultMps;
-			}
+			if (mps1 != nullptr) delete mps1;
+			if (mps2 != nullptr) delete mps2;
+			if (resultMps != nullptr) delete resultMps;
 		};
+		// 禁止拷贝赋值
+		MBSOCore(const MBSOCore&) = delete;
+		MBSOCore& operator=(const MBSOCore&) = delete;
 
 		/* --------------- 支持序列式运算的外部接口 --------------- */
 		/* 通过 poly 设置初始多边形集 : 构造内部多边形集对象并将其赋值给 resultMps */
-		void setMPS(const std::vector<MPoint_2>& poly);
+		void setResultMPS(const std::vector<MPoint_2>& poly);
 		/* 通过 polyset 设置初始多边形集 : 构造内部多边形集对象并将其赋值给 resultMps */
-		void setMPS(const std::vector<std::vector<MPoint_2>>& polyset);
+		void setResultMPS(const std::vector<std::vector<MPoint_2>>& polyset);
 		/* 求交集 : 与初始多边形集 resultMps 求交，结果还放在 resultMps */
 		void intersect(const std::vector<MPoint_2> &poly);
 		void intersect(const std::vector<std::vector<MPoint_2>> &polyset);
@@ -91,12 +92,15 @@ namespace MBSO {
 
 
 	private:
-		/* 将多边形点集 poly 转换成 MPolygonSet* 类型 */
-		MPolygonSet* convertToMPS(const std::vector<MPoint_2> & poly);
-		/* 将多边形集合的点集 polyset 转换成 MPolygonSet* 类型 */
-		MPolygonSet* convertToMPS(const std::vector<std::vector<MPoint_2>> & polyset);
+		/* 在指针 mps 指向的内存区域, 将多边形点集 poly 转换成 MPolygonSet* 类型，调用前确保 mps 非空且 mps->mpolygons.size() 为 0 */
+		void convertToMPS(const std::vector<MPoint_2> & poly, MPolygonSet* & mps);
+		/* 在指针 mps 指向的内存区域，将多边形集合的点集 polyset 转换成 MPolygonSet* 类型，调用前确保 mps 非空且 mps->mpolygons.size() 为 0*/
+		void convertToMPS(const std::vector<std::vector<MPoint_2>> & polyset, MPolygonSet* & mps);
 		
-		/* @brief 传入两个多边形集，根据布尔运算类型OP_TYPE,返回结果多边形集
+		/* @brief 传入两个多边形集，根据布尔运算类型OP_TYPE, 返回结果多边形集
+		 * @note 调用之前，resultMps处于初始状态。求解过程中会复用mps1和mps2的可复用几何元素,将所有权交给resultMps。
+		 * 求解完成后通过 memoryRecycle() 回收mps1和mps2中未被复用的几何元素，并将mps1和mps2置为初始状态
+		 * “初始状态”：指该对象通过默认构造函数生成的状态（或clear()）
 		 * @param mps1: 多边形集A
 		 * @param mps2: 多边形集B
 		 * @param resultMps: 结果多边形集
@@ -105,7 +109,7 @@ namespace MBSO {
 		*/
 		void solve(MPolygonSet *mps1, MPolygonSet *mps2, MPolygonSet* resultMps, OP_TYPE opt);
 
-		//判断是否需要求解
+		//判断是否需要求解,
 		bool isNeedSolve();
 		//初始化工作
 		void initial();
@@ -327,7 +331,6 @@ namespace MBSO {
 	inline void MBSOCore::pushBackToResultMps(vector<MEdge*>& outer)
 	{
 		MPolygon newMPolygon(CW);
-		newMPolygon.isNeedInit = true;
 		int outerSize = outer.size();
 		vector<MVertex*> vertexs;
 		newMPolygon.edges.reserve(outerSize);

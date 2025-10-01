@@ -4,8 +4,8 @@ namespace MBSO {
 
 	MPolygon::~MPolygon() {}
 	MPolygon::MPolygon(DIR _dir) : dir(_dir), startPt(nullptr),
-		id(0), polygonSetId(0), existInterPoint(false),
-		avgLength(0), isNeedInit(true), isNested(false), isReverse(false)
+		polygonSetId(0), existInterPoint(false),
+		avgLength(0), isNested(false), isResultRecycle(false)
 	{
 	}
 
@@ -16,13 +16,11 @@ namespace MBSO {
 		edges = mpolygon.edges;
 		dir = mpolygon.dir;
 		polygonSetId = mpolygon.polygonSetId;
-		id = mpolygon.id;
 		existInterPoint = mpolygon.existInterPoint;
 		isNested = mpolygon.isNested;
 		box = mpolygon.box;
-		isNeedInit = mpolygon.isNeedInit;
-		isReverse = mpolygon.isReverse;
 		avgLength = mpolygon.avgLength;
+		isResultRecycle = mpolygon.isResultRecycle;
 		return *this;
 	}
 	MPolygon::MPolygon(const MPolygon& mpolygon)
@@ -32,13 +30,26 @@ namespace MBSO {
 		edges = mpolygon.edges;
 		dir = mpolygon.dir;
 		polygonSetId = mpolygon.polygonSetId;
-		id = mpolygon.id;
 		existInterPoint = mpolygon.existInterPoint;
 		isNested = mpolygon.isNested;
 		box = mpolygon.box;
-		isNeedInit = mpolygon.isNeedInit;
-		isReverse = mpolygon.isReverse;
 		avgLength = mpolygon.avgLength;
+		isResultRecycle = mpolygon.isResultRecycle;
+	}
+	MPolygon& MPolygon::operator=(MPolygon&& mpolygon) noexcept {
+		if (this != &mpolygon) {
+			startPt = mpolygon.startPt;
+			mpolygon.startPt = nullptr;
+			edges = move(mpolygon.edges);
+			dir = mpolygon.dir;
+			polygonSetId = mpolygon.polygonSetId;
+			existInterPoint = mpolygon.existInterPoint;
+			isNested = mpolygon.isNested;
+			box = mpolygon.box;
+			avgLength = mpolygon.avgLength;
+			isResultRecycle = mpolygon.isResultRecycle;
+		}
+		return *this;
 	}
 	MPolygon::MPolygon(MPolygon&& mpolygon) noexcept
 	{
@@ -48,57 +59,38 @@ namespace MBSO {
 		edges = move(mpolygon.edges);
 		dir = mpolygon.dir;
 		polygonSetId = mpolygon.polygonSetId;
-		id = mpolygon.id;
 		existInterPoint = mpolygon.existInterPoint;
 		isNested = mpolygon.isNested;
 		box = mpolygon.box;
-		isNeedInit = mpolygon.isNeedInit;
-		isReverse = mpolygon.isReverse;
 		avgLength = mpolygon.avgLength;
+		isResultRecycle = mpolygon.isResultRecycle;
 	}
 
-	// 翻转
-	void MPolygon::reverse()
+	void MPolygon::resetStatus()
 	{
-		if (polygonSetId == 0) return; // 只能翻转 B
-		std::reverse(edges.begin(), edges.end());
-		isNeedInit = true;			// 翻转之后需要重新初始化一遍边。
-		int n = edges.size();
-		for (int i = 0; i < n; ++i) {
-			edges[i]->reverse();
-		}
-		dir = (dir == CW ? CCW : CW);
-	}
-
-
-	void MPolygon::init()
-	{
-		if (!isNeedInit) return;	// 不需要初始化，直接return
-		int n = edges.size();
-		if (n == 0) return;
-		startPt = edges[0]->ori;
+		existInterPoint = false;
+		isNested = false;
+		box.reset();
 		avgLength = 0;
-		// 遍历拓扑边列表，初始化边和点拓扑结构
+		isResultRecycle = false;
+
+		int n = edges.size();
 		for (int i = 0; i < n; ++i) {
 			// 点相关初始化
 			auto vertex = edges[i]->ori; // 取边起点
 			edges[i]->dest = edges[(i + 1) % n]->ori;
-			vertex->init();
+			vertex->resetFlags();
+			vertex->polygonPtr = this;
 			vertex->nextEdgeA = vertex->nextEdgeB = edges[i];
 			vertex->frontEdgeA = vertex->frontEdgeB = edges[(i - 1 + n) % n];
-			vertex->polygonPtr = this;
-			vertex->polygonSetId = polygonSetId;
-
 			// 边相关初始化
-			edges[i]->init();
+			edges[i]->resetFlags();
 			edges[i]->polygonPtr = this;
-			edges[i]->polygonSetId = polygonSetId;
-
 			// 轮廓相关初始化
 			avgLength += edges[i]->seg.getLength();
+			box.update(vertex->point);
 		}
 		avgLength /= n;
-		isNeedInit = false;
 	}
 
 	bool MPolygon::isInside(const MPoint_2& point)

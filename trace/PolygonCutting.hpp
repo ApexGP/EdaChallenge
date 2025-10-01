@@ -140,7 +140,7 @@ private:
 					mpoly.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
 				}
 				reverse(mpoly.begin(), mpoly.end());
-				mbsoCore.setMPS(mpoly);
+				mbsoCore.setResultMPS(mpoly);
 				for (int i = 1; i < comp.size(); ++i) {
 					int idx = comp[i];
 					cgal_poly = po_polygons[idx]->cgal_poly;
@@ -228,7 +228,7 @@ private:
 					mpoly1.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
 				}
 				reverse(mpoly1.begin(), mpoly1.end());
-				mbsoCore.setMPS(mpoly1);
+				mbsoCore.setResultMPS(mpoly1);
 
 				std::vector<MBSO::MPoint_2> mpoly2;
 				mpoly2.reserve(poly_ptr[cutting_po[0]]->cgal_poly.size());
@@ -271,7 +271,7 @@ private:
 					mpoly1.emplace_back(MBSO::MPoint_2(int(p.x()), int(p.y())));
 				}
 				reverse(mpoly1.begin(), mpoly1.end());
-				mbsoCore.setMPS(mpoly1);
+				mbsoCore.setResultMPS(mpoly1);
 
 				std::vector<std::vector<MBSO::MPoint_2>> mpolys_2;
 				for (auto& po_id : cutting_po) { // Öð¸öÇó²î¼¯
