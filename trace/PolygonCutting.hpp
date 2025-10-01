@@ -133,7 +133,7 @@ private:
 				po_merged_polygons.push_back(po_polygons[comp[0]]);
 			}
 			else {
-				Polygon_2& cgal_poly = po_polygons[0]->cgal_poly;
+				Polygon_2& cgal_poly = po_polygons[comp[0]]->cgal_poly;
 				std::vector<MBSO::MPoint_2> mpoly;
 				mpoly.reserve(cgal_poly.size());
 				for (auto& p : cgal_poly) {

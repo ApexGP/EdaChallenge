@@ -211,7 +211,7 @@ namespace MBSO {
 			end->frontEdgeA = end->frontEdgeB = mpolygon.edges[i];
 		}
 		// 放入多边形集中
-		box.update(mpolygon.box);
+		mps->box.update(mpolygon.box);
 		mps->mpolygons.emplace_back(std::move(mpolygon));
 		mps->edgeCnt += _mpolySize;
 		
@@ -251,7 +251,7 @@ namespace MBSO {
 				end->frontEdgeA = end->frontEdgeB = mpolygon.edges[i];
 			}
 			// 放入多边形集中
-			box.update(mpolygon.box);
+			mps->box.update(mpolygon.box);
 			mps->mpolygons.emplace_back(std::move(mpolygon));
 			mps->edgeCnt += _mpolySize;
 		}
