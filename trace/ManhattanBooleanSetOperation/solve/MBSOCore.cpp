@@ -1077,7 +1077,7 @@ namespace MBSO {
 
 	void MBSOCore::memoryRecycle()
 	{
-		std::unordered_set<MVertex*> points;
+		points.clear();
 
 		// »ØÊÕmps1
 		for (auto& mpoly : mps1->mpolygons)

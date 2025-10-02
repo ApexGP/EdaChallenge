@@ -172,7 +172,16 @@ public:
 		}
 	}
 
-	// 查找操作（带路径压缩）
+    // 重新初始化
+    void init(){
+		for (int i = 0; i < n; i++) {
+			parent[i] = i;
+		}
+    }
+
+    int getSize() { return n; }
+
+    // 查找操作（带路径压缩）
 	int find(int x) {
 		if (parent[x] != x) {
 			parent[x] = find(parent[x]);  // 路径压缩

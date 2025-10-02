@@ -238,6 +238,7 @@ private:
 	Input& input;
 	SpaceIndex& spaceIndex;
 	mutable IntersectionStats stats;
+	UnionFindSet ufs;
 
 	// ========== 配置选项：选择检测相交方法 ==========
 	IntersectionMethod method = IntersectionMethod::MANHATTAN_COMPLETE;    // 曼哈顿相交检测
@@ -248,7 +249,7 @@ private:
 	// ================================================
 
 public:
-	Intersect(Input& _input, SpaceIndex& _spaceIndex) : input(_input), spaceIndex(_spaceIndex) {}
+	Intersect(Input& _input, SpaceIndex& _spaceIndex) : input(_input), spaceIndex(_spaceIndex), ufs(50) {}
 	~Intersect() {}
 
 	// 执行多边形相交检测，获取所有边的集合(不一定是所有边，因为我们只需要保证联通分量一致即可，成环的边可以不检测)
@@ -354,7 +355,10 @@ private:
 	void processWithManhattanComplete(const std::vector<Polygon*>& lfd, std::vector<std::pair<int, int>>& edges) {
 		stats.manhattan_complete_used++;
 		// 建立小型并查集
-		UnionFindSet ufs((int)lfd.size());
+		if(lfd.size() > ufs.getSize())
+			ufs = UnionFindSet(lfd.size() * 2);
+		else
+			ufs.init();
 		// n方遍历 内部的多边形对
 		for (int i = 0; i < (int)lfd.size(); i++) {
 			Polygon* a = lfd[i];
