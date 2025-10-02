@@ -17,34 +17,38 @@ public:
 		assert(input.has_gate_rule && "请保证存在Gate规则");
 	}
 	
-	robin_hood::unordered_map<int, std::list<Edge>> MergePOAndCutAA() {
-		// 提取PO层多边形
-		std::vector<Polygon*> po_polygons;
+	robin_hood::unordered_map<int, std::vector<Edge>> MergePOAndCutAA() {
+		// 提取PO层多边形（使用范围构造）
 		int po_layer_id = input.gate_rule.first;
 		Range& po_layer_range = input.polygon_id_range_in_layer[po_layer_id];
-		po_polygons.reserve(po_layer_range.second - po_layer_range.first + 1);
-		for (int i = po_layer_range.first; i <= po_layer_range.second; ++i) {
-			po_polygons.push_back(input.polygons[i]);
-		}
-		// 提取AA层多边形
-		std::vector<Polygon*> aa_polygons;
+		auto po_polygons = std::vector<Polygon*>(
+			input.polygons.begin() + po_layer_range.first,
+			input.polygons.begin() + po_layer_range.second + 1
+		);
+
+		// 提取AA层多边形（使用范围构造）
 		int aa_layer_id = input.gate_rule.second;
 		Range& aa_layer_range = input.polygon_id_range_in_layer[aa_layer_id];
-		aa_polygons.reserve(aa_layer_range.second - aa_layer_range.first + 1);
-		for (int i = aa_layer_range.first; i <= aa_layer_range.second; ++i) {
-			aa_polygons.push_back(input.polygons[i]);
-		}
+		auto aa_polygons = std::vector<Polygon*>(
+			input.polygons.begin() + aa_layer_range.first,
+			input.polygons.begin() + aa_layer_range.second + 1
+		);
 
 		// 合并PO层重叠多边形
 		Merge_PO(po_polygons);
 
 		// PO层多边形切割AA层多边形
-		robin_hood::unordered_map<int, std::list<Edge>> po_cut_edges; // 各个po对应的切割边, 此时key使用的是po多边形数组下标, value为切割边列表, 切割边节点使用的是aa多边形数组下标
+		robin_hood::unordered_map<int, std::vector<Edge>> po_cut_edges; // 各个po对应的切割边, 此时key使用的是po多边形数组下标, value为切割边列表, 切割边节点使用的是aa多边形数组下标
+		po_cut_edges.reserve(po_polygons.size());
 		Cut_AA(po_polygons, aa_polygons, po_cut_edges);
 
 		// 由于数量变化和id被修改，故按序重建所有多边形id
 		int new_id = 0;
 		std::vector<Polygon*> new_polygons;
+		int new_total = input.total_polygon 
+			- (po_layer_range.second - po_layer_range.first + 1) + po_polygons.size()
+			- (aa_layer_range.second - aa_layer_range.first + 1) + aa_polygons.size();
+		new_polygons.reserve(new_total); // 在重建多边形数组时预分配空间
 		for (int i = 0; i < input.polygons.size(); i++) {
 			if (i == po_layer_range.first) {
 				// 插入合并后的PO层多边形
@@ -94,14 +98,19 @@ public:
 		input.PrintLayoutInfo();
 
 		// 新的id已确定，可更新po_cut_edges为使用对应的多边形id表示
-		robin_hood::unordered_map<int, std::list<Edge>> updated_po_cut_edges;
-		for (auto& item : po_cut_edges) {
-			int po_index = item.first; // 原为数组下标
-			int po_id = po_polygons[po_index]->id; // 获取对应的多边形id
-			for (auto& edge : item.second) {
-				int aa_id1 = aa_polygons[edge.first]->id; // 获取对应的多边形id
-				int aa_id2 = aa_polygons[edge.second]->id; 
-				updated_po_cut_edges[po_id].emplace_back(Edge(aa_id1, aa_id2)); // 使用新的多边形id
+		robin_hood::unordered_map<int, std::vector<Edge>> updated_po_cut_edges;
+		updated_po_cut_edges.reserve(po_cut_edges.size());  // 预分配
+
+		for (auto& [po_index, edges] : po_cut_edges) {
+			// 直接在新映射表中使用正确ID，避免中间容器
+			auto& new_edges = updated_po_cut_edges[po_polygons[po_index]->id]; 
+			new_edges.reserve(edges.size());  // 预分配每条边的列表
+
+			for (auto& edge : edges) {  // 使用新的多边形id
+				new_edges.emplace_back(
+					aa_polygons[edge.first]->id,
+					aa_polygons[edge.second]->id
+				);
 			}
 		}
 
@@ -128,6 +137,7 @@ private:
 		std::vector<std::vector<int>> components = unionfs.getComponents();
 		// 合并每个联通分量的多边形
 		std::vector<Polygon*> po_merged_polygons;
+		po_merged_polygons.reserve(po_polygons.size());
 		for (auto& comp : components) {
 			if (comp.size() == 1) {
 				po_merged_polygons.push_back(po_polygons[comp[0]]);
@@ -179,7 +189,7 @@ private:
 
 	// PO层多边形切割AA层多边形
 	void Cut_AA(std::vector<Polygon*>& po_polygons, std::vector<Polygon*>& aa_polygons, 
-		robin_hood::unordered_map<int, std::list<Edge>>& po_cut_edges) 
+		robin_hood::unordered_map<int, std::vector<Edge>>& po_cut_edges) 
 	{	
 		// PO和AA合并重排id, 与下标对应
 		std::vector<Polygon*> poly_ptr;
@@ -201,6 +211,7 @@ private:
 
 		// 对每个AA多边形，记录其被哪些PO多边形切割
 		robin_hood::unordered_map<int, std::vector<int>> aa_cut_by_po; // key为AA多边形此时id, value为切割它的PO多边形此时id
+		aa_cut_by_po.reserve(aa_polygons.size());
 		for (auto& e : edges) {
 			// 已保证边顺序e.first < e.second , 所以e.first为PO多边形, e.second为AA多边形
 			int po_id = e.first;
@@ -210,6 +221,7 @@ private:
 
 		// 对每个AA多边形，执行切割（即使不被切割的也要遍历，因为要重新插入到aa_cut_polygons）
 		std::vector<Polygon*> aa_cut_polygons; // 用于记录切割后所有的AA多边形
+		aa_cut_polygons.reserve(aa_polygons.size() * 5); // 预估平均一个被切成五个
 		for (auto& aa_poly : aa_polygons) {
 			int aa_id = aa_poly->id;
 			auto it = aa_cut_by_po.find(aa_id);
@@ -255,7 +267,7 @@ private:
 					aa_cut_polygons.push_back(new_poly);
 					if (!first) {
 						// 链式记录该PO的切割边(注意节点对应的是aa_cut_polygons数组的下标)
-						po_cut_edges[cutting_po[0]].emplace_back(Edge(aa_cut_polygons.size() - 2, aa_cut_polygons.size() - 1));
+						po_cut_edges[cutting_po[0]].emplace_back(aa_cut_polygons.size() - 2, aa_cut_polygons.size() - 1);
 					}
 					first = false;
 				}
@@ -312,7 +324,7 @@ private:
 					std::vector<int>& nodes = item.second; // 该PO连接的AA多边形节点
 					// 链式记录该PO的切割边(注意节点对应的是aa_cut_polygons数组的下标)
 					for (int i = 1; i < nodes.size(); i++) {
-						po_cut_edges[po_id].emplace_back(Edge(nodes[i - 1], nodes[i]));
+						po_cut_edges[po_id].emplace_back(nodes[i - 1], nodes[i]);
 					}
 				}
 				// 释放旧多边形内存

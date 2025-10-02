@@ -56,7 +56,7 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
         /* PO层多边形合并与AA层多边形切割 */
         std::cout << "----- Starting Merge and Cutting Polygon -----" << std::endl;
         PolygonCutting cutting(input);
-        robin_hood::unordered_map<int, std::list<Edge>> po_cut_edges = cutting.MergePOAndCutAA();
+        robin_hood::unordered_map<int, std::vector<Edge>> po_cut_edges = cutting.MergePOAndCutAA();
         std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
         /* 根据输入和规则建立空间索引 */
