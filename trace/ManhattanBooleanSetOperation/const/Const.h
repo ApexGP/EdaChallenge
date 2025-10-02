@@ -18,8 +18,6 @@ namespace MBSO
 		return x < 0 ? -1 : 1;
 	}
 
-	using PII = std::pair<int, int>;
-
 	struct pair_hash
 	{
 		template<class T1, class T2>
@@ -63,11 +61,5 @@ namespace MBSO
 		IN_POINT = 0,		// 入点
 		OUT_POINT = 1,		// 出点
 		UNKNOWN = 2,		// 未知
-	};
-
-	static const char* ins_list[]{
-		"",
-		"",
-		""
 	};
 } // namespace MBSO

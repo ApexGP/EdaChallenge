@@ -3,6 +3,7 @@
 #include "Input.hpp"
 #include "Graph.hpp"
 #include "QuadTree.hpp"
+#include "ManhattanIntersectDetector.hpp"
 
 // 空间索引类定义
 class SpaceIndex
@@ -42,14 +43,12 @@ public:
 
 		// 判断具体在哪个多边形内，有多个则返回第一个
 		int id = -1;
-		const Point_2 query_point(sp.first, sp.second);
 		for (auto& pptr : poly_ptr) {
 			// 快速跳过非起点层多边形
 			if (pptr->layer_id != layer_id) continue;
 
 			// 精确位置判断
-			const auto position = pptr->cgal_poly.bounded_side(query_point);
-			if (position != CGAL::ON_UNBOUNDED_SIDE) { // 点不在多边形外部, 找到匹配多边形
+			if (ManhattanIntersectDetector::pointInManhattanPolygon(sp.first, sp.second, pptr)) { // 点在多边形内部或边界上，找到了
 				id = pptr->id;
 				break;
 			}

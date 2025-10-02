@@ -27,6 +27,9 @@
     <ClCompile Include="ManhattanBooleanSetOperation\model\MPolygon.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="ManhattanBooleanSetOperation\model\MVertex.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="public.h">
@@ -84,6 +87,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="ManhattanBooleanSetOperation\utils\MemoryPool.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ManhattanIntersectDetector.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

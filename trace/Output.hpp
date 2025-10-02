@@ -51,14 +51,14 @@ private:
 		std::string &buffer = output_poly_buffer;
 
 		// 使用快速整数转换并构建缓冲区
-		for (size_t j = 0; j < p.cgal_poly.size(); ++j){
+		for (size_t j = 0; j < p.vertex.size(); ++j){
 			buffer += '(';
-			AppendInt(buffer, static_cast<int>(p.cgal_poly[j].x()));
+			AppendInt(buffer, p.vertex[j].x);
 			buffer += ',';
-			AppendInt(buffer, static_cast<int>(p.cgal_poly[j].y()));
+			AppendInt(buffer, p.vertex[j].y);
 			buffer += ')';
 
-			if (j != p.cgal_poly.size() - 1){
+			if (j != p.vertex.size() - 1){
 				buffer += ',';
 			}
 		}

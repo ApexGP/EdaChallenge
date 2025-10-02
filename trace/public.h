@@ -4,29 +4,22 @@
 #include <cassert>
 #include <numeric>
 
-#include "../third_party/robin_hood/robin_hood.h" // 高效哈希表
-
+/* For CGAL if using
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/Polygon_2.h>
 #include <CGAL/Polygon_with_holes_2.h>
 #include <CGAL/Polygon_set_2.h>
 #include <CGAL/Boolean_set_operations_2.h>
 
-const int MAX_DEPTH = 12;     // 四叉树允许的最大深度
-const int MAX_DATA_NUM = 10;  // 四叉树预设的单叶子节点内最大数据数量
-
-using Kernel = CGAL::Simple_cartesian<double> ;
+using Kernel = CGAL::Simple_cartesian<double>;
 using Point_2 = Kernel::Point_2;            //点
 using Segment_2 = Kernel::Segment_2;        //线
 using Polygon_2 = CGAL::Polygon_2<Kernel>;  //多边形
 using Polygon_with_holes_2 = CGAL::Polygon_with_holes_2<Kernel>;  //多边形
 using Polygon_set_2 = CGAL::Polygon_set_2<Kernel>;
+*/
 
-using Range = std::pair<int, int>;		 // 区间简记
-using Edge = std::pair<int, int>;        // 边: 两个顶点id
-using Point = std::pair<int, int>;		 // 点: x,y坐标
-using StartPos = std::pair<int, Point>;  // 起点: 层id和坐标
-
+#include "../third_party/robin_hood/robin_hood.h" // 高效哈希表
 // 添加哈希特化
 //namespace std {
 //    template <>
@@ -38,6 +31,18 @@ using StartPos = std::pair<int, Point>;  // 起点: 层id和坐标
 //        }
 //    };
 //}
+
+#include "../ManhattanBooleanSetOperation/utils/MPoint_2.h" // 二维点表示
+using MPoint_2 = MBSO::MPoint_2;
+using Vertexs = std::vector<MPoint_2>;
+
+const int MAX_DEPTH = 12;     // 四叉树允许的最大深度
+const int MAX_DATA_NUM = 10;  // 四叉树预设的单叶子节点内最大数据数量
+
+using Range = std::pair<int, int>;		 // 区间简记
+using Edge = std::pair<int, int>;        // 边: 两个顶点id
+using Point = std::pair<int, int>;		 // 点: x,y坐标
+using StartPos = std::pair<int, Point>;  // 起点: 层id和坐标
 
 // 定义矩形
 struct Rect
@@ -99,10 +104,10 @@ struct Rect
 
 // 定义多边形
 struct Polygon {
-    int id = -1;                      // 多边形id, 0-index
-    int layer_id = -1;				 // 所属层id
-    Polygon_2 cgal_poly;         // CGAL多边形
-    Rect rect;                   // 包络矩形框
+    int id = -1;                    // 多边形id, 0-index
+    int layer_id = -1;				// 所属层id
+    Vertexs vertex;                 // 多边形顶点集
+    Rect rect;                      // 包络矩形框
 };
 
 #include <chrono>

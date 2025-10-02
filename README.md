@@ -27,6 +27,7 @@
 ## 3.代码结构
 + Input.hpp 输入类
 + Intersect.hpp 多边形相交检测类
++ ManhattanIntersectDetector.hpp 基于两两边比较和点包含测试的曼哈顿多边形相交检测类
 + QuadTree.hpp 四叉树实现类
 + SpaceIndex.hpp 使用四叉树建立空间索引类
 + Graph.hpp 拓扑图类，根据边集建图，求连通分量

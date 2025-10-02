@@ -38,6 +38,7 @@ add_executable(trace
     trace/Input.hpp
     trace/Intersect.hpp
     trace/Output.hpp
+    trace/ManhattanIntersectDetector.hpp
     trace/PolygonCutting.hpp
     trace/public.h
     trace/QuadTree.hpp

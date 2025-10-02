@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <set>
 
 class Input {
 public:
@@ -43,7 +44,6 @@ public:
 
 	// 读取版图文件
 	void readLayout(std::ifstream& layout_file) {
-		std::istringstream iss;
 		std::string line;
 		int layer_id = -1;
 		int polygon_id = -1;
@@ -64,21 +64,8 @@ public:
 				poly->id = polygon_id;
 				poly->layer_id = layer_id;
 
-				// iss.clear();          // 清除错误状态
-				// iss.str(line);        // 设置流为新行
-
-				//// 解析逻辑
-				//int x, y;
-				//char c;
-				//while (iss >> c) {
-				//	if (c == '(') { // 解析坐标
-				//		iss >> x >> c >> y;
-				//		poly->cgal_poly.push_back(Point_2(x, y));
-				//	}
-				//}
-
 				// 自行解析整型坐标值，避免istringstream
-				fastParseCoordinates(line, poly->cgal_poly);
+				fastParseCoordinates(line, poly->vertex);
 				// 多边形的矩形包络框
 				Rect poly_rect = GetRectofPolygon(poly);
 				poly->rect = poly_rect;
@@ -172,24 +159,24 @@ public:
 	// 获取多边形的矩形包络框
 	Rect GetRectofPolygon(Polygon* poly) {
 		// 使用迭代器遍历多边形顶点
-		auto vertex_iter = poly->cgal_poly.vertices_begin();
-		auto vertex_end = poly->cgal_poly.vertices_end();
+		auto vertex_iter = poly->vertex.begin();
+		auto vertex_end = poly->vertex.end();
 
 		// 初始化边界值
-		double first_x = vertex_iter->x();
-		double first_y = vertex_iter->y();
+		const int first_x = vertex_iter->x;
+		const int first_y = vertex_iter->y;
 
-		int xmin = static_cast<int>(first_x);
+		int xmin = first_x;
 		int xmax = xmin;
-		int ymin = static_cast<int>(first_y);
+		int ymin = first_y;
 		int ymax = ymin;
 
 		++vertex_iter; // 跳过第一个顶点
 
 		// 一次遍历找到所有边界
 		for (; vertex_iter != vertex_end; ++vertex_iter) {
-			int x = static_cast<int>(vertex_iter->x());
-			int y = static_cast<int>(vertex_iter->y());
+			int x = vertex_iter->x;
+			int y = vertex_iter->y;
 
 			// 使用条件赋值而不是if-else
 			xmin = (x < xmin) ? x : xmin;
@@ -203,56 +190,57 @@ public:
 	
 private:
 	// 快速坐标解析函数，避免使用istringstream
-	void fastParseCoordinates(const std::string& line, Polygon_2& cgal_poly) {
-			const char* ptr = line.c_str();
-			const char* end = ptr + line.length();
+	void fastParseCoordinates(const std::string& line, Vertexs& vertex) {
+		vertex.reserve(10); // 预估每个多边形10个点
+		const char* ptr = line.c_str();
+		const char* end = ptr + line.length();
 
-			while (ptr < end) {
-				// 寻找下一个 '('
-				while (ptr < end && *ptr != '(') ptr++;
-				if (ptr >= end) break;
+		while (ptr < end) {
+			// 寻找下一个 '('
+			while (ptr < end && *ptr != '(') ptr++;
+			if (ptr >= end) break;
 
-				ptr++; // 跳过 '('
+			ptr++; // 跳过 '('
 
-				// 解析x坐标
-				int x = 0;
-				bool x_negative = false;
-				if (*ptr == '-') {
-					x_negative = true;
-					ptr++;
-				}
-				while (ptr < end && *ptr >= '0' && *ptr <= '9') {
-					x = x * 10 + (*ptr - '0');
-					ptr++;
-				}
-				if (x_negative) x = -x;
-
-				// 跳过逗号
-				while (ptr < end && *ptr != ',') ptr++;
-				if (ptr >= end) break;
-				ptr++; // 跳过 ','
-
-				// 解析y坐标
-				int y = 0;
-				bool y_negative = false;
-				if (*ptr == '-') {
-					y_negative = true;
-					ptr++;
-				}
-				while (ptr < end && *ptr >= '0' && *ptr <= '9') {
-					y = y * 10 + (*ptr - '0');
-					ptr++;
-				}
-				if (y_negative) y = -y;
-
-				// 添加点到多边形
-				cgal_poly.push_back(Point_2(x, y));
-
-				// 寻找对应的 ')'
-				while (ptr < end && *ptr != ')') ptr++;
-				if (ptr < end) ptr++; // 跳过 ')'
+			// 解析x坐标
+			int x = 0;
+			bool x_negative = false;
+			if (*ptr == '-') {
+				x_negative = true;
+				ptr++;
 			}
+			while (ptr < end && *ptr >= '0' && *ptr <= '9') {
+				x = x * 10 + (*ptr - '0');
+				ptr++;
+			}
+			if (x_negative) x = -x;
+
+			// 跳过逗号
+			while (ptr < end && *ptr != ',') ptr++;
+			if (ptr >= end) break;
+			ptr++; // 跳过 ','
+
+			// 解析y坐标
+			int y = 0;
+			bool y_negative = false;
+			if (*ptr == '-') {
+				y_negative = true;
+				ptr++;
+			}
+			while (ptr < end && *ptr >= '0' && *ptr <= '9') {
+				y = y * 10 + (*ptr - '0');
+				ptr++;
+			}
+			if (y_negative) y = -y;
+
+			// 添加点到多边形
+			vertex.push_back(MPoint_2(x, y));
+
+			// 寻找对应的 ')'
+			while (ptr < end && *ptr != ')') ptr++;
+			if (ptr < end) ptr++; // 跳过 ')'
 		}
+	}
 
 	// 版图边界更新函数
 	inline void updateLayoutBounds(const Rect& poly_rect) {
