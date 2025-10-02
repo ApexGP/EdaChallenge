@@ -114,3 +114,13 @@ Why? 实测Ubuntu系统运行比Windows快约3倍
 | case1_large_0909b_layout |   q1   |              22.4s            |
 | case1_large_0909b_layout |   q2   |             124.2s            |
 | case1_large_0909b_layout |   q3   |             356.3s            |
+
+### 测试-单线程-Ubuntu-22.04 Using High Performance Implementation 10月2日最新版
+|            case          |  rule  | High Performance Optimization |
+|:------------------------:|:------:|:-----------------------------:|
+|    case1_small_layout    |   q1   |              0.28s            |
+|    case1_small_layout    |   q2   |              1.83s            |
+|    case1_small_layout    |   q3   |              2.15s            |
+| case1_large_0909b_layout |   q1   |              20.2s            |
+| case1_large_0909b_layout |   q2   |             102.5s            |
+| case1_large_0909b_layout |   q3   |             148.5s            |
