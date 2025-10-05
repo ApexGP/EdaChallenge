@@ -12,8 +12,8 @@
 enum class IntersectionMethod {
 	ORIGINAL_CGAL = 0,           // CGAL方法
 	MANHATTAN_COMPLETE,          // 曼哈顿多边形检测边
-	HYBRID_ADAPTIVE,             // 自适应混合策略
-	PARALLEL_CGAL                // 并行化CGAL
+	BATCH_GRID,             	 // 批量打网格检测
+	PARALLEL                     // 并行化
 };
 
 /**
@@ -77,7 +77,8 @@ private:
 	IntersectionMethod method = IntersectionMethod::MANHATTAN_COMPLETE;    // 曼哈顿相交检测
 
 	// IntersectionMethod method = IntersectionMethod::ORIGINAL_CGAL;        // CGAL方法
-	// IntersectionMethod method = IntersectionMethod::HYBRID_ADAPTIVE;      // 自适应智能选择
+	// IntersectionMethod method = IntersectionMethod::BATCH_GRID;           // 批量打网格检测
+	// IntersectionMethod method = IntersectionMethod::PARALLEL;             // 并行化
 
 	// ================================================
 
@@ -115,8 +116,8 @@ public:
 				case IntersectionMethod::MANHATTAN_COMPLETE:
 					processWithManhattanComplete(lfd, edges);
 					break;
-				case IntersectionMethod::HYBRID_ADAPTIVE:
-					processWithHybridAdaptive(lfd, edges);
+				case IntersectionMethod::BATCH_GRID:
+					processWithBatchGrid(lfd, edges);
 					break;
 				}
 			}
@@ -143,8 +144,8 @@ public:
 		switch (method) {
 		case IntersectionMethod::ORIGINAL_CGAL: return "Original CGAL";
 		case IntersectionMethod::MANHATTAN_COMPLETE: return "Manhattan Complete Detection";
-		case IntersectionMethod::HYBRID_ADAPTIVE: return "Hybrid Adaptive";
-		case IntersectionMethod::PARALLEL_CGAL: return "Parallel CGAL";
+		case IntersectionMethod::BATCH_GRID: return "Batch Grid";
+		case IntersectionMethod::PARALLEL: return "Parallel";
 		default: return "Unknown";
 		}
 	}
@@ -155,16 +156,14 @@ public:
 private:
 	// ========== 各种检测方法的实现 ==========
 
-	// 方法1：CGAL方法
+	// 方法0：CGAL方法
 	//void processWithOriginalCGAL(const std::vector<Polygon*>& lfd, std::vector<std::pair<int, int>>& edges) {
 	//	stats.cgal_used++;
-
 	//	// n方遍历 内部的多边形对
 	//	for (int i = 0; i < (int)lfd.size(); i++) {
 	//		Polygon* a = lfd[i];
 	//		for (int j = i + 1; j < (int)lfd.size(); j++) {
 	//			Polygon* b = lfd[j];
-
 	//			//先看矩形框是否相交
 	//			if (a->rect.Intersects(b->rect)) {
 	//				//精细检测是否相交
@@ -178,7 +177,7 @@ private:
 	//	}
 	//}
 
-	// 方法2：曼哈顿多边形相交检测
+	// 方法1：曼哈顿多边形边边相交检测
 	void processWithManhattanComplete(const std::vector<Polygon*>& lfd, std::vector<std::pair<int, int>>& edges) {
 		stats.manhattan_complete_used++;
 		// 建立小型并查集
@@ -186,6 +185,7 @@ private:
 			ufs = UnionFindSet(lfd.size() * 2);
 		else
 			ufs.init();
+
 		// n方遍历 内部的多边形对
 		for (int i = 0; i < (int)lfd.size(); i++) {
 			Polygon* a = lfd[i];
@@ -202,17 +202,9 @@ private:
 		}
 	}
 
-	// 方法3：自适应混合策略
-	void processWithHybridAdaptive(const std::vector<Polygon*>& lfd, std::vector<std::pair<int, int>>& edges) {
-		// 根据数据特征智能选择算法
-		if (lfd.size() <= 10) {
-			// 小数据集：使用原有方法
-			//processWithOriginalCGAL(lfd, edges);
-		}
-		else {
-			// 大数据集：使用曼哈顿检测
-			processWithManhattanComplete(lfd, edges);
-		}
+	// 方法2：批量打网格
+	void processWithBatchGrid(const std::vector<Polygon*>& lfd, std::vector<std::pair<int, int>>& edges) {
+
 	}
 
 	// 边去重

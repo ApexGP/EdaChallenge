@@ -145,20 +145,20 @@ private:
 			}
 			else {
 				Vertexs& po_vertex1 = po_polygons[comp[0]]->vertex;
-				std::vector<MPoint_2> mpoly = ​reverse_orientation(po_vertex1);
+				std::vector<MPoint_2> mpoly = reverse_orientation(po_vertex1);
 				mbsoCore.setResultMPS(mpoly); // 设置第一个多边形
 				// 序列式求并集
 				for (int i = 1; i < comp.size(); ++i) {
 					int idx = comp[i];
 					Vertexs& po_vertex2 = po_polygons[idx]->vertex;
-					mpoly = ​reverse_orientation(po_vertex2);
+					mpoly = reverse_orientation(po_vertex2);
 					mbsoCore.join(mpoly);
 				}
 
 				// 合并后的多边形转回自定义Polygon类
 				std::vector<std::vector<MPoint_2>> merged_poly_set = mbsoCore.getResult();
 				assert(merged_poly_set.size() == 1 && "合并后多边形应为单一多边形");
-				mpoly = ​reverse_orientation(merged_poly_set[0]);
+				mpoly = reverse_orientation(merged_poly_set[0]);
 				// new 新多边形
 				Polygon* new_poly = new Polygon();
 				new_poly->layer_id = po_polygons[comp[0]]->layer_id; // 保持层id不变
@@ -227,11 +227,11 @@ private:
 			if (cutting_po.size() == 1) {
 				// 设置 AA 多边形
 				Vertexs& aa_vertex = poly_ptr[aa_id]->vertex;
-				std::vector<MPoint_2> mpoly = ​reverse_orientation(aa_vertex);
+				std::vector<MPoint_2> mpoly = reverse_orientation(aa_vertex);
 				mbsoCore.setResultMPS(mpoly);
 				// 求差集切割
 				Vertexs& po_vertex = poly_ptr[cutting_po[0]]->vertex;
-				mpoly = ​reverse_orientation(po_vertex);
+				mpoly = reverse_orientation(po_vertex);
 				mbsoCore.difference(mpoly);
 				// 获取结果
 				std::vector<std::vector<MBSO::MPoint_2>> cut_poly_set = mbsoCore.getResult();
@@ -260,7 +260,7 @@ private:
 			else {
 				// 设置 AA 多边形
 				Vertexs& aa_vertex = poly_ptr[aa_id]->vertex;
-				std::vector<MPoint_2> mpoly = ​reverse_orientation(aa_vertex);
+				std::vector<MPoint_2> mpoly = reverse_orientation(aa_vertex);
 				mbsoCore.setResultMPS(mpoly);
 
 				// 构造多个po的多边形集合
@@ -268,7 +268,7 @@ private:
 				mpolys_2.reserve(cutting_po.size());
 				for (auto& po_id : cutting_po) {
 					Vertexs& po_vertex = poly_ptr[po_id]->vertex;
-					mpoly = ​reverse_orientation(po_vertex);	
+					mpoly = reverse_orientation(po_vertex);	
 					mpolys_2.emplace_back(std::move(mpoly));
 				}
 				// 一次性求差集切割
@@ -385,7 +385,7 @@ private:
 	}
 
 	// 反转多边形朝向 因为现在布尔运算内多边形要求顺时针，而外部是逆时针，所以多一次转换，后面可以统一为逆时针优化
-	std::vector<MPoint_2> ​reverse_orientation(const Vertexs& vertex) {
+	std::vector<MPoint_2> reverse_orientation(const Vertexs& vertex) {
 		std::vector<MPoint_2> reverse_vertex;
 		reverse_vertex.reserve(vertex.size());
 		// 使用反向迭代器高效反向拷贝

@@ -15,8 +15,12 @@ public:
 		}
 
 		// 2. 提取多边形的边
-		auto edges1 = extractEdges(poly1);
-		auto edges2 = extractEdges(poly2);
+		static std::vector<SortEdge> edges1;
+		static std::vector<SortEdge> edges2;
+		edges1.reserve(poly1->vertex.size());
+		edges2.reserve(poly2->vertex.size());
+		extractEdges(poly1, edges1);
+		extractEdges(poly2, edges2);
 
 		// 3. 检测边-边相交（包括边界点相交和边界线相交）
 		if (edgesIntersect(edges1, edges2)) {
@@ -70,31 +74,15 @@ public:
 	}
 
 private:
-	// 边结构
-	struct Edge {
-		int x1, y1, x2, y2;
-		bool is_horizontal;
-
-		Edge(int _x1, int _y1, int _x2, int _y2)
-			: x1(_x1), y1(_y1), x2(_x2), y2(_y2) {
-			// 确保坐标有序
-			if (x1 > x2 || (x1 == x2 && y1 > y2)) {
-				std::swap(x1, x2);
-				std::swap(y1, y2);
-			}
-			is_horizontal = (y1 == y2);
-		}
-	};
-
 	// 边界框相交检测
 	static bool boundingBoxIntersect(const Polygon* poly1, const Polygon* poly2) {
 		return poly1->rect.Intersects(poly2->rect);
 	}
 
 	// 提取多边形的所有边
-	static std::vector<Edge> extractEdges(const Polygon* poly) {
-		std::vector<Edge> edges;
-		const auto& points = poly->vertex;
+	static void extractEdges(const Polygon* poly, std::vector<SortEdge>& edges) {
+		edges.clear();
+		const auto &points = poly->vertex;
 
 		for (size_t i = 0; i < points.size(); ++i) {
 			size_t next = (i + 1) % points.size();
@@ -106,12 +94,10 @@ private:
 
 			edges.emplace_back(x1, y1, x2, y2);
 		}
-
-		return edges;
 	}
 
 	// 检测两组边是否相交
-	static bool edgesIntersect(const std::vector<Edge>& edges1, const std::vector<Edge>& edges2) {
+	static bool edgesIntersect(const std::vector<SortEdge>& edges1, const std::vector<SortEdge>& edges2) {
 		for (const auto& edge1 : edges1) {
 			for (const auto& edge2 : edges2) {
 				if (twoEdgesIntersect(edge1, edge2)) {
@@ -123,7 +109,7 @@ private:
 	}
 
 	// 检测两条边是否相交（水平-水平、垂直-垂直、水平-垂直）
-	static bool twoEdgesIntersect(const Edge& e1, const Edge& e2) {
+	static bool twoEdgesIntersect(const SortEdge& e1, const SortEdge& e2) {
 		// 情况1：两条都是水平边
 		if (e1.is_horizontal && e2.is_horizontal) {
 			if (e1.y1 == e2.y1) { // 同一水平线
@@ -143,8 +129,8 @@ private:
 		}
 
 		// 情况3：一条水平边，一条垂直边
-		const Edge* h_edge = e1.is_horizontal ? &e1 : &e2;
-		const Edge* v_edge = e1.is_horizontal ? &e2 : &e1;
+		const SortEdge* h_edge = e1.is_horizontal ? &e1 : &e2;
+		const SortEdge* v_edge = e1.is_horizontal ? &e2 : &e1;
 
 		// 检测水平边和垂直边的交点
 		return (h_edge->x1 <= v_edge->x1 && v_edge->x1 <= h_edge->x2 &&

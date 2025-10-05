@@ -80,6 +80,7 @@ private:
 	void CreatLayerGraph() {
 		graph = Graph(static_cast<int>(input.polygon_id_range_in_layer.size()));
 		std::vector<Edge> edges;
+		edges.reserve(input.via_rules.size());
 		for (auto& via : input.via_rules) {
 			edges.push_back(via);
 		}

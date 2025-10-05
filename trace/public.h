@@ -3,6 +3,7 @@
 #include <string>
 #include <cassert>
 #include <numeric>
+#include <iostream>
 
 /* For CGAL if using
 #include <CGAL/Simple_cartesian.h>
@@ -43,6 +44,22 @@ using Range = std::pair<int, int>;		 // 区间简记
 using Edge = std::pair<int, int>;        // 边: 两个顶点id
 using Point = std::pair<int, int>;		 // 点: x,y坐标
 using StartPos = std::pair<int, Point>;  // 起点: 层id和坐标
+
+// 有序边结构
+struct SortEdge {
+	int x1, y1, x2, y2;
+	bool is_horizontal; // 是否水平边
+
+	SortEdge(int _x1, int _y1, int _x2, int _y2)
+		: x1(_x1), y1(_y1), x2(_x2), y2(_y2) {
+		// 确保坐标有序
+		if (x1 > x2 || (x1 == x2 && y1 > y2)) {
+			std::swap(x1, x2);
+			std::swap(y1, y2);
+		}
+		is_horizontal = (y1 == y2);
+	}
+};
 
 // 定义矩形
 struct Rect
@@ -211,24 +228,31 @@ public:
 
 	// 获取所有连通分量
 	std::vector<std::vector<int>> getComponents() {
-		// 确保所有路径都已压缩
-		std::vector<int> roots(n);
-		for (int i = 0; i < n; i++) {
-			roots[i] = find(i);
-		}
+        // 预分配内存
+        std::vector<int> roots(n);
+        std::vector<int> rootMap(n, -1); // 初始化为-1
+        std::vector<std::vector<int>> components;
+        components.reserve(n); // 预留最大可能空间
+        
+        // 步骤1: 确保所有路径都已压缩
+        for (int i = 0; i < n; i++) {
+            roots[i] = find(i);
+        }
 
-		// 创建根节点到组件的映射
-		robin_hood::unordered_map<int, std::vector<int>> componentsMap;
-		for (int i = 0; i < n; i++) {
-			componentsMap[roots[i]].push_back(i);
-		}
+        // 步骤2: 单次遍历分组
+        for (int i = 0; i < n; i++) {
+            int root = roots[i];
 
-		// 将映射转换为向量
-		std::vector<std::vector<int>> components;
-		for (auto& pair : componentsMap) {
-			components.push_back(pair.second);
-		}
+            if (rootMap[root] == -1) {
+                // 新连通分量
+                rootMap[root] = components.size();
+                components.push_back({i}); // 直接构造包含当前元素的vector
+            } else {
+                // 添加到现有连通分量
+                components[rootMap[root]].push_back(i);
+            }
+        }
 
-		return components;
+        return components;
 	}
 };
