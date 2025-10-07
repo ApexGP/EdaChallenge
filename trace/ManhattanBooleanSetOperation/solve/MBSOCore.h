@@ -115,6 +115,8 @@ namespace MBSO {
 		void initial();
 		//基于打网格求交点
 		inline void caculateIntersBasedOnBlocks();
+		//n方遍历暴力求交点
+		inline void caculateIntersBruteForce();
 		//交点插入轮廓，并确定所有交点的LR指针
 		void insertAnddealLR();  
 		//处理嵌套

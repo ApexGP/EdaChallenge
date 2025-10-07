@@ -256,7 +256,8 @@ namespace MBSO {
 		// 初始化工作
 		initial();
 		// 网格法求交点
-		caculateIntersBasedOnBlocks();
+		// caculateIntersBasedOnBlocks();
+		caculateIntersBruteForce(); // 暴力求交点
 		// 交点插入轮廓
 		insertAnddealLR();
 		// 处理嵌套
@@ -359,6 +360,40 @@ namespace MBSO {
 		newEdges.clear();
 		newVertexs.reserve(allSegsSize);
 		newEdges.reserve(allSegsSize);
+	}
+
+	inline void MBSOCore::caculateIntersBruteForce(){
+		// 收集多边形包围盒位置信息
+		for (int polygonSetId = 0; polygonSetId <= 1; ++polygonSetId)
+		{
+			auto& mps = (polygonSetId == 0 ? mps1 : mps2);
+			auto& isolatedcurr = (polygonSetId == 0 ? isolated1 : isolated2);
+
+			auto& mpolygons = mps->mpolygons;
+			for (auto& polygon : mpolygons) {
+				if (polygon.box.isBeContained(blkBox)) { // 多边形完全在交集包围盒区域内
+					isolatedBeContained.emplace_back(&polygon);
+				}
+				if (polygon.box.isIntersects(blkBox)) {  // 多边形与交集包围盒区域有重叠
+					beCollided.emplace_back(&polygon);
+				}
+				isolatedcurr.emplace_back(&polygon);
+			}
+		}
+
+		// 暴力求交点
+		for(auto& mpolya : mps1->mpolygons){
+			for(auto& mpolyb : mps2->mpolygons){
+				for(auto& seg1 : mpolya.edges){
+					for(auto& seg2 : mpolyb.edges){
+						if (caculateInterSSself(seg1, seg2)){
+							hasInterEdges.insert(seg1);
+							hasInterEdges.insert(seg2);
+						}
+					}
+				}
+			}
+		}
 	}
 
 	inline void MBSOCore::caculateIntersBasedOnBlocks() {
