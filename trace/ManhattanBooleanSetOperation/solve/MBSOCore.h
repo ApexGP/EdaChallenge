@@ -49,14 +49,13 @@ namespace MBSO {
 		MemoryPool<MEdge> edgesMemoryPool;		// 边内存池
 		vector<MVertex*> newVertexs;			// 记录运算过程中新生成的点，运算结束后统一回收 未被结果多边形集复用的点
 		vector<MEdge*> newEdges;				// 记录运算过程中新生成的边，运算结束后统一回收 未被结果多边形集复用的边
-		std::unordered_set<MVertex*> points;	// 用于防止重复回收同一个点（应该可以通过改变端点重合时的处理方式，避免重复点优化掉）
 
 	public:
 		/* 默认构造和析构 */
 		MBSOCore(): mps1(new MPolygonSet), mps2(new MPolygonSet), resultMps(new MPolygonSet), opt(UNION),
 					grid(101, 101), blockWidth(0), blockHeight(0), blockCount(0),
 					inPointsIndex(0), outPointsIndex(0), equalPoints(2), curMps(0),
-					vertexsMemoryPool(10000, 20), edgesMemoryPool(10000, 20), points(100)
+					vertexsMemoryPool(10000, 20), edgesMemoryPool(10000, 20)
 		{};
 		~MBSOCore() {
 			// 释放曾经new的MPolygonSet, 边和点由内存池统一管理

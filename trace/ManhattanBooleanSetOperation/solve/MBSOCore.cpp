@@ -1077,8 +1077,6 @@ namespace MBSO {
 
 	void MBSOCore::memoryRecycle()
 	{
-		points.clear();
-
 		// 回收mps1
 		for (auto& mpoly : mps1->mpolygons)
 		{
@@ -1092,11 +1090,9 @@ namespace MBSO {
 				edgesMemoryPool.pushReuseElement(edge);
 				// 再看该边的起点
 				if (edge->ori->isResultRecycle) continue;
-				// 否则回收点（点必须未回收过，不然会产生重回收的bug）
-				if (points.count(edge->ori) == 0) {
-					vertexsMemoryPool.pushReuseElement(edge->ori);
-					points.insert(edge->ori);
-				}
+				// 否则回收点
+				edge->ori->isResultRecycle = true; // 设置标志位，不然会产生重回收的bug
+				vertexsMemoryPool.pushReuseElement(edge->ori);
 			}
 		}
 		mps1->clear();
@@ -1109,10 +1105,8 @@ namespace MBSO {
 				if (edge->isResultRecycle) continue;
 				edgesMemoryPool.pushReuseElement(edge);
 				if (edge->ori->isResultRecycle) continue;
-				if (points.count(edge->ori) == 0) {
-					vertexsMemoryPool.pushReuseElement(edge->ori);
-					points.insert(edge->ori);
-				}
+				edge->ori->isResultRecycle = true;
+				vertexsMemoryPool.pushReuseElement(edge->ori);
 			}
 		}
 		mps2->clear();
@@ -1127,10 +1121,8 @@ namespace MBSO {
 		// 回收未被复用的新点
 		for (auto& vertex : newVertexs) 
 			if (!vertex->isResultRecycle) {
-				if (points.count(vertex) == 0) {
-					vertexsMemoryPool.pushReuseElement(vertex);
-					points.insert(vertex);
-				}
+				vertex->isResultRecycle = true;
+				vertexsMemoryPool.pushReuseElement(vertex);
 			}
 	}
 
