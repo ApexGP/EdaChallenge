@@ -71,7 +71,7 @@ public:
 				poly->rect = poly_rect;
 
 				// 是否扩大版图
-				updateLayoutBounds(poly_rect);
+				layout.update(poly_rect);
 				// 新增多边形
 				polygons.emplace_back(std::move(poly));
 			}
@@ -241,12 +241,4 @@ private:
 			if (ptr < end) ptr++; // 跳过 ')'
 		}
 	}
-
-	// 版图边界更新函数
-	inline void updateLayoutBounds(const Rect& poly_rect) {
-			if (poly_rect._xmin < layout._xmin) layout._xmin = poly_rect._xmin;
-			if (poly_rect._xmax > layout._xmax) layout._xmax = poly_rect._xmax;
-			if (poly_rect._ymin < layout._ymin) layout._ymin = poly_rect._ymin;
-			if (poly_rect._ymax > layout._ymax) layout._ymax = poly_rect._ymax;
-		}
 };

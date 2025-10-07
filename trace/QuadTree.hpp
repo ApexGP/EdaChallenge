@@ -111,6 +111,11 @@ public:
 		GetAllLeafData(_root, outData);
 	}
 
+	// 获取四叉树所有叶子结点数据,包括矩形框
+	void GetAllLeafData(std::vector<std::vector<Polygon*>>& outData, std::vector<Rect>& outRect) {
+		GetAllLeafData(_root, outData, outRect);
+	}
+
 	// 获取某个坐标点所在的四叉树空间结点数据
 	std::vector<Polygon*> GetLeafDataofPoint(Point& point) {
 		QuadTreeNode* node = SearchNodeofPoint(_root, point);
@@ -209,6 +214,24 @@ private:
 			GetAllLeafData(node->_rt, outData);
 			GetAllLeafData(node->_lb, outData);
 			GetAllLeafData(node->_rb, outData);
+		}
+	}
+
+	// 获取四叉树所有叶子结点数据,包括矩形框
+	void GetAllLeafData(QuadTreeNode* node, std::vector<std::vector<Polygon*>>& outData, std::vector<Rect>& outRect) {
+		if (!node) return;
+		//叶子结点数据
+		if (!node->_divided) {
+			if (node->_datas.size() != 0) {
+				outData.push_back(node->_datas);
+				outRect.push_back(node->_rect);
+			}
+		}
+		else {
+			GetAllLeafData(node->_lt, outData, outRect);
+			GetAllLeafData(node->_rt, outData, outRect);
+			GetAllLeafData(node->_lb, outData, outRect);
+			GetAllLeafData(node->_rb, outData, outRect);
 		}
 	}
 

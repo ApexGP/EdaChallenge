@@ -22,16 +22,26 @@ using Polygon_set_2 = CGAL::Polygon_set_2<Kernel>;
 
 #include "../third_party/robin_hood/robin_hood.h" // 高效哈希表
 // 添加哈希特化
-//namespace std {
-//    template <>
-//    struct hash<std::pair<int, int>> {
-//        std::size_t operator()(const std::pair<int, int>& edge) const {
-//            std::size_t h1 = robin_hood::hash<int>()(edge.first);
-//            std::size_t h2 = robin_hood::hash<int>()(edge.second);
-//            return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
-//        }
-//    };
-//}
+struct pair_hash
+{
+    template<class T1, class T2>
+    std::size_t operator() (const std::pair<T1, T2>& p) const
+    {
+        auto h1 = std::hash<T1>{}(p.first);
+        auto h2 = std::hash<T2>{}(p.second);
+        return h1 ^ h2;
+    }
+};
+namespace std {
+    template <>
+    struct hash<std::pair<int, int>> {
+        std::size_t operator()(const std::pair<int, int>& edge) const {
+            std::size_t h1 = robin_hood::hash<int>()(edge.first);
+            std::size_t h2 = robin_hood::hash<int>()(edge.second);
+            return h1 ^ h2;
+        }
+    };
+}
 
 #include "../ManhattanBooleanSetOperation/utils/MPoint_2.h" // 二维点表示
 using MPoint_2 = MBSO::MPoint_2;
@@ -61,6 +71,15 @@ struct SortEdge {
 	}
 };
 
+// 网格边结构
+struct GridEdge : public SortEdge {
+    int id; // 唯一编号
+    int polygon_index; // 所属多边形的数组下标
+
+    GridEdge(int _x1, int _y1, int _x2, int _y2, int _id, int _polygon_index)
+        : SortEdge(_x1, _y1, _x2, _y2), id(_id), polygon_index(_polygon_index) {}
+};
+
 // 定义矩形
 struct Rect
 {
@@ -70,9 +89,25 @@ struct Rect
     int _xmax;
     int _ymax;
 
-    Rect() : _xmin(0), _ymin(0), _xmax(0), _ymax(0) {}
+    Rect() : _xmin(INT_MAX), _ymin(INT_MAX), _xmax(INT_MIN), _ymax(INT_MIN) {}
 
     explicit Rect(int xmin, int ymin, int xmax, int ymax) : _xmin(xmin), _ymin(ymin), _xmax(xmax), _ymax(ymax) {}
+
+    // 重置包围盒
+    void reset()
+    {
+        _xmin = _ymin = INT_MAX;
+        _xmax = _ymax = INT_MIN;
+    }
+
+    // 使用包围盒更新当前包围盒(只可能扩大包围盒)
+    void update(const Rect& p)
+    {
+        _xmin = std::min(_xmin, p._xmin);
+        _ymin = std::min(_ymin, p._ymin);
+        _xmax = std::max(_xmax, p._xmax);
+        _ymax = std::max(_ymax, p._ymax);
+    }
 
     // 检查点是否在矩形范围内,包括边界
     bool Contains(int x, int y) const

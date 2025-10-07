@@ -1,13 +1,16 @@
 #pragma once
 #include "public.h"
+#include "../ManhattanBooleanSetOperation/utils/Grid.h"
+#include <cmath>
+#include <algorithm>
 
 /**
- * @brief 完整的曼哈顿多边形相交检测器
+ * @brief 基于n平方边边相交检测和点包含测试的曼哈顿多边形相交检测器
  * * 该类实现了一个高效的曼哈顿多边形相交检测算法，能够处理各种复杂情况，包括边界点相交、边界线相交以及包含关系。
  */
 class ManhattanIntersectDetector {
 public:
-	// 曼哈顿多边形相交检测，使用特征
+	// 两个曼哈顿多边形相交检测，使用特征
 	static bool manhattanPolygonsIntersect(const Polygon* poly1, const Polygon* poly2) {
 		// 1. 快速边界框检测
 		if (!boundingBoxIntersect(poly1, poly2)) {
@@ -108,6 +111,7 @@ private:
 		return false;
 	}
 
+public:
 	// 检测两条边是否相交（水平-水平、垂直-垂直、水平-垂直）
 	static bool twoEdgesIntersect(const SortEdge& e1, const SortEdge& e2) {
 		// 情况1：两条都是水平边
@@ -184,5 +188,182 @@ private:
 		}
 
 		return (crossings % 2) == 1;
+	}
+};
+
+/**
+ * @brief 基于打网格的批量曼哈顿多边形相交检测器
+ * * 该类实现了一个高效的批量曼哈顿多边形相交检测算法，能够处理各种复杂情况，包括边界点相交、边界线相交以及包含关系。
+ */
+class BatchGridIntersectDetector {
+private:
+	Rect box;				//所有多边形集整体包围盒
+	double avgLength;       //边集平均边长
+
+	using Grid = MBSO::Grid<GridEdge*>;
+	Grid grid;				//网格存边
+	double blockWidth;		//当前每个小网格宽度
+	double blockHeight;		//当前每个小网格高度
+	int blockCount;		    //当前划分的一行或一列的网格数量，行和列数是相等的
+
+	std::vector<GridEdge> gridEdges; // 存所有的边
+
+	std::vector<bool> calculated;	 // 记录已计算过的边组合(一维数组充当二维)
+	UnionFindSet ufs;				 // 并查集，记录已经相交的多边形
+
+public:
+	BatchGridIntersectDetector() : avgLength(0), grid(101, 101), blockWidth(0), blockHeight(0), blockCount(0), ufs(50){
+		gridEdges.reserve(500);
+		calculated.reserve(500 * 500);
+	}
+	void batchManhattanPolygonsIntersect(const Rect& rect, const std::vector<Polygon*>& polygons, std::vector<std::pair<int, int>>& edges) {
+		// 建立小型并查集
+		if (polygons.size() > ufs.getSize())
+			ufs = UnionFindSet(polygons.size() * 2);
+		else
+			ufs.init();
+
+		// 初始化
+		initial(rect, polygons);
+
+		// 自适应网格
+		chooseBlkCntBasedOnBoxRegion();
+
+		// 遍历边集，找出所有边经过的格子
+		for (auto& edge : gridEdges) {
+			findEdgePassedBlockOnBoxRegion(&edge);
+		}
+
+		// 遍历所有的格子，然后遍历格子里面的所有线段
+		for (int i = 0; i <= blockCount; ++i)
+		{
+			for (int j = 0; j <= blockCount; ++j)
+			{
+				if (grid.grid[i][j].size() <= 1) continue;
+				int n = grid.grid[i][j].size();
+				for (int ii = 0; ii < n; ++ii)
+				{
+					auto& edge1 = grid.grid[i][j][ii];
+					for (int jj = ii + 1; jj < n; ++jj)
+					{
+						auto& edge2 = grid.grid[i][j][jj];
+						if (ufs.find(edge1->polygon_index) == ufs.find(edge2->polygon_index)) continue; // 已经连通的跳过(同属于一个多边形集的边也会被筛掉)
+						//if (calculated[edge1->id * gridEdges.size() + edge2->id]) continue;
+						//calculated[edge1->id * gridEdges.size() + edge2->id] = true;
+						//calculated[edge2->id * gridEdges.size() + edge1->id] = true;
+
+						// 同一网格内的两条边检测是否有交点,若有则对应的多边形相交
+						if (ManhattanIntersectDetector::twoEdgesIntersect(*edge1, *edge2))
+						{
+							edges.emplace_back(polygons[edge1->polygon_index]->id, polygons[edge2->polygon_index]->id);
+							ufs.join(edge1->polygon_index, edge2->polygon_index);
+						}
+					}
+				}
+			}
+		}
+
+		// 处理嵌套的相交关系
+		for (int i = 0; i < (int)polygons.size(); i++) {
+			Polygon* a = polygons[i];
+			for (int j = i + 1; j < (int)polygons.size(); j++) {
+				Polygon* b = polygons[j];
+				if (ufs.find(i) == ufs.find(j)) continue; // 已经连通的跳过
+				if (!a->rect.Intersects(b->rect)) continue; // 包围盒排除不包含
+				// 包含关系检测
+				if (ManhattanIntersectDetector::polygonContainment(a, b)) {
+					edges.emplace_back(a->id, b->id);
+					ufs.join(i, j);
+				}
+			}
+		}
+	}
+
+private:
+	// 初始化成员
+	void initial(const Rect& rect, const std::vector<Polygon*>& polygons) {
+		gridEdges.clear();
+		gridEdges.reserve(polygons.size() * 20);
+
+		// 输入多边形集的边信息、包围盒初始化
+		box = rect;
+		avgLength = 0;
+		int edge_id = 0;
+		int polygon_index = 0;
+		for (const auto& poly_ptr : polygons) {
+			const auto& points = poly_ptr->vertex;
+			for (size_t i = 0; i < points.size(); ++i) {
+				size_t next = (i + 1) % points.size();
+				int x1 = points[i].x;
+				int y1 = points[i].y;
+				int x2 = points[next].x;
+				int y2 = points[next].y;
+				gridEdges.emplace_back(x1, y1, x2, y2, edge_id, polygon_index);
+				edge_id++;
+				avgLength += (x1 == x2) ? abs(y1 - y2) : abs(x1 - x2);
+			}
+			polygon_index++;
+		}
+		avgLength = avgLength / edge_id;
+		//calculated.resize(edge_id * edge_id);
+		//std::fill(calculated.begin(), calculated.end(), false);
+
+		// 重置网格状态
+		grid.clear();
+		blockWidth = 0;
+		blockHeight = 0;
+		blockCount = 0;
+	}
+
+	// 在整体包围盒区域自适应打网格
+	void chooseBlkCntBasedOnBoxRegion() {
+		// 自适应网格
+		int t = ceil((box._xmax - box._xmin) / avgLength);
+		blockCount = std::min(std::max(t, 5), 100);
+		blockHeight = static_cast<double>(box._ymax - box._ymin) / blockCount;
+		blockWidth = static_cast<double>(box._xmax - box._xmin) / blockCount;
+	}
+
+	//找出该边经过的所有包围盒区域内的网格
+	void findEdgePassedBlockOnBoxRegion(GridEdge* v) {
+		// 曼哈顿边必然是水平或垂直的
+		if (v->y1 == v->y2) { // 水平边：Y固定，遍历X方向网格
+			int xmin = v->x1, xmax = v->x2;
+
+			if (v->y1 < box._ymin || v->y1 > box._ymax) return; // 包围盒区域外的边
+			int blockYId = getBlockYId(v->y1);
+			int startBlockXId = getBlockXId(xmin);
+			int endBlockXId = getBlockXId(xmax);
+			for (int xId = startBlockXId; xId <= endBlockXId; ++xId) {
+				grid.emplace_back(xId, blockYId, v);
+			}
+
+		}
+		else { // 垂直边：X固定，遍历Y方向网格
+			int ymin = v->y1, ymax = v->y2;
+
+			if (v->x1 < box._xmin || v->x1 > box._xmax) return; // 包围盒区域外的边
+			int blockXId = getBlockXId(v->x1);
+			int startBlockYId = getBlockYId(ymin);
+			int endBlockYId = getBlockYId(ymax);
+			for (int yId = startBlockYId; yId <= endBlockYId; ++yId) {
+				grid.emplace_back(blockXId, yId, v);
+			}
+		}
+	}
+
+	// 获取x值所处的网格列ID
+	inline int getBlockXId(double x) const
+	{
+		int blockX = static_cast<int>((x - box._xmin) / blockWidth);
+		blockX = blockX < 0 ? 0 : (blockX > blockCount ? blockCount : blockX);
+		return blockX;
+	}
+	// 获取y值所处的网格行ID
+	inline int getBlockYId(double y) const
+	{
+		int blockY = static_cast<int>((y - box._ymin) / blockHeight);
+		blockY = blockY < 0 ? 0 : (blockY > blockCount ? blockCount : blockY);
+		return blockY ;
 	}
 };
