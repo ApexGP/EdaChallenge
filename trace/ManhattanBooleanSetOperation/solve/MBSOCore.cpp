@@ -193,10 +193,10 @@ namespace MBSO {
 		int _mpolySize = poly.size(); // 该多边形边数
 		// 创建多边形
 		MPolygon mpolygon;
+		mpolygon.vertexs.reserve(_mpolySize);
 		mpolygon.edges.reserve(_mpolySize);
 		// 构造点集
-		std::vector<MVertex*> vertexs;
-		vertexs.reserve(_mpolySize);
+		auto& vertexs = mpolygon.vertexs;
 		for (const auto& _mpoint : poly) {
 			MVertex* mvertex = vertexsMemoryPool.newElement();
 			mvertex->point = _mpoint;
@@ -227,10 +227,10 @@ namespace MBSO {
 			int _mpolySize = _mpoly.size(); // 该多边形边数
 			// 创建多边形
 			MPolygon mpolygon;
+			mpolygon.vertexs.reserve(_mpolySize);
 			mpolygon.edges.reserve(_mpolySize);
 			// 构造点集
-			std::vector<MVertex*> vertexs;
-			vertexs.reserve(_mpolySize);
+			auto& vertexs = mpolygon.vertexs;
 			for (const auto& _mpoint : _mpoly) {
 				MVertex* mvertex = vertexsMemoryPool.newElement();
 				mvertex->point = _mpoint;
@@ -699,8 +699,7 @@ namespace MBSO {
 			cur->nextEdgeB = another->nextEdgeB;
 			another->frontEdgeB->dest = cur;
 			another->nextEdgeB->ori = cur;
-			//!!! another为指向 多边形集B 上的端点，上面的操作直接修改了B的边指针,使点another成为孤立点，因此需要记录一下用于回收
-			newVertexs.emplace_back(another);
+			//!!! another为指向 多边形集B 上的端点，上面的操作直接修改了B的边指针,虽然通过其边数组已访问不到another这个点，但是原多边形点数组能访问到，还是可以正常内存回收
 		}
 		// 假设 cur 在 polygonSetId = 0 上，为了插入方便，首先定义这些
 		MPoint_2 curFrontPtB, curNextPtB, curFrontPtA, curNextPtA;
@@ -770,7 +769,6 @@ namespace MBSO {
 		{
 			cur->interType = UNKNOWN;
 			cur->isInter = false;
-			//if (cur->pointType == POINT_POINT) another->polygonPtr->isNeedInit = true;
 			//if (cur->pointType == POINT_POINT) {
 			//	cur->frontEdgeB = cur->frontEdgeA;
 			//	cur->nextEdgeB = cur->nextEdgeA;
@@ -1121,23 +1119,23 @@ namespace MBSO {
 
 	void MBSOCore::memoryRecycle()
 	{
+		/* 多边形通过冗余的独立存储拓扑边和点数组，内存回收直接遍历检查即可，不用担心重回收而导致bug */
+
 		// 回收mps1
 		for (auto& mpoly : mps1->mpolygons)
 		{
 			// 若是被结果复用了的多边形，跳过
 			if (mpoly.isResultRecycle) continue; 
 			// 否则遍历边列表
-			for (auto& edge : mpoly.edges){
-				// 如果边被复用，跳过 (原始边被复用，两个原始顶点一定也被复用了吗？)
-				if (edge->isResultRecycle) continue;
-				// 否则回收边
-				edgesMemoryPool.pushReuseElement(edge);
-				// 再看该边的起点
-				if (edge->ori->isResultRecycle) continue;
-				// 否则回收点
-				edge->ori->isResultRecycle = true; // 点回收得设置一下标志位，不然会产生重回收的bug
-				vertexsMemoryPool.pushReuseElement(edge->ori);
-			}
+			for (auto& edge : mpoly.edges)
+				// 如果边未被复用，回收边
+				if (!edge->isResultRecycle) 
+					edgesMemoryPool.pushReuseElement(edge);
+			// 再遍历点列表
+			for (auto& vertex : mpoly.vertexs)
+				// 如果点未被复用，回收点
+				if (!vertex->isResultRecycle) 
+					vertexsMemoryPool.pushReuseElement(vertex);
 		}
 		mps1->clear();
 
@@ -1145,13 +1143,12 @@ namespace MBSO {
 		for (auto& mpoly : mps2->mpolygons)
 		{
 			if (mpoly.isResultRecycle) continue; 
-			for (auto& edge : mpoly.edges){
-				if (edge->isResultRecycle) continue;
-				edgesMemoryPool.pushReuseElement(edge);
-				if (edge->ori->isResultRecycle) continue;
-				edge->ori->isResultRecycle = true;
-				vertexsMemoryPool.pushReuseElement(edge->ori);
-			}
+			for (auto& edge : mpoly.edges)
+				if (!edge->isResultRecycle) 
+					edgesMemoryPool.pushReuseElement(edge);
+			for (auto& vertex : mpoly.vertexs)
+				if (!vertex->isResultRecycle) 
+					vertexsMemoryPool.pushReuseElement(vertex);
 		}
 		mps2->clear();
 
@@ -1160,14 +1157,13 @@ namespace MBSO {
 
 		// 回收未被复用的新边
 		for (auto& edge : newEdges) 
-			if (!edge->isResultRecycle) edgesMemoryPool.pushReuseElement(edge);
+			if (!edge->isResultRecycle) 
+				edgesMemoryPool.pushReuseElement(edge);
 		
 		// 回收未被复用的新点
 		for (auto& vertex : newVertexs) 
-			if (!vertex->isResultRecycle) {
-				vertex->isResultRecycle = true;
+			if (!vertex->isResultRecycle) 
 				vertexsMemoryPool.pushReuseElement(vertex);
-			}
 	}
 
 } // namespace MBSO

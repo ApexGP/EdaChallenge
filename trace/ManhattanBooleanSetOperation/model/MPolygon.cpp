@@ -12,6 +12,7 @@ namespace MBSO {
 	MPolygon& MPolygon::operator=(const MPolygon& mpolygon)
 	{
 		if (this == &mpolygon) return *this;
+		vertexs = mpolygon.vertexs;
 		edges = mpolygon.edges;
 		dir = mpolygon.dir;
 		polygonSetId = mpolygon.polygonSetId;
@@ -25,6 +26,7 @@ namespace MBSO {
 	MPolygon::MPolygon(const MPolygon& mpolygon)
 	{
 		if (this == &mpolygon) return;
+		vertexs = mpolygon.vertexs;
 		edges = mpolygon.edges;
 		dir = mpolygon.dir;
 		polygonSetId = mpolygon.polygonSetId;
@@ -36,6 +38,7 @@ namespace MBSO {
 	}
 	MPolygon& MPolygon::operator=(MPolygon&& mpolygon) noexcept {
 		if (this != &mpolygon) {
+			vertexs = move(mpolygon.vertexs);
 			edges = move(mpolygon.edges);
 			dir = mpolygon.dir;
 			polygonSetId = mpolygon.polygonSetId;
@@ -50,6 +53,7 @@ namespace MBSO {
 	MPolygon::MPolygon(MPolygon&& mpolygon) noexcept
 	{
 		if (this == &mpolygon) return;
+		vertexs = move(mpolygon.vertexs);
 		edges = move(mpolygon.edges);
 		dir = mpolygon.dir;
 		polygonSetId = mpolygon.polygonSetId;

@@ -12,6 +12,7 @@ namespace MBSO {
 	struct MPolygon
 	{
 		/* 拓扑信息 */
+		std::vector<MVertex*> vertexs;// 轮廓所包含的所有的点（其实边数组已经够用，多存点数组为了方便内存回收）
 		std::vector<MEdge*> edges;	// 轮廓所包含的所有的边
 		int polygonSetId;			// 所属曼哈顿多边形集的id （0或1，多边形集A则为0，多边形集B则为1）
 		DIR dir;					// 类型(外轮廓or空洞)

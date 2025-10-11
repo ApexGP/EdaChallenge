@@ -340,9 +340,9 @@ namespace MBSO {
 	{
 		MPolygon newMPolygon(CW);
 		int outerSize = outer.size();
-		vector<MVertex*> vertexs;
 		newMPolygon.edges.reserve(outerSize);
-		vertexs.reserve(outerSize);
+		newMPolygon.vertexs.reserve(outerSize);
+		auto& vertexs = newMPolygon.vertexs;
 		for (auto& edge : outer) {
 			if (edge->seg.getLength() == 0) continue;
 			MVertex* cur;
