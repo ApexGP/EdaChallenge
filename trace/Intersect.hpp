@@ -74,8 +74,8 @@ private:
 	BatchGridIntersectDetector bgid;
 
 	// ========== 配置选项：选择检测相交方法 ==========
-	//IntersectionMethod method = IntersectionMethod::MANHATTAN_COMPLETE;    // 两两曼哈顿多边形边边相交检测
-	 IntersectionMethod method = IntersectionMethod::BATCH_GRID;           // 批量曼哈顿多边形打网格检测
+	IntersectionMethod method = IntersectionMethod::MANHATTAN_COMPLETE;    // 两两曼哈顿多边形边边相交检测
+	 //IntersectionMethod method = IntersectionMethod::BATCH_GRID;           // 批量曼哈顿多边形打网格检测
 	// IntersectionMethod method = IntersectionMethod::PARALLEL;             // 并行化
 
 	// ================================================

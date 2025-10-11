@@ -198,14 +198,17 @@ namespace MBSO {
 		std::vector<MVertex*> vertexs;
 		vertexs.reserve(_mpolySize);
 		for (const auto& _mpoint : poly) {
-			MVertex* mvertex = vertexsMemoryPool.newElement(MVertex(_mpoint));
+			MVertex* mvertex = vertexsMemoryPool.newElement();
+			mvertex->point = _mpoint;
 			vertexs.emplace_back(mvertex);
 		}
 		// 基于点集构造边集
 		for (int i = 0; i < _mpolySize; ++i) {
 			const auto& start = vertexs[i];
 			const auto& end = vertexs[(i + 1) % _mpolySize];
-			MEdge* medge = edgesMemoryPool.newElement(MEdge(start, end));
+			MEdge* medge = edgesMemoryPool.newElement();
+			medge->ori = start;
+			medge->dest = end;
 			mpolygon.edges.emplace_back(medge);
 		}
 		// 放入多边形集中
@@ -229,14 +232,17 @@ namespace MBSO {
 			std::vector<MVertex*> vertexs;
 			vertexs.reserve(_mpolySize);
 			for (const auto& _mpoint : _mpoly) {
-				MVertex* mvertex = vertexsMemoryPool.newElement(MVertex(_mpoint));
+				MVertex* mvertex = vertexsMemoryPool.newElement();
+				mvertex->point = _mpoint;
 				vertexs.emplace_back(mvertex);
 			}
 			// 基于点集构造边集
 			for (int i = 0; i < _mpolySize; ++i) {
 				const auto& start = vertexs[i];
 				const auto& end = vertexs[(i + 1) % _mpolySize];
-				MEdge* medge = edgesMemoryPool.newElement(MEdge(start, end));
+				MEdge* medge = edgesMemoryPool.newElement();
+				medge->ori = start;
+				medge->dest = end;
 				mpolygon.edges.emplace_back(medge);
 			}
 			// 放入多边形集中
@@ -579,8 +585,10 @@ namespace MBSO {
 		{
 			// 交点不在端点处
 			// 新建交点
-			MVertex* p1 = vertexsMemoryPool.newElement(MVertex(inter_p));
+			MVertex* p1 = vertexsMemoryPool.newElement();
 			newVertexs.emplace_back(p1);
+			p1->resetFlags();
+			p1->point = inter_p;
 			p1->isInter = true;
 			p1->pointType = SEG_SEG;
 			p1->isFinished = true;
@@ -645,7 +653,7 @@ namespace MBSO {
 			curSeg->isResultRecycle = false;
 			if (seg->polygonSetId == 0) pre->nextEdgeA = curSeg, seg->dest->frontEdgeA = curSeg;
 			else pre->nextEdgeB = curSeg, seg->dest->frontEdgeB = curSeg;
-			seg->resetFlags(); // 该边已经被拆分完了，重置内部状态(释放存储的交点)
+			seg->resetFlags(); // 该边已经被拆分完了，重置内部状态(释放存储的交点)，这条边拆完后其实已经没用了，后续会在回收原多边形未复用边时被回收的
 		}
 
 		// 处理端点相交的情况
@@ -691,6 +699,8 @@ namespace MBSO {
 			cur->nextEdgeB = another->nextEdgeB;
 			another->frontEdgeB->dest = cur;
 			another->nextEdgeB->ori = cur;
+			//!!! another为指向 多边形集B 上的端点，上面的操作直接修改了B的边指针,使点another成为孤立点，因此需要记录一下用于回收
+			newVertexs.emplace_back(another);
 		}
 		// 假设 cur 在 polygonSetId = 0 上，为了插入方便，首先定义这些
 		MPoint_2 curFrontPtB, curNextPtB, curFrontPtA, curNextPtA;
@@ -1079,7 +1089,6 @@ namespace MBSO {
 	}
 
 	// 如果还存在带尾巴的情况，直接强行截断，
-	// 差集好像会出现，不知道怎么解决。
 	void MBSOCore::interceptOuter(vector<MEdge*>& outer, MVertex* start)
 	{
 		int index = -1;
@@ -1126,7 +1135,7 @@ namespace MBSO {
 				// 再看该边的起点
 				if (edge->ori->isResultRecycle) continue;
 				// 否则回收点
-				edge->ori->isResultRecycle = true; // 设置标志位，不然会产生重回收的bug
+				edge->ori->isResultRecycle = true; // 点回收得设置一下标志位，不然会产生重回收的bug
 				vertexsMemoryPool.pushReuseElement(edge->ori);
 			}
 		}

@@ -90,5 +90,9 @@ namespace MBSO {
         {
             return (1ll * curPoolIndex * MAX_ELE_SIZE) + curEleSize;
         }
+        long long getReuseEleNum()
+        {
+            return reuseElements.size();
+        }
     };
 } // namespace MBSO

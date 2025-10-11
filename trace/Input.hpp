@@ -44,6 +44,11 @@ public:
 
 	// 读取版图文件
 	void readLayout(std::ifstream& layout_file) {
+		// 设置10MB的缓冲区
+		constexpr size_t bufferSize = 1024 * 1024 * 10;
+		std::vector<char> buffer(bufferSize);
+		layout_file.rdbuf()->pubsetbuf(buffer.data(), bufferSize);
+
 		std::string line;
 		int layer_id = -1;
 		int polygon_id = -1;
@@ -191,7 +196,7 @@ public:
 private:
 	// 快速坐标解析函数，避免使用istringstream
 	void fastParseCoordinates(const std::string& line, Vertexs& vertex) {
-		vertex.reserve(10); // 预估每个多边形10个点
+		vertex.reserve(12); // 预估每个多边形12个点
 		const char* ptr = line.c_str();
 		const char* end = ptr + line.length();
 

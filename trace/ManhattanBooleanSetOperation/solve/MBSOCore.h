@@ -4,7 +4,7 @@
 #include "../model/MEdge.h"
 #include "../model/MPolygon.h"
 #include "../model/MPolygonSet.h"
-#include "../utils/MemoryPool.h"
+#include "../utils/HighPerfMemoryPool.h"
 #include "../utils/Bbox.h"
 #include "../utils/Grid.h"
 #include <unordered_set>
@@ -14,7 +14,7 @@ namespace MBSO {
 	using std::vector;
 
 	class MBSOCore {
-	private:
+	public:
 		MPolygonSet* mps1;		//多边形集A
 		MPolygonSet* mps2;		//多边形集B
 		MPolygonSet* resultMps;	//结果多边形集
@@ -45,8 +45,8 @@ namespace MBSO {
 		int curMps;	 //绕边变量，标识当前绕边的多边形集Id: 即polygonSetId
 
 		// 内存复用相关
-		MemoryPool<MVertex> vertexsMemoryPool;  // 点内存池
-		MemoryPool<MEdge> edgesMemoryPool;		// 边内存池
+		HighPerfMemoryPool<MVertex> vertexsMemoryPool;  // 点内存池
+		HighPerfMemoryPool<MEdge> edgesMemoryPool;		// 边内存池
 		vector<MVertex*> newVertexs;			// 记录运算过程中新生成的点，运算结束后统一回收 未被结果多边形集复用的点
 		vector<MEdge*> newEdges;				// 记录运算过程中新生成的边，运算结束后统一回收 未被结果多边形集复用的边
 
@@ -55,7 +55,7 @@ namespace MBSO {
 		MBSOCore(): mps1(new MPolygonSet), mps2(new MPolygonSet), resultMps(new MPolygonSet), opt(UNION),
 					grid(101, 101), blockWidth(0), blockHeight(0), blockCount(0),
 					inPointsIndex(0), outPointsIndex(0), equalPoints(2), curMps(0),
-					vertexsMemoryPool(10000, 20), edgesMemoryPool(10000, 20)
+					vertexsMemoryPool(1000), edgesMemoryPool(1000)
 		{};
 		~MBSOCore() {
 			// 释放曾经new的MPolygonSet, 边和点由内存池统一管理
@@ -322,7 +322,13 @@ namespace MBSO {
 
 	inline void MBSOCore::pushBackToResultMps(MPolygon& mpolygon)
 	{
-		if (mpolygon.edges.size() == 0) return;
+		if (mpolygon.edges.size() <= 2) { // 不足以形成多边形
+			for (auto& edge : mpolygon.edges) {
+				edge->isResultRecycle = false;
+				edge->ori->isResultRecycle = false;
+			}
+			return;
+		}
 		resultMps->edgeCnt += mpolygon.edges.size();
 		resultMps->box.update(mpolygon.box);
 		resultMps->mpolygons.emplace_back(std::move(mpolygon));
