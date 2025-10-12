@@ -204,7 +204,9 @@ namespace MBSO {
 		// 基于点集构造边集
 		for (int i = 0; i < _mpolySize; ++i) {
 			const auto& start = vertexs[i];
-			const auto& end = vertexs[(i + 1) % _mpolySize];
+			size_t next = i + 1;
+			if(next == _mpolySize) next = 0;
+			const auto& end = vertexs[next];
 			MEdge* medge = edgesMemoryPool.newElement(start, end);
 			mpolygon.edges.emplace_back(medge);
 		}
@@ -235,7 +237,9 @@ namespace MBSO {
 			// 基于点集构造边集
 			for (int i = 0; i < _mpolySize; ++i) {
 				const auto& start = vertexs[i];
-				const auto& end = vertexs[(i + 1) % _mpolySize];
+				size_t next = i + 1;
+				if(next == _mpolySize) next = 0;
+				const auto& end = vertexs[next];
 				MEdge* medge = edgesMemoryPool.newElement(start, end);
 				mpolygon.edges.emplace_back(medge);
 			}

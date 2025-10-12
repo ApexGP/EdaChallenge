@@ -162,10 +162,10 @@ private:
 
 		// 生成四个子节点
 		node->_divided = true;
-		node->_lt = new QuadTreeNode(node->_rect.GetLTRect(), node->_depth + 1);
-		node->_rt = new QuadTreeNode(node->_rect.GetRTRect(), node->_depth + 1);
-		node->_lb = new QuadTreeNode(node->_rect.GetLBRect(), node->_depth + 1);
-		node->_rb = new QuadTreeNode(node->_rect.GetRBRect(), node->_depth + 1);
+		node->_lt = new QuadTreeNode(lt_rect, node->_depth + 1);
+		node->_rt = new QuadTreeNode(rt_rect, node->_depth + 1);
+		node->_lb = new QuadTreeNode(lb_rect, node->_depth + 1);
+		node->_rb = new QuadTreeNode(rb_rect, node->_depth + 1);
 
 		// 基于数据分布估算内存预分配
 		size_t estimated_size = (data_size / 3); // 保守估计，考虑重叠

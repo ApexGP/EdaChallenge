@@ -363,7 +363,9 @@ namespace MBSO {
 		outerSize = vertexs.size();
 		for (int i = 0; i < outerSize; ++i) {
 			auto start = vertexs[i];
-			auto end = vertexs[(i + 1) % outerSize];
+			size_t next = i + 1;
+			if(next == outerSize) next = 0;
+			auto end = vertexs[next];
 			// ¸´ÓÃ±ß
 			outer[i]->setOriDest(start, end);
 			// MEdge* edgePtr = edgesMemoryPool.newElement();

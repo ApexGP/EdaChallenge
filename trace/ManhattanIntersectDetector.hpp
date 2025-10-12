@@ -17,20 +17,12 @@ public:
 			return false;
 		}
 
-		// 2. 提取多边形的边
-		static std::vector<SortEdge> edges1;
-		static std::vector<SortEdge> edges2;
-		edges1.reserve(poly1->vertex.size());
-		edges2.reserve(poly2->vertex.size());
-		extractEdges(poly1, edges1);
-		extractEdges(poly2, edges2);
-
-		// 3. 检测边-边相交（包括边界点相交和边界线相交）
-		if (edgesIntersect(edges1, edges2)) {
+		// 2. 检测边-边相交（包括边界点相交和边界线相交）
+		if (edgesIntersect(poly1, poly2)) {
 			return true;
 		}
 
-		// 4. 检测包含关系（一个多边形在另一个内部）
+		// 3. 检测包含关系（一个多边形在另一个内部）
 		if (polygonContainment(poly1, poly2)) {
 			return true;
 		}
@@ -82,13 +74,45 @@ private:
 		return poly1->rect.Intersects(poly2->rect);
 	}
 
+	// 检测两组边是否相交
+	static bool edgesIntersect(const Polygon* poly1, const Polygon* poly2) {
+		// 预先提取多边形2的边
+		static std::vector<SortEdge> edges2;
+		edges2.reserve(poly2->vertex.size());
+		extractEdges(poly2, edges2);
+		
+		// 遍历点建立多边形1的边并检测
+		const auto& points1 = poly1->vertex;
+		for (size_t i = 0; i < points1.size(); ++i) {
+			size_t next = i + 1;
+			if(next == points1.size()) next = 0;
+			int x1 = points1[i].x;
+			int y1 = points1[i].y;
+			int x2 = points1[next].x;
+			int y2 = points1[next].y;
+			// 多边形1的边与多边形2的包围盒直接特判一下
+			if (y1 == y2 && (y1 < poly2->rect._ymin || y1 > poly2->rect._ymax)
+				|| x1 == x2 && (x1 < poly2->rect._xmin || x1 > poly2->rect._xmax)) continue;
+			// 生成多边形1的边
+			SortEdge edge1(x1, y1, x2, y2);
+			// 再遍历多边形2的边，检测是否相交
+			for (const auto& edge2 : edges2) {
+				if (twoEdgesIntersect(edge1, edge2)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	// 提取多边形的所有边
 	static void extractEdges(const Polygon* poly, std::vector<SortEdge>& edges) {
 		edges.clear();
 		const auto &points = poly->vertex;
 
 		for (size_t i = 0; i < points.size(); ++i) {
-			size_t next = (i + 1) % points.size();
+			size_t next = i + 1;
+			if(next == points.size()) next = 0;
 
 			int x1 = points[i].x;
 			int y1 = points[i].y;
@@ -97,18 +121,6 @@ private:
 
 			edges.emplace_back(x1, y1, x2, y2);
 		}
-	}
-
-	// 检测两组边是否相交
-	static bool edgesIntersect(const std::vector<SortEdge>& edges1, const std::vector<SortEdge>& edges2) {
-		for (const auto& edge1 : edges1) {
-			for (const auto& edge2 : edges2) {
-				if (twoEdgesIntersect(edge1, edge2)) {
-					return true;
-				}
-			}
-		}
-		return false;
 	}
 
 public:
@@ -172,7 +184,8 @@ public:
 		int crossings = 0;
 
 		for (size_t i = 0; i < points.size(); ++i) {
-			size_t next = (i + 1) % points.size();
+			size_t next = i + 1;
+			if(next == points.size()) next = 0;
 
 			int x1 = points[i].x;
 			int y1 = points[i].y;
