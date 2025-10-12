@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <iostream>
+#include <cstddef> // for std::max_align_t
 
 namespace MBSO {
 
@@ -19,10 +20,11 @@ namespace MBSO {
          * @brief 链表节点结构（存储在空闲内存中）
          *
          * 这个结构用于实现自由链表，存储在空闲内存块中。
-         * 当内存块空闲时，它被用作链表节点；当分配给对象时，它被用作对象存储。
+         * 一块内存两用，当内存块空闲时，它被用作链表节点；当分配给对象时，它被用作对象存储。
+         * 这种设计也就是说内存归还时须析构对象，并将对象指针重新解析成Node指针，对于pod类型对象，构造析构开销几乎可以忽略不计，完全不用担心
          */
         struct Node {
-            Node* next;  ///< 指向下一个空闲节点的指针
+            Node* next;  // 指向下一个空闲节点的指针
         };
 
         /**
@@ -108,17 +110,17 @@ namespace MBSO {
         };
 
         // 常量定义
-        static constexpr size_t MIN_BLOCK_SIZE = 64 * 1024;  ///< 最小内存块大小（64KB）
-        static constexpr size_t ALIGNMENT = alignof(std::max_align_t);  ///< 内存对齐要求
+        static constexpr size_t MIN_BLOCK_SIZE = 64 * 1024;  // 最小内存块大小（64KB）
+        static constexpr size_t ALIGNMENT = alignof(std::max_align_t);  // 内存对齐要求
 
         // 成员变量
-        std::vector<MemoryBlock> blocks_;  ///< 存储所有内存块的容器
-        Node* free_list_ = nullptr;        ///< 自由链表头指针（指向第一个空闲节点）
-        size_t element_size_;              ///< 对齐后的单个元素大小（字节）
-        size_t block_size_;                ///< 用户指定的内存块大小（字节）
-        size_t elements_per_block_;        ///< 每个内存块可容纳的元素数量
-        size_t total_allocated_ = 0;       ///< 总共分配的对象计数
-        size_t total_freed_ = 0;            ///< 总共释放的对象计数
+        std::vector<MemoryBlock> blocks_;  // 存储所有内存块的容器
+        Node* free_list_ = nullptr;        // 自由链表头指针（指向第一个空闲节点）
+        size_t element_size_;              // 对齐后的单个元素大小（字节）
+        size_t block_size_;                // 用户指定的内存块大小（字节）
+        size_t elements_per_block_;        // 每个内存块可容纳的元素数量
+        size_t total_allocated_ = 0;       // 总共分配的对象计数
+        size_t total_freed_ = 0;           // 总共释放的对象计数
 
         /**
          * @brief 计算对齐后的元素大小
@@ -130,7 +132,7 @@ namespace MBSO {
         size_t aligned_element_size() const {
             // 取T和Node中较大的大小作为基础大小
             const size_t basic_size = sizeof(T) > sizeof(Node) ? sizeof(T) : sizeof(Node);
-            // 计算对齐后的大小
+            // 计算对齐后的大小(向上对齐到指定边界的技术,核心逻辑是通过位运算将基础大小 basic_size 向上舍入到 ALIGNMENT 的倍数)
             return (basic_size + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
         }
 

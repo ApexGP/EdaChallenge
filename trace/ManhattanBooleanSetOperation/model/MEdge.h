@@ -21,6 +21,7 @@ namespace MBSO {
 
 		MEdge();
 		MEdge(MVertex* s, MVertex* e);
+		MEdge(MVertex* s, MVertex* e, int _polygonSetId, MPolygon* polygonPtr);
 
 		// ÍêÈ«ÖØÖÃ±ß×´Ì¬
 		void resetAll();

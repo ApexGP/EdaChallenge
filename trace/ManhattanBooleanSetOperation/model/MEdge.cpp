@@ -9,6 +9,9 @@ namespace MBSO {
 	MEdge::MEdge(MVertex* s, MVertex* e) : ori(s), dest(e), polygonSetId(-1), polygonPtr(nullptr), seg(s->point, e->point), isResultRecycle(false)
 	{
 	}
+	MEdge::MEdge(MVertex* s, MVertex* e, int _polygonSetId, MPolygon* polygonPtr) : ori(s), dest(e), polygonSetId(_polygonSetId), polygonPtr(polygonPtr), seg(s->point, e->point), isResultRecycle(false)
+	{
+	}
 
 	void MEdge::resetAll()
 	{

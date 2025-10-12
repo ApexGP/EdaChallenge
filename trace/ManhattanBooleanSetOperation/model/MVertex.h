@@ -26,6 +26,7 @@ namespace MBSO {
 		MVertex();
 		MVertex(int _x, int _y, int _polygonSetId);
 		MVertex(const MPoint_2& _p);
+		MVertex(const MVertex&) = default;
 		~MVertex();
 
 		// ÷ÿ–¥µ»∫≈

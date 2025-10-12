@@ -58,10 +58,19 @@ namespace MBSO {
 					vertexsMemoryPool(1000), edgesMemoryPool(1000)
 		{};
 		~MBSOCore() {
-			// 释放曾经new的MPolygonSet, 边和点由内存池统一管理
+			// 释放曾经new的MPolygonSet
 			if (mps1 != nullptr) delete mps1;
 			if (mps2 != nullptr) delete mps2;
-			if (resultMps != nullptr) delete resultMps;
+			if (resultMps != nullptr) {
+				// 回收结果集的边和点元素，全部回收即可
+				for (auto& mpoly : resultMps->mpolygons) {
+					for (auto& edge : mpoly.edges)
+						edgesMemoryPool.pushReuseElement(edge);
+					for (auto& vertex : mpoly.vertexs)
+						vertexsMemoryPool.pushReuseElement(vertex);
+				}
+				delete resultMps;
+			}
 		};
 		// 禁止拷贝赋值
 		MBSOCore(const MBSOCore&) = delete;

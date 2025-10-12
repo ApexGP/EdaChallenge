@@ -7,11 +7,11 @@ namespace MBSO {
 	/* --------------- 支持序列式运算的外部接口 --------------- */
 	void MBSOCore::setResultMPS(const std::vector<MPoint_2>& poly) {
 		// 回收边和点:结果集的元素，全部回收即可
-		for (auto& outer : resultMps->mpolygons) {
-			for (auto& seg : outer.edges) {
-				vertexsMemoryPool.pushReuseElement(seg->ori);
-				edgesMemoryPool.pushReuseElement(seg);
-			}
+		for (auto& mpoly : resultMps->mpolygons) {
+			for (auto& edge : mpoly.edges)
+				edgesMemoryPool.pushReuseElement(edge);
+			for (auto& vertex : mpoly.vertexs)
+				vertexsMemoryPool.pushReuseElement(vertex);
 		}
 		// 重置内部状态
 		resultMps->clear();
@@ -20,11 +20,11 @@ namespace MBSO {
 	}
 	void MBSOCore::setResultMPS(const std::vector<std::vector<MPoint_2>> &polyset) {
 		// 回收边和点:结果集的元素，全部回收即可
-		for (auto& outer : resultMps->mpolygons) {
-			for (auto& seg : outer.edges) {
-				vertexsMemoryPool.pushReuseElement(seg->ori);
-				edgesMemoryPool.pushReuseElement(seg);
-			}
+		for (auto& mpoly : resultMps->mpolygons) {
+			for (auto& edge : mpoly.edges)
+				edgesMemoryPool.pushReuseElement(edge);
+			for (auto& vertex : mpoly.vertexs)
+				vertexsMemoryPool.pushReuseElement(vertex);
 		}
 		// 重置内部状态
 		resultMps->clear();
@@ -198,17 +198,14 @@ namespace MBSO {
 		// 构造点集
 		auto& vertexs = mpolygon.vertexs;
 		for (const auto& _mpoint : poly) {
-			MVertex* mvertex = vertexsMemoryPool.newElement();
-			mvertex->point = _mpoint;
+			MVertex* mvertex = vertexsMemoryPool.newElement(_mpoint);
 			vertexs.emplace_back(mvertex);
 		}
 		// 基于点集构造边集
 		for (int i = 0; i < _mpolySize; ++i) {
 			const auto& start = vertexs[i];
 			const auto& end = vertexs[(i + 1) % _mpolySize];
-			MEdge* medge = edgesMemoryPool.newElement();
-			medge->ori = start;
-			medge->dest = end;
+			MEdge* medge = edgesMemoryPool.newElement(start, end);
 			mpolygon.edges.emplace_back(medge);
 		}
 		// 放入多边形集中
@@ -232,17 +229,14 @@ namespace MBSO {
 			// 构造点集
 			auto& vertexs = mpolygon.vertexs;
 			for (const auto& _mpoint : _mpoly) {
-				MVertex* mvertex = vertexsMemoryPool.newElement();
-				mvertex->point = _mpoint;
+				MVertex* mvertex = vertexsMemoryPool.newElement(_mpoint);
 				vertexs.emplace_back(mvertex);
 			}
 			// 基于点集构造边集
 			for (int i = 0; i < _mpolySize; ++i) {
 				const auto& start = vertexs[i];
 				const auto& end = vertexs[(i + 1) % _mpolySize];
-				MEdge* medge = edgesMemoryPool.newElement();
-				medge->ori = start;
-				medge->dest = end;
+				MEdge* medge = edgesMemoryPool.newElement(start, end);
 				mpolygon.edges.emplace_back(medge);
 			}
 			// 放入多边形集中
@@ -585,10 +579,8 @@ namespace MBSO {
 		{
 			// 交点不在端点处
 			// 新建交点
-			MVertex* p1 = vertexsMemoryPool.newElement();
+			MVertex* p1 = vertexsMemoryPool.newElement(inter_p);
 			newVertexs.emplace_back(p1);
-			p1->resetFlags();
-			p1->point = inter_p;
 			p1->isInter = true;
 			p1->pointType = SEG_SEG;
 			p1->isFinished = true;
@@ -631,11 +623,8 @@ namespace MBSO {
 			{
 				cur = node;
 				// 生成新边
-				MEdge* curSeg = edgesMemoryPool.newElement();
+				MEdge* curSeg = edgesMemoryPool.newElement(pre, cur, seg->polygonSetId, seg->polygonPtr);
 				newEdges.emplace_back(curSeg);
-				curSeg->setOriDest(pre, cur, seg->polygonSetId);
-				curSeg->polygonPtr = seg->polygonPtr;
-				curSeg->isResultRecycle = false;
 
 				// 连接拓扑
 				if (seg->polygonSetId == 0) // 属于多边形集A
@@ -646,11 +635,8 @@ namespace MBSO {
 			}
 
 			// 最后一条边
-			MEdge* curSeg = edgesMemoryPool.newElement();
+			MEdge* curSeg = edgesMemoryPool.newElement(pre, seg->dest, seg->polygonSetId, seg->polygonPtr);
 			newEdges.emplace_back(curSeg);
-			curSeg->setOriDest(pre, seg->dest, seg->polygonSetId);
-			curSeg->polygonPtr = seg->polygonPtr;
-			curSeg->isResultRecycle = false;
 			if (seg->polygonSetId == 0) pre->nextEdgeA = curSeg, seg->dest->frontEdgeA = curSeg;
 			else pre->nextEdgeB = curSeg, seg->dest->frontEdgeB = curSeg;
 			seg->resetFlags(); // 该边已经被拆分完了，重置内部状态(释放存储的交点)，这条边拆完后其实已经没用了，后续会在回收原多边形未复用边时被回收的
@@ -796,22 +782,17 @@ namespace MBSO {
 		// 两个不相等，因此只能拆点了，并且一正一负
 		MVertex* p = vertexsMemoryPool.newElement(*cur);
 		newVertexs.emplace_back(p);
-		p->polygonSetId = cur->polygonSetId, p->isInter = cur->isInter, p->pointType = cur->pointType;
-		p->frontEdgeA = cur->frontEdgeA, p->nextEdgeA = cur->nextEdgeA;
-		p->frontEdgeB = cur->frontEdgeB, p->nextEdgeB = cur->nextEdgeB;
 		cur->interType = (crossCur > 0 ? OUT_POINT : IN_POINT);
 		p->interType = (crossP > 0 ? OUT_POINT : IN_POINT);
 
 		pushBackInterPoint(p);
 		pushBackInterPoint(cur);
 
-		// 需要创建一条边，
+		// 需要创建两条边，
 		MEdge* segA = edgesMemoryPool.newElement();
 		MEdge* segB = edgesMemoryPool.newElement();
 		newEdges.emplace_back(segA);
 		newEdges.emplace_back(segB);
-		segA->isResultRecycle = false;
-		segB->isResultRecycle = false;
 		MVertex* pre = nullptr, * next = nullptr;
 		// 在 A 中插入 p;
 		if (minPtA == cur->frontEdgeA->ori->point) {	// cur 之前插入
