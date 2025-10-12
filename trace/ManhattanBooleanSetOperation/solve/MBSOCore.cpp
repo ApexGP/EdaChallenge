@@ -353,9 +353,11 @@ namespace MBSO {
 		inPointsIndex = outPointsIndex = 0;
 
 		hasInterEdges.clear();
+		int allSegsSize = mps1->edgeCnt + mps2->edgeCnt;
+		curOuter.clear();
+		curOuter.reserve(allSegsSize);
 
 		// 内存复用相关
-		int allSegsSize = mps1->edgeCnt + mps2->edgeCnt;
 		newVertexs.clear();
 		newEdges.clear();
 		newVertexs.reserve(allSegsSize);
@@ -925,7 +927,7 @@ namespace MBSO {
 			while (true) {	// 直接死循环
 				firstCross = false;
 				curMps = 0;
-				vector<MEdge*> outer;
+				curOuter.clear();
 				// 找到第一个没被访问的交点，标记为 S
 				curPt = findFirstInter(nextInterType);
 				if (curPt == nullptr) break;
@@ -940,8 +942,8 @@ namespace MBSO {
 						curMps = (curMps == 0 ? 1 : 0);
 						nextInterType = (nextInterType == OUT_POINT ? IN_POINT : OUT_POINT);
 						curSeg = findNextEdge(curPt);
-						if (outer.empty() || curSeg->seg.getLength() != 0)
-							outer.emplace_back(curSeg);
+						if (curOuter.empty() || curSeg->seg.getLength() != 0)
+							curOuter.emplace_back(curSeg);
 						curPt = curSeg->dest;
 						if (curPt == s || curPt->isVisted) break;
 					}
@@ -950,26 +952,26 @@ namespace MBSO {
 					{
 						curPt->isVisted = true;
 						curSeg = findNextEdge(curPt);
-						if (outer.empty() || curSeg->seg.getLength() != 0)
-							outer.emplace_back(curSeg);
+						if (curOuter.empty() || curSeg->seg.getLength() != 0)
+							curOuter.emplace_back(curSeg);
 						curPt = curSeg->dest;
 						if (curPt == s || curPt->isVisted) break;
 					}
 					if (curPt == s || curPt->isVisted) break;
 				}
 				if (curPt == s)
-					pushBackToResultMps(outer);
+					pushBackToResultMps(curOuter);
 				else if (curPt->isVisted)
-					interceptOuter(outer, curPt);
+					interceptOuter(curOuter, curPt);
 			}
 		}
 		if (opt == OP_TYPE::INTER) {
 			bool firstCross = true;
 			while (true) {
-				vector<MEdge*> outer;
 				INTER_TYPE nextInterType = INTER_TYPE::IN_POINT;
 				// 找到第一个交点
 				curMps = 0;
+				curOuter.clear();
 				curPt = findFirstInter(nextInterType);
 				if (curPt == nullptr) break;
 				if (!curPt->isInter || curPt->interType != nextInterType) continue;
@@ -983,8 +985,8 @@ namespace MBSO {
 						curMps = (curMps == 0 ? 1 : 0);
 						nextInterType = (nextInterType == OUT_POINT ? IN_POINT : OUT_POINT);
 						curSeg = findNextEdge(curPt);
-						if (outer.empty() || curSeg->seg.getLength() != 0)
-							outer.emplace_back(curSeg);
+						if (curOuter.empty() || curSeg->seg.getLength() != 0)
+							curOuter.emplace_back(curSeg);
 						curPt = curSeg->dest;
 						if (curPt == s || curPt->isVisted) break;
 					}
@@ -993,17 +995,17 @@ namespace MBSO {
 					{
 						curPt->isVisted = true;
 						curSeg = findNextEdge(curPt);
-						if (outer.empty() || curSeg->seg.getLength() != 0)
-							outer.emplace_back(curSeg);
+						if (curOuter.empty() || curSeg->seg.getLength() != 0)
+							curOuter.emplace_back(curSeg);
 						curPt = curSeg->dest;
 						if (curPt == s || curPt->isVisted) break;
 					}
 					if (curPt == s || curPt->isVisted) break;
 				}
 				if (curPt == s)
-					pushBackToResultMps(outer);
+					pushBackToResultMps(curOuter);
 				else if (curPt->isVisted)
-					interceptOuter(outer, curPt);
+					interceptOuter(curOuter, curPt);
 			}
 		}
 		if (opt == OP_TYPE::DIFF) {
@@ -1014,7 +1016,7 @@ namespace MBSO {
 			while (true) {
 				// 找到第一个出点记为 s
 				curMps = 0;
-				vector<MEdge*> outer;
+				curOuter.clear();
 				INTER_TYPE nextInterType = INTER_TYPE::OUT_POINT;
 				curPt = findFirstInter(nextInterType);
 				if (curPt == nullptr) break;
@@ -1037,8 +1039,8 @@ namespace MBSO {
 							curSeg = findNextEdge(curPt);
 							curPt = curSeg->dest;
 						}
-						if (outer.empty() || curSeg->seg.getLength() != 0)
-							outer.emplace_back(curSeg);
+						if (curOuter.empty() || curSeg->seg.getLength() != 0)
+							curOuter.emplace_back(curSeg);
 						if (curPt == s || curPt->isVisted) break;
 					}
 					if (curPt->isVisted || curPt == s) break;
@@ -1053,16 +1055,16 @@ namespace MBSO {
 							curSeg = findNextEdge(curPt);
 							curPt = curSeg->dest;
 						}
-						if (outer.empty() || curSeg->seg.getLength() != 0)
-							outer.emplace_back(curSeg);
+						if (curOuter.empty() || curSeg->seg.getLength() != 0)
+							curOuter.emplace_back(curSeg);
 						if (curPt == s || curPt->isVisted) break;
 					}
 					if (curPt == s || curPt->isVisted) break;
 				}
 				if (curPt == s)
-					pushBackToResultMps(outer);
+					pushBackToResultMps(curOuter);
 				else if (curPt->isVisted)
-					interceptOuter(outer, curPt);
+					interceptOuter(curOuter, curPt);
 			}
 		}
 	}

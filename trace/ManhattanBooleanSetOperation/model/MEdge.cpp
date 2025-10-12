@@ -47,6 +47,7 @@ namespace MBSO {
 
 	void MEdge::push_interPoint(MVertex* p)
 	{
+		interPoints.reserve(10);
 		interPoints.emplace_back(p);
 	}
 } // namespace MBSO

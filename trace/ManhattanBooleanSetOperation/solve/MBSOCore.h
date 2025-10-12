@@ -43,6 +43,7 @@ namespace MBSO {
 
 		std::vector<MVertex*> equalPoints;	//用于处理端点相交的情况，size需要初始化为 2
 		int curMps;	 //绕边变量，标识当前绕边的多边形集Id: 即polygonSetId
+		std::vector<MEdge*> curOuter; //绕边临时存储
 
 		// 内存复用相关
 		HighPerfMemoryPool<MVertex> vertexsMemoryPool;  // 点内存池
