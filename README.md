@@ -105,7 +105,7 @@ python visual.py ../solution/res.txt -s ./output.png
 
 Why? 实测Ubuntu系统运行比Windows快一些，猜测内存分配速度是主要性能差距来源
 
-### 测试-单线程-Ubuntu-22.04 Using High Performance Implementation
+### 测试-单线程-Ubuntu-22.04 Using High Performance Implementation Sep 24, 2025
 |            case          |  rule  | High Performance Optimization |
 |:------------------------:|:------:|:-----------------------------:|
 |    case1_small_layout    |   q1   |              0.36s            |
