@@ -19,7 +19,7 @@
 + instance/ 算例
 + solution/ 结果
 + trace/ 源码
-+ + thirty/ 第三方库, 更多信息请查阅 [第三方库说明](./trace/third_party/README.md)
++ + thirty/ 第三方库, 更多信息请查阅 [第三方库说明](./trace/third_party/README.md), ps:最新版已不在使用CGAL
 + test/ 测试
 + checker/ 检验答案程序 查阅 [检验程序说明](./checker/README.md)
 
@@ -103,7 +103,7 @@ python visual.py ../solution/res.txt -s ./output.png
 | case1_large_0909b_layout |   q1   |    -    |     -     |      -      |  1675.1s   |      1611.2s       |
 | case1_large_0909b_layout |   q2   |    -    |     -     |      -      |      -     |     12692.9s       |
 
-Why? 实测Ubuntu系统运行比Windows快约3倍
+Why? 实测Ubuntu系统运行比Windows快一些，猜测内存分配速度是主要性能差距来源
 
 ### 测试-单线程-Ubuntu-22.04 Using High Performance Implementation
 |            case          |  rule  | High Performance Optimization |
@@ -124,3 +124,13 @@ Why? 实测Ubuntu系统运行比Windows快约3倍
 | case1_large_0909b_layout |   q1   |              20.2s            |
 | case1_large_0909b_layout |   q2   |             102.5s            |
 | case1_large_0909b_layout |   q3   |             148.5s            |
+
+### 测试-单线程-Ubuntu-22.04 Using High Performance Implementation 10月13日最新版
+|            case          |  rule  | High Performance Optimization |
+|:------------------------:|:------:|:-----------------------------:|
+|    case1_small_layout    |   q1   |              0.27s            |
+|    case1_small_layout    |   q2   |              1.36s            |
+|    case1_small_layout    |   q3   |              1.49s            |
+| case1_large_0909b_layout |   q1   |              16.5s            |
+| case1_large_0909b_layout |   q2   |              80.5s            |
+| case1_large_0909b_layout |   q3   |             115.8s            |
