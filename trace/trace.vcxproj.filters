@@ -38,9 +38,6 @@
     <ClInclude Include="Graph.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Input.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="Intersect.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -90,6 +87,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="ManhattanIntersectDetector.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Input.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
