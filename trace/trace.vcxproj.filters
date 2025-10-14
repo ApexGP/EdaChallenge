@@ -92,8 +92,5 @@
     <ClInclude Include="ManhattanIntersectDetector.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="ManhattanBooleanSetOperation\utils\HighPerfMemoryPool.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>
