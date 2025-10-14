@@ -1,101 +1,113 @@
 #pragma once
 #include "public.h"
 #include "Input.hpp"
+#include <fstream>
+#include <charconv>
+#include <system_error>
+#include <string>
+#include <vector>
+#include <array>
 
 class Output {
 public:
-	// 给定输入数据、输出文件路径、连通分量，解析输出链路追踪结果
-	Output(Input& _input, std::string res_path, std::vector<int>& _component):input(_input), component(_component){
-		output_poly_buffer.reserve(400); // 预分配缓冲区, 按每个顶点约20字符, 20个顶点预估
-		std::ofstream res_file(res_path); // 创建并打开文件
-		assert(res_file.is_open() && "无法打开res文件");
-		printResult(res_file);
-		res_file.close();
-	}
+    static constexpr size_t FILE_BUFFER_THRESHOLD = 128 * 1024;
+
+    Output(Input& _input, std::string res_path, std::vector<int>& _component)
+        : input(_input), component(_component) {
+        file_buffer.reserve(FILE_BUFFER_THRESHOLD * 2);
+        std::ofstream res_file(res_path);
+        assert(res_file.is_open() && "Failed to open output file");
+        stream_buffer.resize(FILE_BUFFER_THRESHOLD);
+        res_file.rdbuf()->pubsetbuf(stream_buffer.data(), static_cast<std::streamsize>(stream_buffer.size()));
+        printResult(res_file);
+        flushBuffer(res_file);
+    }
 
 private:
-	Input& input;
-	std::vector<int>& component;
+    Input& input;
+    std::vector<int>& component;
 
-	// 中间数据结构
-	std::string output_poly_buffer; // 用于存储单个多边形的输出字符串
-	char num_buf[12]; 				// int转str缓冲区, 足够存储-2147483648到2147483647
+    std::string file_buffer;
+    std::vector<char> stream_buffer;
+    std::array<char, 32> int_buffer{};
 
-	void printResult(std::ofstream& res_file) {
-		int layer_num = (int)input.polygon_id_range_in_layer.size();
-		std::vector<std::vector<int>> layer_polygons(layer_num);  // 结果中每层的多边形id的列表
-		
-		// 遍历结果, 按层分类
-		auto& polygons = input.polygons;
-		for (auto& poly_id : component) {
-			int layer_id = polygons[poly_id]->layer_id;
-			layer_polygons[layer_id].emplace_back(poly_id);
-		}
+    void flushBuffer(std::ofstream& res_file) {
+        if (!file_buffer.empty()) {
+            res_file.write(file_buffer.data(), static_cast<std::streamsize>(file_buffer.size()));
+            file_buffer.clear();
+        }
+    }
 
-		// 按层顺序输出
-		for (int i = 0; i < (int)layer_polygons.size(); ++i){
-			if (layer_polygons[i].size() != 0) {
-				//输出层名
-				res_file << input.layer_id_to_name[i] << std::endl;
-				//输出每个多边形
-				for (auto& poly_id : layer_polygons[i]) {
-					OutputPolygon(res_file, *polygons[poly_id]);
-				}
-			}
-		}
-	}
+    void appendRaw(std::ofstream& res_file, const char* data, size_t len) {
+        if (len >= FILE_BUFFER_THRESHOLD) {
+            flushBuffer(res_file);
+            res_file.write(data, static_cast<std::streamsize>(len));
+            return;
+        }
+        if (file_buffer.size() + len > FILE_BUFFER_THRESHOLD) {
+            flushBuffer(res_file);
+        }
+        file_buffer.append(data, len);
+    }
 
-	// 高效输出一个多边形
-	void OutputPolygon(std::ofstream &res_file, Polygon &p){
-		output_poly_buffer.clear();
-		std::string &buffer = output_poly_buffer;
+    void appendChar(std::ofstream& res_file, char c) {
+        if (file_buffer.size() == FILE_BUFFER_THRESHOLD) {
+            flushBuffer(res_file);
+        }
+        file_buffer.push_back(c);
+    }
 
-		// 使用快速整数转换并构建缓冲区
-		for (size_t j = 0; j < p.vertex.size(); ++j){
-			buffer += '(';
-			AppendInt(buffer, p.vertex[j].x);
-			buffer += ',';
-			AppendInt(buffer, p.vertex[j].y);
-			buffer += ')';
+    void appendInt(std::ofstream& res_file, int value) {
+        auto* begin = int_buffer.data();
+        auto* end = begin + int_buffer.size();
+        auto result = std::to_chars(begin, end, value);
+        if (result.ec == std::errc()) {
+            appendRaw(res_file, int_buffer.data(), static_cast<size_t>(result.ptr - int_buffer.data()));
+        } else {
+            const auto fallback = std::to_string(value);
+            appendRaw(res_file, fallback.data(), fallback.size());
+        }
+    }
 
-			if (j != p.vertex.size() - 1){
-				buffer += ',';
-			}
-		}
+    void printResult(std::ofstream& res_file) {
+        const int layer_num = static_cast<int>(input.polygon_id_range_in_layer.size());
+        std::vector<std::vector<int>> layer_polygons(layer_num);
+        layer_polygons.reserve(layer_num);
 
-		// 一次性输出
-		buffer += '\n';
-		res_file << buffer;
-	}
+        auto& polygons = input.polygons;
+        for (int poly_id : component) {
+            int layer_id = polygons[poly_id]->layer_id;
+            layer_polygons[layer_id].emplace_back(poly_id);
+        }
 
-	// 优化的整数追加函数
-	void AppendInt(std::string &str, int x){
-		if (x == 0){
-			str += '0';
-			return;
-		}
+        for (int i = 0; i < layer_num; ++i) {
+            const auto& ids = layer_polygons[i];
+            if (ids.empty()) {
+                continue;
+            }
 
-		// 处理负数
-		if (x < 0){
-			str += '-';
-			// 处理INT_MIN特殊情况
-    		if (x == INT_MIN) {
-        		str += "2147483648";
-        		return;
-    		}
-			x = -x;
-		}
+            const std::string& layer_name = input.layer_id_to_name[i];
+            appendRaw(res_file, layer_name.data(), layer_name.size());
+            appendChar(res_file, '\n');
 
-		int idx = 0;
-		// 转换数字
-		while (x > 0){
-			num_buf[idx++] = '0' + (x % 10);
-			x /= 10;
-		}
+            for (int poly_id : ids) {
+                OutputPolygon(res_file, *polygons[poly_id]);
+            }
+        }
+    }
 
-		// 反向追加到字符串
-		while (idx > 0){
-			str += num_buf[--idx];
-		}
-	}
+    void OutputPolygon(std::ofstream& res_file, Polygon& p) {
+        const auto vertex_count = p.vertex.size();
+        for (size_t j = 0; j < vertex_count; ++j) {
+            appendChar(res_file, '(');
+            appendInt(res_file, p.vertex[j].x);
+            appendChar(res_file, ',');
+            appendInt(res_file, p.vertex[j].y);
+            appendChar(res_file, ')');
+            if (j + 1 != vertex_count) {
+                appendChar(res_file, ',');
+            }
+        }
+        appendChar(res_file, '\n');
+    }
 };
