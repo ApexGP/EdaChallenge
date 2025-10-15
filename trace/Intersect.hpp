@@ -74,57 +74,25 @@ class Intersect {
 private:
     Input& input;
     SpaceIndex& spaceIndex;
+
+    /* For 完全建图 */
     mutable IntersectionStats stats;
-
-    // Batch grid intersection detector
-    BatchGridIntersectDetector bgid;
-
-    // Buffer for collecting leaf nodes
-    std::vector<QuadTreeNode*> leaf_buffer;
-
-    // Cache for neighbor candidate detection
-    robin_hood::unordered_set<int> neighbor_candidate_cache;
+    // Current intersection detection method
+    IntersectionMethod method = IntersectionMethod::MANHATTAN_COMPLETE;
     std::vector<int> dsu_parent;
     std::vector<uint8_t> dsu_rank;
 
+    /* For 延迟建图 */
+    // Buffer for collecting leaf nodes
+    std::vector<QuadTreeNode*> leaf_buffer;
+    // Cache for neighbor candidate detection
+    robin_hood::unordered_set<int> neighbor_candidate_cache;
     // Statistics for lazy neighbor detection
     size_t lazy_neighbor_calls = 0;
     size_t lazy_neighbor_candidates = 0;
     size_t lazy_neighbor_enqueues = 0;
     size_t lazy_neighbor_cache_hits = 0;
     size_t lazy_neighbor_duplicates = 0;
-
-    /**
-     * @brief Structure for caching sweep-line indexed data for leaf nodes
-     */
-    struct LeafSweepIndex {
-        bool built = false;
-        std::vector<int> polygon_ids;
-        robin_hood::unordered_map<int, size_t> id_to_local;
-        std::vector<std::vector<int>> adjacency;
-    };
-
-    // Cache for sweep-line indexed leaf data
-    robin_hood::unordered_map<const QuadTreeNode*, LeafSweepIndex> leaf_sweep_cache;
-
-    /**
-     * @brief Statistics for leaf node processing
-     */
-    struct LeafStats {
-        size_t visits = 0;
-        size_t candidate_checks = 0;
-        size_t true_hits = 0;
-        size_t leaf_size = 0;
-    };
-
-    // Statistics for leaf nodes
-    robin_hood::unordered_map<const QuadTreeNode*, LeafStats> leaf_stats;
-
-    // Threshold for considering a leaf as "heavy"
-    static constexpr size_t HEAVY_LEAF_THRESHOLD = 256;
-
-    // Current intersection detection method
-    IntersectionMethod method = IntersectionMethod::MANHATTAN_COMPLETE;
 
 public:
     /**
@@ -137,7 +105,7 @@ public:
     /**
      * @brief Destructor - flushes statistics
      */
-    ~Intersect() { FlushStats(); }
+    ~Intersect() {}
 
     /**
      * @brief Flushes and prints statistics
@@ -149,34 +117,6 @@ public:
                 << " enqueued=" << lazy_neighbor_enqueues
                 << " cache_hits=" << lazy_neighbor_cache_hits
                 << " duplicates=" << lazy_neighbor_duplicates << std::endl;
-        }
-
-        if (leaf_stats.empty()) {
-            return;
-        }
-
-        // Sort and display top heavy leaves
-        std::vector<const LeafStats*> stats_vec;
-        stats_vec.reserve(leaf_stats.size());
-        for (auto& kv : leaf_stats) {
-            stats_vec.push_back(&kv.second);
-        }
-        std::sort(stats_vec.begin(), stats_vec.end(), [](const LeafStats* a, const LeafStats* b) {
-            return a->visits > b->visits;
-            });
-
-        const size_t limit = std::min<size_t>(stats_vec.size(), 10);
-        if (limit == 0) {
-            return;
-        }
-
-        std::cout << "[Leaf Stats] top " << limit << " heavy leaves" << std::endl;
-        for (size_t i = 0; i < limit; ++i) {
-            const LeafStats& stat = *stats_vec[i];
-            std::cout << "  visits=" << stat.visits
-                << " candidates=" << stat.candidate_checks
-                << " hits=" << stat.true_hits
-                << " leaf_size=" << stat.leaf_size << std::endl;
         }
     }
 
@@ -215,15 +155,6 @@ public:
     }
 
     /**
-     * @brief Sets the intersection detection method
-     * @param new_method The method to use
-     */
-    void setIntersectionMethod(IntersectionMethod new_method) {
-        method = new_method;
-        std::cout << "Switched to method: " << getMethodName() << std::endl;
-    }
-
-    /**
      * @brief Gets the name of the current method
      * @return Method name string
      */
@@ -245,104 +176,43 @@ public:
     /**
      * @brief Gets neighboring polygons that intersect with the given polygon using lazy evaluation
      * @param polygon_id ID of the source polygon
-     * @param visit_token Visit tracking array
-     * @param visit_version Current visit version
+     * @param bfs_visted BFS Visit tracking array
      * @param neighbors Output vector for neighbor IDs
      */
-    void GetNeighborsLazy(int polygon_id, const std::vector<int>& visit_token, int visit_version, std::vector<int>& neighbors) {
+    void GetNeighborsLazy(int polygon_id, const std::vector<bool>& bfs_visted, std::vector<int>& neighbors) {
         neighbors.clear();
-
-        if (polygon_id < 0 || polygon_id >= static_cast<int>(input.polygons.size())) {
-            return;
-        }
 
         Polygon* source = input.polygons[polygon_id];
         neighbor_candidate_cache.clear();
         ++lazy_neighbor_calls;
 
+        // 获取与该多边形所在层有关联的所有四叉树
         const auto& quad_trees = spaceIndex.GetQuadTreesForLayer(source->layer_id);
-
         for (auto* qtree : quad_trees) {
-            if (!qtree) {
-                continue;
-            }
+            if (!qtree) continue;
 
             // Collect leaves that intersect with the source polygon's bounding box
             leaf_buffer.clear();
             qtree->CollectIntersectLeaves(source->rect, leaf_buffer);
-
+            // 遍历每个叶节点
             for (auto* leaf : leaf_buffer) {
-                if (!leaf) {
-                    continue;
-                }
+                // Direct checking for light leaves
+                for (auto* candidate : leaf->_datas) {
+                    ++lazy_neighbor_candidates;
+                    const int candidate_id = candidate->id;
 
-                const auto leaf_size = leaf->_datas.size();
-                if (leaf_size == 0) {
-                    continue;
-                }
+                    if (candidate_id == polygon_id) continue; // 是自身
+                    if (bfs_visted[candidate_id]) continue;   // bfs已访问过
 
-                // Use cached sweep index for heavy leaves, direct checking for light leaves
-                if (leaf_size > HEAVY_LEAF_THRESHOLD) {
-                    auto& sweep = ensureLeafSweepIndex(leaf);
-                    LeafStats& stat = leaf_stats[leaf];
-                    stat.visits++;
+                    //if (!neighbor_candidate_cache.insert(candidate_id).second) { // 重复邻居 ps:不去重更快
+                    //    ++lazy_neighbor_duplicates;
+                    //    continue;
+                    //}
 
-                    auto local_it = sweep.id_to_local.find(polygon_id);
-                    if (local_it != sweep.id_to_local.end()) {
-                        const auto& adjacency_list = sweep.adjacency[local_it->second];
-                        const size_t candidate_count = adjacency_list.size();
-                        stat.candidate_checks += candidate_count;
-                        lazy_neighbor_cache_hits += candidate_count;
-                        lazy_neighbor_candidates += candidate_count;
-
-                        for (int candidate_id : adjacency_list) {
-                            if (visit_token[candidate_id] == visit_version) {
-                                continue;
-                            }
-
-                            if (!neighbor_candidate_cache.insert(candidate_id).second) {
-                                ++lazy_neighbor_duplicates;
-                                continue;
-                            }
-
-                            neighbors.push_back(candidate_id);
-                            ++lazy_neighbor_enqueues;
-                        }
-                    }
-                }
-                else {
-                    // Direct checking for light leaves
-                    for (auto* candidate : leaf->_datas) {
-                        if (!candidate) {
-                            continue;
-                        }
-
-                        ++lazy_neighbor_candidates;
-                        const int candidate_id = candidate->id;
-
-                        if (candidate_id == polygon_id) {
-                            continue;
-                        }
-
-                        if (visit_token[candidate_id] == visit_version) {
-                            continue;
-                        }
-
-                        if (!neighbor_candidate_cache.insert(candidate_id).second) {
-                            ++lazy_neighbor_duplicates;
-                            continue;
-                        }
-
-                        // Quick bounding box check
-                        if (!source->rect.Intersects(candidate->rect)) {
-                            continue;
-                        }
-
-                        // Detailed Manhattan intersection check
-                        if (ManhattanIntersectDetector::manhattanPolygonsIntersect(source, candidate)) {
-                            neighbors.push_back(candidate_id);
-                            ++lazy_neighbor_enqueues;
-                        }
+                    // Detailed Manhattan intersection check
+                    if (ManhattanIntersectDetector::manhattanPolygonsIntersect(source, candidate)) {
+                        neighbors.push_back(candidate_id);
+                        ++lazy_neighbor_enqueues;
                     }
                 }
             }
@@ -350,79 +220,6 @@ public:
     }
 
 private:
-    /**
-     * @brief Ensures sweep index is built for a leaf node
-     * @param leaf The leaf node
-     * @return Reference to the leaf's sweep index
-     */
-    LeafSweepIndex& ensureLeafSweepIndex(QuadTreeNode* leaf) {
-        LeafStats& stat = leaf_stats[leaf];
-        stat.leaf_size = leaf->_datas.size();
-
-        auto& entry = leaf_sweep_cache[leaf];
-
-        if (!entry.built) {
-            const size_t n = leaf->_datas.size();
-            entry.polygon_ids.resize(n);
-            entry.id_to_local.clear();
-            entry.id_to_local.reserve(n * 2);
-            entry.adjacency.clear();
-            entry.adjacency.resize(n);
-
-            // Build polygon ID mapping
-            for (size_t i = 0; i < n; ++i) {
-                int pid = leaf->_datas[i]->id;
-                entry.polygon_ids[i] = pid;
-                entry.id_to_local.emplace(pid, i);
-            }
-
-            // Sort polygons by x-min for sweep line algorithm
-            std::vector<size_t> indices(n);
-            for (size_t i = 0; i < n; ++i) indices[i] = i;
-            std::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
-                return leaf->_datas[a]->rect._xmin < leaf->_datas[b]->rect._xmin;
-                });
-
-            // Sweep line algorithm to find intersections
-            std::vector<size_t> active;
-            active.reserve(n);
-
-            for (size_t idx : indices) {
-                Polygon* poly = leaf->_datas[idx];
-                int xmin = poly->rect._xmin;
-                int ymin = poly->rect._ymin;
-                int ymax = poly->rect._ymax;
-
-                // Remove polygons that are no longer active
-                active.erase(std::remove_if(active.begin(), active.end(), [&](size_t other_idx) {
-                    return leaf->_datas[other_idx]->rect._xmax < xmin;
-                    }), active.end());
-
-                // Check intersections with active polygons
-                for (size_t other_idx : active) {
-                    Polygon* other = leaf->_datas[other_idx];
-                    if (other->rect._ymax < ymin || other->rect._ymin > ymax) continue;
-
-                    stat.candidate_checks++;
-                    if (!ManhattanIntersectDetector::manhattanPolygonsIntersect(poly, other)) continue;
-
-                    // Record intersection in adjacency list
-                    size_t local_a = entry.id_to_local[poly->id];
-                    size_t local_b = entry.id_to_local[other->id];
-                    entry.adjacency[local_a].push_back(other->id);
-                    entry.adjacency[local_b].push_back(poly->id);
-                    stat.true_hits++;
-                }
-
-                active.push_back(idx);
-            }
-
-            entry.built = true;
-        }
-
-        return entry;
-    }
-
     // ========== Intersection Detection Method Implementations ==========
 
     /**
@@ -508,6 +305,7 @@ private:
      * @param edges Output vector for intersecting edges
      */
     void processWithBatchGrid(const std::vector<QuadTree*>& quad_trees, std::vector<std::pair<int, int>>& edges) {
+        BatchGridIntersectDetector bgid;
         std::vector<std::vector<Polygon*>> leafData;
         std::vector<Rect> leafRect;
         leafData.reserve(1000000);

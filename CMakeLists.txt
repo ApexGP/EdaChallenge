@@ -43,6 +43,7 @@ add_executable(trace
     trace/public.h
     trace/QuadTree.hpp
     trace/SpaceIndex.hpp
+    trace/Trace.hpp
 )
 
 
