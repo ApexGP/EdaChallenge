@@ -137,29 +137,29 @@ public:
 
     // 打印版图信息
     void PrintLayoutInfo() {
-        // 检查打印
+        // check print
         std::cout << "[Layout]" << std::endl;
-        std::cout << "多边形总数:" << total_polygon << std::endl;
-        std::cout << "图层总数:" << polygon_id_range_in_layer.size() << std::endl;
+        std::cout << "total polygon num:" << total_polygon << std::endl;
+        std::cout << "total layer num:" << polygon_id_range_in_layer.size() << std::endl;
         for (auto& name_id : layer_name_to_id) {
-            std::cout << "图层名称:" << name_id.first << " id:" << name_id.second
-                << " 多边形数量:" << polygon_id_range_in_layer[name_id.second].second - polygon_id_range_in_layer[name_id.second].first + 1
-                << " 多边形id范围:[" << polygon_id_range_in_layer[name_id.second].first << "," << polygon_id_range_in_layer[name_id.second].second << "]" << std::endl;
+            std::cout << "layer name:" << name_id.first << " id:" << name_id.second
+                << " polygon num:" << polygon_id_range_in_layer[name_id.second].second - polygon_id_range_in_layer[name_id.second].first + 1
+                << " polygon id range:[" << polygon_id_range_in_layer[name_id.second].first << "," << polygon_id_range_in_layer[name_id.second].second << "]" << std::endl;
         }
     }
 
     // 打印规则信息
     void PrintRuleInfo() {
-        // 检查打印
+        // check print
         std::cout << "[Rule]" << std::endl;
         for (auto& st : start_pos)
-            std::cout << "起始位置:" << layer_id_to_name[st.first] << " " << st.second.first << " " << st.second.second << std::endl;
+            std::cout << "StartPos:" << layer_id_to_name[st.first] << " " << st.second.first << " " << st.second.second << std::endl;
         for (auto& vi : via_rules)
-            std::cout << "通孔:" << layer_id_to_name[vi.first] << " " << layer_id_to_name[vi.second] << std::endl;
+            std::cout << "Via:" << layer_id_to_name[vi.first] << " " << layer_id_to_name[vi.second] << std::endl;
         if (has_gate_rule)
-            std::cout << "栅极:" << layer_id_to_name[gate_rule.first] << " " << layer_id_to_name[gate_rule.second] << std::endl;
+            std::cout << "Gate:" << layer_id_to_name[gate_rule.first] << " " << layer_id_to_name[gate_rule.second] << std::endl;
         else
-            std::cout << "无栅极规则" << std::endl;
+            std::cout << "no Gate" << std::endl;
     }
 
     // 获取多边形的矩形包围盒

@@ -125,13 +125,11 @@ public:
 
     // 根据矩形范围查询相交的多边形
     void Query(const Rect& region, std::vector<Polygon*>& result) const {
-        result.clear();
         Query(_root, region, result);
     }
 
-    // 收集与指定区域相交的所有叶节点
+    // 收集与指定区域相交的所有非空叶节点
     void CollectIntersectLeaves(const Rect& region, std::vector<QuadTreeNode*>& leaves) const {
-        leaves.clear();
         CollectIntersectLeaves(_root, region, leaves);
     }
 
@@ -285,15 +283,15 @@ private:
         Query(node->_rb, region, result);
     }
 
-    // 递归收集与指定区域相交的所有叶节点
+    // 递归收集与指定区域相交的所有非空叶节点
     void CollectIntersectLeaves(QuadTreeNode* node, const Rect& region, std::vector<QuadTreeNode*>& leaves) const {
         if (!node) return;
 
         // 如果节点矩形与查询区域不相交，直接返回
         if (!node->_rect.Intersects(region)) return;
 
-        // 叶节点：添加到结果集
-        if (!node->_divided) {
+        // 非空叶节点：添加到结果集
+        if (!node->_divided && node->_datas.size() != 0) {
             leaves.push_back(node);
             return;
         }

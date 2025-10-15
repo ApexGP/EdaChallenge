@@ -167,6 +167,7 @@
     <ClInclude Include="public.h" />
     <ClInclude Include="QuadTree.hpp" />
     <ClInclude Include="SpaceIndex.hpp" />
+    <ClInclude Include="Trace.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
