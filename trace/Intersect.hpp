@@ -228,6 +228,7 @@ private:
      * @param edges Output vector for intersecting edges
      */
     void processWithManhattanComplete(const std::vector<QuadTree*>& quad_trees, std::vector<std::pair<int, int>>& edges) {
+        UnionFindSet ufs(100);
         std::vector<std::vector<Polygon*>> leafData;
         leafData.reserve(1000000);
 
@@ -246,55 +247,26 @@ private:
                 stats.total_polygon_pairs += (local_size * (local_size - 1)) / 2;
                 stats.manhattan_complete_used++;
 
-                // Initialize DSU for connected components
-                if (dsu_parent.size() < local_size) {
-                    dsu_parent.resize(local_size);
-                    dsu_rank.resize(local_size);
-                }
+                // 建立小型并查集
+				if (lfd.size() > ufs.getSize())
+					ufs = UnionFindSet(lfd.size() * 2);
+				else
+					ufs.init();
 
-                std::iota(dsu_parent.begin(), dsu_parent.begin() + local_size, 0);
-                std::fill_n(dsu_rank.begin(), local_size, static_cast<uint8_t>(0));
-
-                auto find_root = [&](int x) {
-                    while (dsu_parent[x] != x) {
-                        dsu_parent[x] = dsu_parent[dsu_parent[x]];
-                        x = dsu_parent[x];
-                    }
-                    return x;
-                    };
-
-                auto unite = [&](int a, int b) {
-                    int ra = find_root(a);
-                    int rb = find_root(b);
-                    if (ra == rb) {
-                        return false;
-                    }
-                    if (dsu_rank[ra] < dsu_rank[rb]) {
-                        std::swap(ra, rb);
-                    }
-                    dsu_parent[rb] = ra;
-                    if (dsu_rank[ra] == dsu_rank[rb]) {
-                        ++dsu_rank[ra];
-                    }
-                    return true;
-                    };
-
-                // Check all polygon pairs in the leaf
-                for (int first_idx = 0; first_idx < static_cast<int>(local_size); ++first_idx) {
-                    Polygon* a = lfd[first_idx];
-                    for (int second_idx = first_idx + 1; second_idx < static_cast<int>(local_size); ++second_idx) {
-                        if (find_root(first_idx) == find_root(second_idx)) {
-                            continue;
-                        }
-
-                        Polygon* b = lfd[second_idx];
-                        if (ManhattanIntersectDetector::manhattanPolygonsIntersect(a, b)) {
-                            edges.emplace_back(a->id, b->id);
-                            unite(first_idx, second_idx);
-                            stats.intersections_found++;
-                        }
-                    }
-                }
+				// n方遍历 内部的多边形对
+				for (int i = 0; i < (int)lfd.size(); i++) {
+					Polygon* a = lfd[i];
+					for (int j = i + 1; j < (int)lfd.size(); j++) {
+						Polygon* b = lfd[j];
+						if (ufs.find(i) == ufs.find(j)) continue; // 已经连通的跳过
+						// 使用曼哈顿多边形相交检测
+						if (ManhattanIntersectDetector::manhattanPolygonsIntersect(a, b)) {
+							edges.emplace_back(a->id, b->id);
+							ufs.join(i, j);
+							stats.intersections_found++;
+						}
+					}
+				}
             }
         }
     }

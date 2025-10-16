@@ -198,6 +198,7 @@ std::vector<int> Trace::TraceUsingLazyGraph() {
 		bfs_visted.assign(input.total_polygon, false);
 		std::vector<int> component_s2 = RunLazyConnectedComponent(spaceIndex, intersect, start_pos_s2_id, bfs_visted, &extra_adj);
 		intersect.FlushStats();
+		std::cout << "s1 connected polygon size: " << component_s1.size() << ", s2 connected polygon size: " << component_s2.size() << std::endl;
 		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
 		return component_s2;
