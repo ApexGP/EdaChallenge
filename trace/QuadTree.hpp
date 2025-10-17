@@ -123,11 +123,6 @@ public:
         GetAllLeafData(_root, outData, outRect);
     }
 
-    // 根据矩形范围查询相交的多边形
-    void Query(const Rect& region, std::vector<Polygon*>& result) const {
-        Query(_root, region, result);
-    }
-
     // 收集与指定区域相交的所有非空叶节点
     void CollectIntersectLeaves(const Rect& region, std::vector<QuadTreeNode*>& leaves) const {
         CollectIntersectLeaves(_root, region, leaves);
@@ -172,19 +167,17 @@ private:
         // 更新当前实际深度
         _maxCurrDepth = ((node->_depth + 1 > _maxCurrDepth) ? node->_depth + 1 : _maxCurrDepth);
 
-        // 预计算四个子矩形范围
+        // 计算矩形划分中点
         const Rect& parent_rect = node->_rect;
-        const Rect lt_rect = parent_rect.GetLTRect();
-        const Rect rt_rect = parent_rect.GetRTRect();
-        const Rect lb_rect = parent_rect.GetLBRect();
-        const Rect rb_rect = parent_rect.GetRBRect();
+        int xmid = (parent_rect._xmin + parent_rect._xmax) / 2;
+        int ymid = (parent_rect._ymin + parent_rect._ymax) / 2;
 
-        // 创建四个子节点
+        // 创建四个子矩形节点
         node->_divided = true;
-        node->_lt = new QuadTreeNode(lt_rect, node->_depth + 1);
-        node->_rt = new QuadTreeNode(rt_rect, node->_depth + 1);
-        node->_lb = new QuadTreeNode(lb_rect, node->_depth + 1);
-        node->_rb = new QuadTreeNode(rb_rect, node->_depth + 1);
+        node->_lt = new QuadTreeNode(Rect(parent_rect._xmin, ymid, xmid, parent_rect._ymax), node->_depth + 1); // 左上
+        node->_rt = new QuadTreeNode(Rect(xmid, ymid, parent_rect._xmax, parent_rect._ymax), node->_depth + 1); // 右上
+        node->_lb = new QuadTreeNode(Rect(parent_rect._xmin, parent_rect._ymin, xmid, ymid), node->_depth + 1); // 左下
+        node->_rb = new QuadTreeNode(Rect(xmid, parent_rect._ymin, parent_rect._xmax, ymid), node->_depth + 1); // 右下
 
         // 为数据分配预留空间（优化性能）
         size_t estimated_size = (data_size / 3); // 保守估计，避免过度分配
@@ -202,10 +195,14 @@ private:
 
             // 根据矩形相交关系，将数据分配到相交的子节点中
             // 注意：与多个子节点矩形相交的数据会被分配到多个子节点中
-            if (lt_rect.Intersects(curr_rect)) node->_lt->_datas.push_back(ptr);
-            if (rt_rect.Intersects(curr_rect)) node->_rt->_datas.push_back(ptr);
-            if (lb_rect.Intersects(curr_rect)) node->_lb->_datas.push_back(ptr);
-            if (rb_rect.Intersects(curr_rect)) node->_rb->_datas.push_back(ptr);
+            if (curr_rect._xmin <= xmid){
+                if(curr_rect._ymax >= ymid) node->_lt->_datas.push_back(ptr);  // 与左上矩形相交
+                if(curr_rect._ymin <= ymid) node->_lb->_datas.push_back(ptr);  // 与左下矩形相交
+            }
+            if (curr_rect._xmax >= xmid){
+                if(curr_rect._ymax >= ymid) node->_rt->_datas.push_back(ptr);  // 与右上矩形相交
+                if(curr_rect._ymin <= ymid) node->_rb->_datas.push_back(ptr);  // 与右下矩形相交
+            }
         }
 
         // 释放父节点数据内存（使用swap技巧真正释放内存）
@@ -257,30 +254,6 @@ private:
             GetAllLeafData(node->_lb, outData, outRect);
             GetAllLeafData(node->_rb, outData, outRect);
         }
-    }
-
-    // 递归查询与指定区域相交的多边形
-    void Query(QuadTreeNode* node, const Rect& region, std::vector<Polygon*>& result) const {
-        if (!node) return;
-
-        // 如果节点矩形与查询区域不相交，直接返回
-        if (!node->_rect.Intersects(region)) return;
-
-        // 叶节点：检查每个多边形是否与查询区域相交
-        if (!node->_divided) {
-            for (auto* poly : node->_datas) {
-                if (poly && poly->rect.Intersects(region)) {
-                    result.push_back(poly);
-                }
-            }
-            return;
-        }
-
-        // 非叶节点：递归查询子节点
-        Query(node->_lt, region, result);
-        Query(node->_rt, region, result);
-        Query(node->_lb, region, result);
-        Query(node->_rb, region, result);
     }
 
     // 递归收集与指定区域相交的所有非空叶节点

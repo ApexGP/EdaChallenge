@@ -21,30 +21,6 @@ using Polygon_set_2 = CGAL::Polygon_set_2<Kernel>;
 */
 
 #include "../third_party/robin_hood/robin_hood.h" // 高效哈希表
-
-// 添加哈希函数
-struct pair_hash
-{
-    template<class T1, class T2>
-    std::size_t operator() (const std::pair<T1, T2>& p) const
-    {
-        auto h1 = std::hash<T1>{}(p.first);
-        auto h2 = std::hash<T2>{}(p.second);
-        return h1 ^ h2;
-    }
-};
-
-namespace std {
-    template <>
-    struct hash<std::pair<int, int>> {
-        std::size_t operator()(const std::pair<int, int>& edge) const {
-            std::size_t h1 = robin_hood::hash<int>()(edge.first);
-            std::size_t h2 = robin_hood::hash<int>()(edge.second);
-            return h1 ^ h2;
-        }
-    };
-}
-
 #include "../ManhattanBooleanSetOperation/utils/MPoint_2.h" // 二维点表示
 using MPoint_2 = MBSO::MPoint_2;
 using Vertexs = std::vector<MPoint_2>;
@@ -122,38 +98,6 @@ struct Rect
     bool Intersects(const Rect& other) const {
         return !(other._xmax < _xmin || other._xmin > _xmax ||
             other._ymax < _ymin || other._ymin > _ymax);
-    }
-
-    // 获取左上角子矩形
-    Rect GetLTRect() const
-    {
-        int xmid = (_xmin + _xmax) / 2;
-        int ymid = (_ymin + _ymax) / 2;
-        return Rect(_xmin, ymid, xmid, _ymax);
-    }
-
-    // 获取右上角子矩形  
-    Rect GetRTRect() const
-    {
-        int xmid = (_xmin + _xmax) / 2;
-        int ymid = (_ymin + _ymax) / 2;
-        return Rect(xmid, ymid, _xmax, _ymax);
-    }
-
-    // 获取左下角子矩形
-    Rect GetLBRect() const
-    {
-        int xmid = (_xmin + _xmax) / 2;
-        int ymid = (_ymin + _ymax) / 2;
-        return Rect(_xmin, _ymin, xmid, ymid);
-    }
-
-    // 获取右下角子矩形
-    Rect GetRBRect() const
-    {
-        int xmid = (_xmin + _xmax) / 2;
-        int ymid = (_ymin + _ymax) / 2;
-        return Rect(xmid, _ymin, _xmax, ymid);
     }
 };
 
