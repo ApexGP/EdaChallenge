@@ -7,6 +7,7 @@
 #include "../utils/HighPerfMemoryPool.h"
 #include "../utils/Bbox.h"
 #include "../utils/Grid.h"
+#include "../utils/robin_hood.h"
 #include <unordered_set>
 
 
@@ -14,7 +15,7 @@ namespace MBSO {
 	using std::vector;
 
 	class MBSOCore {
-	public:
+	private:
 		MPolygonSet* mps1;		//多边形集A
 		MPolygonSet* mps2;		//多边形集B
 		MPolygonSet* resultMps;	//结果多边形集
@@ -39,7 +40,7 @@ namespace MBSO {
 		int outPointsIndex;
 
 		// 记忆存在交点的边，用于将交点插入边拓扑时缩小遍历范围
-		std::unordered_set<MEdge*> hasInterEdges;
+		robin_hood::unordered_set<MEdge*> hasInterEdges;
 
 		std::vector<MVertex*> equalPoints;	//用于处理端点相交的情况，size需要初始化为 2
 		int curMps;	 //绕边变量，标识当前绕边的多边形集Id: 即polygonSetId
@@ -91,6 +92,7 @@ namespace MBSO {
 		/* 求差集 : 初始多边形集 resultMps 差 poly(set)，结果还放在 resultMps  */
 		void difference(const std::vector<MPoint_2> &poly);
 		void difference(const std::vector<std::vector<MPoint_2>> &polyset);
+		void difference(const std::vector<std::vector<MPoint_2>>& polyset, robin_hood::unordered_map<int, std::vector<int>>& po_cut_nodes);
 		/* 提取 resultMps 结果 */
 		std::vector<std::vector<MPoint_2>> getResult();
 
@@ -162,7 +164,7 @@ namespace MBSO {
 		void pushBackToResultMps(MPolygon& mpolygon);
 		void pushBackToResultMps(vector<MEdge*>& outer);
 		
-
+	public:
 		/* getter and setter*/
 		// 获取输入和结果多边形集的边数
 		int getInputSize();

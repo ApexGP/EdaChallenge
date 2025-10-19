@@ -158,9 +158,11 @@
     <ClInclude Include="ManhattanBooleanSetOperation\solve\MBSOCore.h" />
     <ClInclude Include="ManhattanBooleanSetOperation\utils\Bbox.h" />
     <ClInclude Include="ManhattanBooleanSetOperation\utils\Grid.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\HighPerfMemoryPool.h" />
     <ClInclude Include="ManhattanBooleanSetOperation\utils\MPoint_2.h" />
     <ClInclude Include="ManhattanBooleanSetOperation\utils\MSegment_2.h" />
     <ClInclude Include="ManhattanBooleanSetOperation\utils\MemoryPool.h" />
+    <ClInclude Include="ManhattanBooleanSetOperation\utils\robin_hood.h" />
     <ClInclude Include="ManhattanIntersectDetector.hpp" />
     <ClInclude Include="Output.hpp" />
     <ClInclude Include="PolygonCutting.hpp" />

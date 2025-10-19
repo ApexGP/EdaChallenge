@@ -88,6 +88,30 @@ namespace MBSO {
 		// 求解
 		solve(mps1, mps2, resultMps, DIFF);
 	}
+	void MBSOCore::difference(const std::vector<std::vector<MPoint_2>>& polyset, robin_hood::unordered_map<int, std::vector<int>>& po_cut_nodes) {
+		// 改变指针
+		MPolygonSet* tmp = mps1;
+		mps1 = resultMps;
+		convertToMPS(polyset, mps2);
+
+		robin_hood::unordered_map<MPolygon*, int> mps2_poly_ptr_to_index; // 指针映射数组下标
+		for (int i = 0; i < mps2->mpolygons.size(); ++i) {
+			mps2_poly_ptr_to_index[&mps2->mpolygons[i]] = i;
+		}
+
+		resultMps = tmp;
+		// 求解
+		solve(mps1, mps2, resultMps, DIFF);
+
+		for (int i = 0; i < resultMps->mpolygons.size(); ++i) {
+			for (auto& edge : resultMps->mpolygons[i].edges) {
+				if (edge->polygonSetId == 1) { // 是来自第二个多边形集的边
+					int index = mps2_poly_ptr_to_index[edge->polygonPtr]; // 获取下标
+					po_cut_nodes[index].push_back(i); //记录切割关系
+				}
+			}
+		}
+	}
 
 	std::vector<std::vector<MPoint_2>> MBSOCore::getResult() {
 		std::vector<std::vector<MPoint_2>> ans;

@@ -4,6 +4,7 @@
 #include <cassert>
 #include <numeric>
 #include <iostream>
+#include <fstream>
 
 /* For CGAL if using
 #include <CGAL/Simple_cartesian.h>
@@ -241,3 +242,22 @@ public:
         return components;
     }
 };
+
+// util 常规输出多边形函数
+static void OutputPolygon(std::ofstream& res_file, Polygon& p) {
+    const auto vertex_count = p.vertex.size();
+    std::string buffer;
+    buffer.reserve(vertex_count * 15);
+    for (size_t j = 0; j < vertex_count; ++j) {
+        buffer += "(";
+        buffer += std::to_string(p.vertex[j].x);
+        buffer += ",";
+        buffer += std::to_string(p.vertex[j].y);
+        buffer += ")";
+        if (j + 1 != vertex_count) {
+            buffer += ",";
+        }
+    }
+    buffer += "\n";
+    res_file << buffer;
+}

@@ -271,14 +271,14 @@ private:
 					mpoly = reverse_orientation(po_vertex);	
 					mpolys_2.emplace_back(std::move(mpoly));
 				}
+				robin_hood::unordered_map<int, std::vector<int>> po_cut_nodes; // 记录该AA被切割后,各PO(数组下标)连接的AA多边形(数组下标)
 				// 一次性求差集切割
-				mbsoCore.difference(mpolys_2);
+				mbsoCore.difference(mpolys_2, po_cut_nodes);
 				// 获取结果
 				std::vector<std::vector<MBSO::MPoint_2>> cut_poly_set = mbsoCore.getResult();
 				assert(cut_poly_set.size() > 1 && "切割后多边形应不止一个");
 
 				// 切割后多边形转回自定义Polygon类
-				robin_hood::unordered_map<int, std::vector<int>> po_cut_nodes; // 记录该AA被切割后,各PO连接的AA多边形节点id
 				for (auto it = cut_poly_set.begin(); it != cut_poly_set.end(); ++it) {
 					reverse(it->begin(), it->end());
 					Polygon* new_poly = new Polygon();
@@ -287,19 +287,21 @@ private:
 					new_poly->rect = input.GetRectofPolygon(new_poly);
 					aa_cut_polygons.push_back(new_poly);
 
-					for (auto& po_id : cutting_po) { // 检查该新多边形属于哪个PO切割的
-						if (ManhattanIntersectDetector::manhattanPolygonsIntersect(new_poly, poly_ptr[po_id])){
-							po_cut_nodes[po_id].push_back(aa_cut_polygons.size() - 1);
-						}
-					}
+					//for (auto& po_id : cutting_po) { // 检查该新多边形属于哪个PO切割的
+					//	if (ManhattanIntersectDetector::manhattanPolygonsIntersect(new_poly, poly_ptr[po_id])){
+					//		po_cut_nodes[po_id].push_back(aa_cut_polygons.size() - 1);
+					//	}
+					//}
 				}
+
 				// AA被多个PO切割, 故遍历所有切割它的PO, 为每个PO链式记录他的切割边
 				for (auto& item : po_cut_nodes) {
-					int po_id = item.first;
+					int po_id = cutting_po[item.first]; // 下标映射到实际id
 					std::vector<int>& nodes = item.second; // 该PO连接的AA多边形节点
 					// 链式记录该PO的切割边(注意节点对应的是aa_cut_polygons数组的下标)
+					int offset = aa_cut_polygons.size() - cut_poly_set.size();
 					for (int i = 1; i < nodes.size(); i++) {
-						po_cut_edges[po_id].emplace_back(nodes[i - 1], nodes[i]);
+						po_cut_edges[po_id].emplace_back(offset + nodes[i - 1], offset + nodes[i]);
 					}
 				}
 				// 释放旧多边形内存
