@@ -37,6 +37,13 @@ namespace MBSO {
 		seg.reverse();
 	}
 
+	void MEdge::setOriDest(MVertex* _ori, MVertex* _dest)
+	{
+		ori = _ori;
+		dest = _dest;
+		seg.setSeg(ori->point, dest->point);
+	}
+
 	void MEdge::setOriDest(MVertex* _ori, MVertex* _dest, int _polygonSetId)
 	{
 		ori = _ori;

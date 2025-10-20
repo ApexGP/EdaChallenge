@@ -30,7 +30,8 @@ namespace MBSO {
 		// 反转边的方向
 		void reverse();
 		// 设置边的起点和终点
-		void setOriDest(MVertex* _ori, MVertex* _dest, int _polygonSetId = 0);
+		void setOriDest(MVertex* _ori, MVertex* _dest);
+		void setOriDest(MVertex* _ori, MVertex* _dest, int _polygonSetId);
 		// 插入交点
 		void push_interPoint(MVertex* p);
 	};
