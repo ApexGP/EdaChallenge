@@ -164,6 +164,7 @@
     <ClInclude Include="ManhattanBooleanSetOperation\utils\MemoryPool.h" />
     <ClInclude Include="ManhattanBooleanSetOperation\utils\robin_hood.h" />
     <ClInclude Include="ManhattanIntersectDetector.hpp" />
+    <ClInclude Include="NaiveThreadPool.h" />
     <ClInclude Include="Output.hpp" />
     <ClInclude Include="PolygonCutting.hpp" />
     <ClInclude Include="public.h" />

@@ -25,8 +25,8 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
     Trace trace(input);
     std::vector<int> component;
     if (thread == 1) { // 如果单线程
-        // component = trace.TraceUsingCompleteGraph(); // 先完全建图再BFS
-        component = trace.TraceUsingLazyGraph();     // BFS驱动延迟建图
+         component = trace.TraceUsingCompleteGraph(); // 先完全建图再BFS
+        //component = trace.TraceUsingLazyGraph();     // BFS驱动延迟建图
     }
     else { // 并行
         //component = trace.TraceUsingCompleteGraphParallel(); // 先完全建图再BFS

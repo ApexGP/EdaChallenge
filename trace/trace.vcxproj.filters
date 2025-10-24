@@ -101,5 +101,8 @@
     <ClInclude Include="ManhattanBooleanSetOperation\utils\robin_hood.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="NaiveThreadPool.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

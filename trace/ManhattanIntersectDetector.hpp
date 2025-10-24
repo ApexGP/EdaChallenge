@@ -77,7 +77,7 @@ private:
 	// 检测两组边是否相交
 	static bool edgesIntersect(const Polygon* poly1, const Polygon* poly2) {
 		// 预先提取多边形2的边
-		static std::vector<SortEdge> edges2;
+		static thread_local std::vector<SortEdge> edges2;
 		edges2.reserve(poly2->vertex.size());
 		extractEdges(poly2, edges2);
 		
