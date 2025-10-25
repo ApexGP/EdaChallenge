@@ -255,6 +255,7 @@ public:
 				std::string name = input.layer_id_to_name[layer_id];
 				QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
 				CreatQuadTreeIndex(quad_tree);
+				quad_trees.push_back(quad_tree);
 				layer_name_to_quadtree[input.layer_id_to_name[layer_id]] = quad_tree;
 				layer_quadtrees[layer_id].push_back(quad_tree); // 注册自己的四叉树
 			}
@@ -436,6 +437,7 @@ public:
 				std::string name = input.layer_id_to_name[layer_id];
 				QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
 				CreatQuadTreeIndexParallel(quad_tree, thread_count);
+				quad_trees.push_back(quad_tree);
 				layer_name_to_quadtree[input.layer_id_to_name[layer_id]] = quad_tree;
 				layer_quadtrees[layer_id].push_back(quad_tree); // 注册自己的四叉树
 			}

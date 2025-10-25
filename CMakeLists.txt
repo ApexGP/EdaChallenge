@@ -17,6 +17,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=native")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG -march=native")
 
+# 设置静态编译标志
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+set(CMAKE_FIND_LIBRARY_SUFFIXES ".a") # 优先查找静态库
+
 # 设置第三方库路径
 set(THIRD_PARTY_DIR ${CMAKE_SOURCE_DIR}/trace/third_party)
 set(GMP_LINUX_DIR ${THIRD_PARTY_DIR}/gmp-linux)
