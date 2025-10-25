@@ -47,7 +47,7 @@ public:
 		QuadTree* qtree = layer_name_to_quadtree[layer_name];
 		assert(qtree != nullptr && "起点不在任何层内");
 		// 兼容延迟划分的情况
-		if (qtree->_root->_datas.size() == 0) {
+		if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
 			CreatQuadTreeIndex(qtree);
 		}
 
@@ -79,7 +79,7 @@ public:
 		QuadTree* qtree = layer_name_to_quadtree[layer_name];
 		assert(qtree != nullptr && "起点不在任何层内");
 		// 兼容延迟划分的情况
-		if (qtree->_root->_datas.size() == 0) {
+		if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
 			CreatQuadTreeIndexParallel(qtree, thread_count);
 		}
 

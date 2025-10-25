@@ -269,7 +269,7 @@ private:
             std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
 
             // 处理延迟索引划分
-            if (qtree->_root->_datas.size() == 0) {
+            if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
                 spaceIndex.CreatQuadTreeIndex(qtree);
             }
 
@@ -327,7 +327,7 @@ private:
             std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
 
             // 处理延迟索引划分
-            if (qtree->_root->_datas.size() == 0) {
+            if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
                 spaceIndex.CreatQuadTreeIndexParallel(qtree, thread_count);
             }
 
@@ -401,7 +401,7 @@ private:
             std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
 
             // 处理延迟索引划分
-            if (qtree->_root->_datas.size() == 0) {
+            if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
                 spaceIndex.CreatQuadTreeIndex(qtree);
             }
 
