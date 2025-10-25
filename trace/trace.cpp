@@ -25,12 +25,12 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
     Trace trace(input);
     std::vector<int> component;
     if (thread == 1) { // 如果单线程
-         component = trace.TraceUsingCompleteGraph(); // 先完全建图再BFS
-        //component = trace.TraceUsingLazyGraph();     // BFS驱动延迟建图
+         //component = trace.TraceUsingCompleteGraph(); // 先完全建图再BFS
+        component = trace.TraceUsingLazyGraph();     // BFS驱动延迟建图
     }
-    else { // 并行
-        //component = trace.TraceUsingCompleteGraphParallel(); // 先完全建图再BFS
-        component = trace.TraceUsingLazyGraphParallel();     // BFS驱动延迟建图
+    else { // 多线程并行
+        component = trace.TraceUsingCompleteGraphParallel(thread); // 先完全建图再BFS
+        //component = trace.TraceUsingLazyGraphParallel(thread);     // BFS驱动延迟建图
     }
     std::cout << "================================ Trace Use Time : " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
@@ -88,11 +88,11 @@ int main(int argc, char* argv[])
     }
     else {
         // for self-test.
-        string dir_path = "C:/Users/PC/Desktop/EdaChallenge/";
-        //string layout_path = dir_path + "instance/case/case1_small_layout.txt";
-        string layout_path = dir_path + "instance/case/case1_large_0909b_layout.txt";
-        //string rule_path = dir_path + "instance/Rule/public_small_rule3.txt";
-        string rule_path = dir_path + "instance/Rule/public_large_rule3.txt";
+        string dir_path = "C:/Users/lenovo/Desktop/EdaChallenge/";
+        string layout_path = dir_path + "instance/case/case1_small_layout.txt";
+        //string layout_path = dir_path + "instance/case/case1_large_0909b_layout.txt";
+        string rule_path = dir_path + "instance/Rule/public_small_rule3.txt";
+        //string rule_path = dir_path + "instance/Rule/public_large_rule3.txt";
 
         size_t pos = layout_path.find_last_of('/');
         std::string case_name = (pos == std::string::npos) ? layout_path: layout_path.substr(pos + 1);

@@ -10,8 +10,6 @@
 #include <chrono>
 #include <unordered_set>
 #include <numeric>
-#include "NaiveThreadPool.h"
-using namespace goal;
 
 /**
  * @brief Intersection detection method enumeration
@@ -19,7 +17,6 @@ using namespace goal;
 enum class IntersectionMethod {
     MANHATTAN_COMPLETE,         // Complete Manhattan edge intersection detection
     BATCH_GRID,                 // Batch grid processing
-    PARALLEL                    // Parallel processing
 };
 
 /**
@@ -80,7 +77,7 @@ private:
     /* For 完全建图 */
     mutable IntersectionStats stats;
     // Current intersection detection method
-    IntersectionMethod method = IntersectionMethod::PARALLEL;
+    IntersectionMethod method = IntersectionMethod::MANHATTAN_COMPLETE;
 
     /* For 延迟建图 */
     // Buffer for collecting leaf nodes
@@ -108,19 +105,6 @@ public:
     ~Intersect() {}
 
     /**
-     * @brief Flushes and prints statistics
-     */
-    void FlushStats() {
-        if (lazy_neighbor_calls > 0) {
-            std::cout << "[LazyBFS] neighbor stats - calls=" << lazy_neighbor_calls
-                << " candidates=" << lazy_neighbor_candidates
-                << " enqueued=" << lazy_neighbor_enqueues
-                << " cache_hits=" << lazy_neighbor_cache_hits
-                << " duplicates=" << lazy_neighbor_duplicates << std::endl;
-        }
-    }
-
-    /**
      * @brief Gets all intersecting edges between polygons
      * @return Vector of polygon ID pairs that intersect
      */
@@ -139,12 +123,40 @@ public:
         case IntersectionMethod::MANHATTAN_COMPLETE:
             processWithManhattanComplete(quad_trees, edges);
             break;
-        case IntersectionMethod::BATCH_GRID:
-            processWithBatchGrid(quad_trees, edges);
+        //case IntersectionMethod::BATCH_GRID:
+        //    processWithBatchGrid(quad_trees, edges);
+        //    break;
+        }
+
+        // Remove duplicate edges
+        removeDuplicateEdges(edges);
+
+        // Print statistics
+        stats.total_time_ms = total_timer.ElapsedMs();
+        stats.print();
+
+        return edges;
+    }
+
+    // 并行版本：获取所有相交边
+    std::vector<std::pair<int, int>> getAllEdgeParallel(int thread_count) {
+        Timer total_timer;
+        stats.reset();
+
+        std::vector<std::pair<int, int>> edges;
+        edges.reserve(500000);
+        const std::vector<QuadTree*>& quad_trees = spaceIndex.GetSpaceIndex();
+
+        std::cout << "Using intersection method: " << getMethodName() << std::endl;
+
+        // Process based on selected method
+        switch (method) {
+        case IntersectionMethod::MANHATTAN_COMPLETE:
+            processWithManhattanCompleteParallel(quad_trees, edges, thread_count);
             break;
-        case IntersectionMethod::PARALLEL:
-            processWithManhattanCompleteParallel(quad_trees, edges);
-            break;
+        //case IntersectionMethod::BATCH_GRID:
+        //    processWithBatchGrid(quad_trees, edges);
+        //    break;
         }
 
         // Remove duplicate edges
@@ -165,7 +177,6 @@ public:
         switch (method) {
         case IntersectionMethod::MANHATTAN_COMPLETE: return "Manhattan Complete Detection";
         case IntersectionMethod::BATCH_GRID: return "Batch Grid";
-        case IntersectionMethod::PARALLEL: return "Parallel";
         default: return "Unknown";
         }
     }
@@ -176,12 +187,14 @@ public:
      */
     const IntersectionStats& getStats() const { return stats; }
 
+#pragma region for_lazy_bfs
+    /* ===================== For 延迟建图 begin =====================*/
     /**
-     * @brief Gets neighboring polygons that intersect with the given polygon using lazy evaluation
-     * @param polygon_id ID of the source polygon
-     * @param bfs_visted BFS Visit tracking array
-     * @param neighbors Output vector for neighbor IDs
-     */
+    * @brief Gets neighboring polygons that intersect with the given polygon using lazy evaluation
+    * @param polygon_id ID of the source polygon
+    * @param bfs_visted BFS Visit tracking array
+    * @param neighbors Output vector for neighbor IDs
+    */
     void GetNeighborsLazy(int polygon_id, const std::vector<bool>& bfs_visted, std::vector<int>& neighbors) {
         neighbors.clear();
 
@@ -222,6 +235,22 @@ public:
         }
     }
 
+    /**
+     * @brief Flushes and prints statistics
+     */
+    void FlushStats() const {
+        if (lazy_neighbor_calls > 0) {
+            std::cout << "[LazyBFS] neighbor stats - calls=" << lazy_neighbor_calls
+                << " candidates=" << lazy_neighbor_candidates
+                << " enqueued=" << lazy_neighbor_enqueues
+                << " cache_hits=" << lazy_neighbor_cache_hits
+                << " duplicates=" << lazy_neighbor_duplicates << std::endl;
+        }
+    }
+
+    /* ===================== For 延迟建图 end =====================*/
+#pragma endregion
+
 private:
     // ========== Intersection Detection Method Implementations ==========
 
@@ -238,6 +267,12 @@ private:
         for (auto& qtree : quad_trees) {
             leafData.clear();
             std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
+
+            // 处理延迟索引划分
+            if (qtree->_root->_datas.size() == 0) {
+                spaceIndex.CreatQuadTreeIndex(qtree);
+            }
+
             qtree->GetAllLeafData(leafData);
 
             for (const auto& lfd : leafData) {
@@ -271,14 +306,16 @@ private:
 					}
 				}
             }
+            // 处理完该四叉树，后续不再使用，释放其内存
+            qtree->clear();
         }
     }
 
-    // 并行版本
-    void processWithManhattanCompleteParallel(const std::vector<QuadTree*>& quad_trees, std::vector<std::pair<int, int>>& edges)
+    // 并行版本：曼哈顿相交检测建边
+    void processWithManhattanCompleteParallel(const std::vector<QuadTree*>& quad_trees, std::vector<std::pair<int, int>>& edges, int thread_count)
     {
         // 创建线程池
-        NaiveThreadPool pool(7);
+        NaiveThreadPool pool(thread_count);
         // 全局结果容器锁
         std::mutex edges_mutex;
         // 全局统计锁
@@ -286,8 +323,14 @@ private:
 
         // 遍历所有四叉树
         for (auto& qtree : quad_trees) {
-            std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
             std::vector<std::vector<Polygon*>> leafData;
+            std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
+
+            // 处理延迟索引划分
+            if (qtree->_root->_datas.size() == 0) {
+                spaceIndex.CreatQuadTreeIndexParallel(qtree, thread_count);
+            }
+
             // 获取所有叶子节点数据
             qtree->GetAllLeafData(leafData);
 
@@ -333,6 +376,8 @@ private:
                         }
                     });
             }
+            // 处理完该四叉树，后续不再使用，释放其内存
+            qtree->clear();
         }
         // 依赖线程池析构等待所有任务完成
     }
@@ -354,6 +399,12 @@ private:
             leafData.clear();
             leafRect.clear();
             std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
+
+            // 处理延迟索引划分
+            if (qtree->_root->_datas.size() == 0) {
+                spaceIndex.CreatQuadTreeIndex(qtree);
+            }
+
             qtree->GetAllLeafData(leafData, leafRect);
 
             // Process each leaf based on spatial bounds
@@ -371,6 +422,8 @@ private:
                 bgid.batchManhattanPolygonsIntersect(rect, lfd, edges);
                 stats.intersections_found += (edges.size() - edges_nums_before);
             }
+            // 处理完该四叉树，后续不再使用，释放其内存
+            qtree->clear();
         }
     }
 

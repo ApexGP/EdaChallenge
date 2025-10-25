@@ -5,6 +5,8 @@
 #include <numeric>
 #include <iostream>
 #include <fstream>
+#include "NaiveThreadPool.h" // 线程池
+using goal::NaiveThreadPool;
 
 /* For CGAL if using
 #include <CGAL/Simple_cartesian.h>

@@ -23,8 +23,8 @@ public:
 	std::vector<int> TraceUsingLazyGraph();		// BFS驱动延迟建图
 
 	/* 追踪方法-多线程 */
-	std::vector<int> TraceUsingCompleteGraphParallel(); // 先完全建图再BFS
-	std::vector<int> TraceUsingLazyGraphParallel();		// BFS驱动延迟建图
+	std::vector<int> TraceUsingCompleteGraphParallel(int thread_count); // 先完全建图再BFS
+	std::vector<int> TraceUsingLazyGraphParallel(int thread_count);		// BFS驱动延迟建图
 
 private:
 	// Lazy BFS：仅按需扩展起点可达区域
@@ -41,7 +41,8 @@ std::vector<int> Trace::TraceUsingCompleteGraph() {
 	{
 		/* 根据输入和规则建立空间索引 */
 		std::cout << "----- Starting Space Index -----" << std::endl;
-		SpaceIndex spaceIndex(input, SpaceIndexMethod::Merged); // Via联通的两层合并建树
+		SpaceIndex spaceIndex(input); 
+		spaceIndex.CreatSpaceIndexMerged();	// Via联通的两层合并建树
 		spaceIndex.PrintSpaceIndexInfo();
 		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
@@ -77,7 +78,8 @@ std::vector<int> Trace::TraceUsingCompleteGraph() {
 
 		/* 根据输入和规则建立空间索引 */
 		std::cout << "----- Starting Space Index -----" << std::endl;
-		SpaceIndex spaceIndex(input, SpaceIndexMethod::Merged); // Via联通的两层合并建树
+		SpaceIndex spaceIndex(input);
+		spaceIndex.CreatSpaceIndexMerged();	// Via联通的两层合并建树
 		spaceIndex.PrintSpaceIndexInfo();
 		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
@@ -130,7 +132,8 @@ std::vector<int> Trace::TraceUsingLazyGraph() {
     {
         /* 根据输入和规则建立空间索引 */
         std::cout << "----- Starting Space Index -----" << std::endl;
-        SpaceIndex spaceIndex(input, SpaceIndexMethod::Separated); //每层独立建树索引
+        SpaceIndex spaceIndex(input);
+		spaceIndex.CreatSpaceIndexSeparated();	//每层独立建树索引
         spaceIndex.PrintSpaceIndexInfo();
         std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
@@ -161,7 +164,8 @@ std::vector<int> Trace::TraceUsingLazyGraph() {
 
 		/* 根据输入和规则建立空间索引 */
 		std::cout << "----- Starting Space Index -----" << std::endl;
-		SpaceIndex spaceIndex(input, SpaceIndexMethod::Separated); //每层独立建树索引
+		SpaceIndex spaceIndex(input);
+		spaceIndex.CreatSpaceIndexSeparated();	//每层独立建树索引
 		spaceIndex.PrintSpaceIndexInfo();
 		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
@@ -206,12 +210,98 @@ std::vector<int> Trace::TraceUsingLazyGraph() {
 }
 
 // 先完全建图再BFS-多线程
-std::vector<int> Trace::TraceUsingCompleteGraphParallel() {
-	return {};
+std::vector<int> Trace::TraceUsingCompleteGraphParallel(int thread_count) {
+	Timer myTimer;
+	if (!input.has_gate_rule) // 若没有Gate规则(单起点)
+	{
+		/* 根据输入和规则建立空间索引 */
+		std::cout << "----- Starting Space Index -----" << std::endl;
+		SpaceIndex spaceIndex(input);
+		spaceIndex.CreatSpaceIndexMergedParallel(thread_count);	// Via联通的两层合并建树
+		spaceIndex.PrintSpaceIndexInfo();
+		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+		/* 获取起点所在多边形id */
+		std::cout << "----- Starting Get StartPos -----" << std::endl;
+		int start_pos_id = spaceIndex.GetStartPosinPolygonIdParallel(input.start_pos[0], thread_count);
+		std::cout << "StartPos Polygon id:" << start_pos_id << std::endl;
+		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+		/* 相交检测获取边集 */
+		std::cout << "----- Starting Intersection Test -----" << std::endl;
+		Intersect intersect(input, spaceIndex);
+		std::vector<Edge> edges = intersect.getAllEdgeParallel(thread_count);
+		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+		/* 建图并求连通分量 */
+		std::cout << "----- Starting Get Connected Component -----" << std::endl;
+		Graph graph(input.total_polygon);
+		graph.AddEdges(edges);
+		std::vector<int> component = graph.GetConnectedComponent(start_pos_id);
+		std::cout << "s1 connected polygon size: " << component.size() << std::endl;
+		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+		return component;
+	}
+	else // 有Gate规则(双起点)
+	{
+		/* PO层多边形合并与AA层多边形切割 */
+		std::cout << "----- Starting Merge and Cutting Polygon -----" << std::endl;
+		PolygonCutting cutting(input);
+		robin_hood::unordered_map<int, std::vector<Edge>> po_cut_edges = cutting.MergePOAndCutAA();
+		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+		/* 根据输入和规则建立空间索引 */
+		std::cout << "----- Starting Space Index -----" << std::endl;
+		SpaceIndex spaceIndex(input);
+		spaceIndex.CreatSpaceIndexMergedParallel(thread_count);	// Via联通的两层合并建树
+		spaceIndex.PrintSpaceIndexInfo();
+		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+		/* 获取起点所在多边形id */
+		std::cout << "----- Starting Get StartPos -----" << std::endl;
+		int start_pos_s1_id = spaceIndex.GetStartPosinPolygonIdParallel(input.start_pos[0], thread_count);
+		int start_pos_s2_id = spaceIndex.GetStartPosinPolygonIdParallel(input.start_pos[1], thread_count);
+		std::cout << "StartPos s1 Polygon id:" << start_pos_s1_id << std::endl;
+		std::cout << "StartPos s2 Polygon id:" << start_pos_s2_id << std::endl;
+		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+		/* 相交检测获取边集 */
+		std::cout << "----- Starting Intersection Test -----" << std::endl;
+		Intersect intersect(input, spaceIndex);
+		std::vector<Edge> edges = intersect.getAllEdgeParallel(thread_count);
+		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+		/* 建图并求连通分量 */
+		std::cout << "----- Starting Get Connected Component -----" << std::endl;
+		Graph graph(input.total_polygon);
+		graph.AddEdges(edges);
+		// s1的联通分量，找到所有高电平PO
+		std::vector<int> component_s1 = graph.GetConnectedComponent(start_pos_s1_id);
+		// 对于高电平PO, 需要考虑增加其切割边
+		for (auto& id : component_s1) {
+			if (input.polygons[id]->layer_id == input.gate_rule.first) { // PO层
+				auto it = po_cut_edges.find(id);
+				if (it != po_cut_edges.end()) { // 有切割边则增加进去
+					for (auto& e : it->second) {
+						edges.emplace_back(e);
+					}
+				}
+			}
+		}
+		// 重新建图并求s2的联通分量
+		Graph new_graph(input.total_polygon);
+		new_graph.AddEdges(edges);
+		std::vector<int> component_s2 = new_graph.GetConnectedComponent(start_pos_s2_id);
+		std::cout << "s1 connected polygon size: " << component_s1.size() << ", s2 connected polygon size: " << component_s2.size() << std::endl;
+		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+
+		return component_s2;
+	}
 }
 
 // BFS驱动延迟建图-多线程
-std::vector<int> Trace::TraceUsingLazyGraphParallel() {
+std::vector<int> Trace::TraceUsingLazyGraphParallel(int thread_count) {
 	return {};
 }
 

@@ -98,16 +98,30 @@ public:
     /*
     * brief 根据多边形的矩形包围盒构建四叉树空间索引
     * poly_ptr: 多边形指针向量
-    * return: 构建是否成功
     */
-    bool CreatIndex(std::vector<Polygon*>& poly_ptr) {
+    void CreatIndex(std::vector<Polygon*>& poly_ptr) {
         clear();
 
         // 初始化根节点数据
         _root->_datas = poly_ptr;
 
         // 递归划分节点
-        return SplitNode(_root);
+        SplitNode(_root);
+    }
+
+    /* 并行版本：根据多边形的矩形包围盒构建四叉树空间索引 */
+    void CreatIndexParallel(std::vector<Polygon*>& poly_ptr, int thread_count) {
+        clear();
+
+        // 初始化根节点数据
+        _root->_datas = poly_ptr;
+
+        // 创建线程池
+        NaiveThreadPool pool(thread_count);
+        std::mutex stats_mutex; // 统计数据锁
+
+        // 递归划分节点
+        SplitNodeParallel(_root, pool, stats_mutex);
     }
 
     // 插入功能（待实现）
@@ -144,24 +158,29 @@ public:
         return GetLeafNum(_root);
     }
 
-private:
     // 清空四叉树
-    void clear() { _root->clear(); }
-
-    // 递归划分节点
-    bool SplitNode(QuadTreeNode* node)
+    void clear() 
     {
-        if (node == nullptr) return false;
+        _root->clear(); 
+        _maxCurrDepth = 1;
+        _maxCurrDataNum = 0;
+    }
+
+private:
+    // 递归划分节点
+    void SplitNode(QuadTreeNode* node)
+    {
+        if (node == nullptr) return;
         const size_t data_size = node->_datas.size();
 
         // 节点深度达到最大深度或者节点数据量小于等于限制值，停止划分
         if (node->_depth >= _maxDepth) {
             _maxCurrDataNum = static_cast<int>((node->_datas.size() > _maxCurrDataNum) ? node->_datas.size() : _maxCurrDataNum);
-            return true;
+            return;
         }
         if (node->_datas.size() <= _maxDataNum) {
             _maxCurrDataNum = static_cast<int>((node->_datas.size() > _maxCurrDataNum) ? node->_datas.size() : _maxCurrDataNum);
-            return true;
+            return;
         }
 
         // 更新当前实际深度
@@ -209,13 +228,89 @@ private:
         std::vector<Polygon*>().swap(node->_datas);
 
         // 递归处理子节点
-        bool result = true;
-        result &= SplitNode(node->_lt);
-        result &= SplitNode(node->_rt);
-        result &= SplitNode(node->_lb);
-        result &= SplitNode(node->_rb);
+        SplitNode(node->_lt);
+        SplitNode(node->_rt);
+        SplitNode(node->_lb);
+        SplitNode(node->_rb);
 
-        return result;
+        return;
+    }
+
+    // 并行版本：递归划分节点
+    void SplitNodeParallel(QuadTreeNode* node, NaiveThreadPool& pool, std::mutex& stats_mutex)
+    {
+        if (node == nullptr) return;
+        const size_t data_size = node->_datas.size();
+
+        {
+            std::lock_guard<std::mutex> lock(stats_mutex);
+            // 节点深度达到最大深度或者节点数据量小于等于限制值，停止划分
+            if (node->_depth >= _maxDepth) {
+                _maxCurrDataNum = static_cast<int>((node->_datas.size() > _maxCurrDataNum) ? node->_datas.size() : _maxCurrDataNum);
+                return;
+            }
+            if (node->_datas.size() <= _maxDataNum) {
+                _maxCurrDataNum = static_cast<int>((node->_datas.size() > _maxCurrDataNum) ? node->_datas.size() : _maxCurrDataNum);
+                return;
+            }
+            // 更新当前实际深度
+            _maxCurrDepth = ((node->_depth + 1 > _maxCurrDepth) ? node->_depth + 1 : _maxCurrDepth);
+        }
+
+        // 计算矩形划分中点
+        const Rect& parent_rect = node->_rect;
+        int xmid = (parent_rect._xmin + parent_rect._xmax) / 2;
+        int ymid = (parent_rect._ymin + parent_rect._ymax) / 2;
+
+        // 创建四个子矩形节点
+        node->_divided = true;
+        node->_lt = new QuadTreeNode(Rect(parent_rect._xmin, ymid, xmid, parent_rect._ymax), node->_depth + 1); // 左上
+        node->_rt = new QuadTreeNode(Rect(xmid, ymid, parent_rect._xmax, parent_rect._ymax), node->_depth + 1); // 右上
+        node->_lb = new QuadTreeNode(Rect(parent_rect._xmin, parent_rect._ymin, xmid, ymid), node->_depth + 1); // 左下
+        node->_rb = new QuadTreeNode(Rect(xmid, parent_rect._ymin, parent_rect._xmax, ymid), node->_depth + 1); // 右下
+
+        // 为数据分配预留空间（优化性能）
+        size_t estimated_size = (data_size / 3); // 保守估计，避免过度分配
+        node->_lt->_datas.reserve(estimated_size);
+        node->_rt->_datas.reserve(estimated_size);
+        node->_lb->_datas.reserve(estimated_size);
+        node->_rb->_datas.reserve(estimated_size);
+
+        // 将数据分配到四个子节点中
+        const std::vector<Polygon*>& parent_data = node->_datas;
+        for (size_t i = 0; i < data_size; i++)
+        {
+            Polygon* ptr = parent_data[i];
+            const Rect& curr_rect = ptr->rect;
+
+            // 根据矩形相交关系，将数据分配到相交的子节点中
+            // 注意：与多个子节点矩形相交的数据会被分配到多个子节点中
+            if (curr_rect._xmin <= xmid) {
+                if (curr_rect._ymax >= ymid) node->_lt->_datas.push_back(ptr);  // 与左上矩形相交
+                if (curr_rect._ymin <= ymid) node->_lb->_datas.push_back(ptr);  // 与左下矩形相交
+            }
+            if (curr_rect._xmax >= xmid) {
+                if (curr_rect._ymax >= ymid) node->_rt->_datas.push_back(ptr);  // 与右上矩形相交
+                if (curr_rect._ymin <= ymid) node->_rb->_datas.push_back(ptr);  // 与右下矩形相交
+            }
+        }
+
+        // 释放父节点数据内存（使用swap技巧真正释放内存）
+        std::vector<Polygon*>().swap(node->_datas);
+
+        // 并行递归处理子节点
+        pool.enqueue([this, node_lt = node->_lt, &pool, &stats_mutex] {
+            this->SplitNodeParallel(node_lt, pool, stats_mutex);
+            });
+        pool.enqueue([this, node_rt = node->_rt, &pool, &stats_mutex] {
+            this->SplitNodeParallel(node_rt, pool, stats_mutex);
+            });
+        pool.enqueue([this, node_lb = node->_lb, &pool, &stats_mutex] {
+            this->SplitNodeParallel(node_lb, pool, stats_mutex);
+            });
+        pool.enqueue([this, node_rb = node->_rb, &pool, &stats_mutex] {
+            this->SplitNodeParallel(node_rb, pool, stats_mutex);
+            });
     }
 
     // 递归获取所有叶节点数据
