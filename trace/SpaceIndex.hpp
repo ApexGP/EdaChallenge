@@ -80,7 +80,8 @@ public:
 		assert(qtree != nullptr && "起点不在任何层内");
 		// 兼容延迟划分的情况
 		if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
-			CreatQuadTreeIndexParallel(qtree, thread_count);
+			// CreatQuadTreeIndexParallel(qtree, thread_count);
+			CreatQuadTreeIndex(qtree);
 		}
 
 		// 获取起点坐标所在索引格子的多边形数据

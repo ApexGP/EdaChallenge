@@ -311,76 +311,133 @@ private:
         }
     }
 
-    // 并行版本：曼哈顿相交检测建边
-    void processWithManhattanCompleteParallel(const std::vector<QuadTree*>& quad_trees, std::vector<std::pair<int, int>>& edges, int thread_count)
-    {
-        // 创建线程池
-        NaiveThreadPool pool(thread_count);
-        // 全局结果容器锁
+    // 并行版本openMP：曼哈顿相交检测建边
+    void processWithManhattanCompleteParallel(const std::vector<QuadTree*>& quad_trees, std::vector<std::pair<int, int>>& edges, int thread_count) {
+        // 设置最大线程数
+        omp_set_num_threads(thread_count);
+        
+        // 用于合并边的互斥锁
         std::mutex edges_mutex;
-        // 全局统计锁
-        std::mutex stats_mutex;
-
-        // 遍历所有四叉树
-        for (auto& qtree : quad_trees) {
+        
+        // 并行处理每个四叉树
+        #pragma omp parallel for schedule(dynamic)
+        for (int idx = 0; idx < quad_trees.size(); ++idx) {
+            QuadTree* qtree = quad_trees[idx];
+            UnionFindSet ufs(100);  // 每个线程有自己的并查集
             std::vector<std::vector<Polygon*>> leafData;
-            std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
+            leafData.reserve(1000000);
 
             // 处理延迟索引划分
             if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
-                spaceIndex.CreatQuadTreeIndexParallel(qtree, thread_count);
+                spaceIndex.CreatQuadTreeIndex(qtree);
             }
 
-            // 获取所有叶子节点数据
             qtree->GetAllLeafData(leafData);
 
-                // 为每个叶子节点创建任务
+            // 线程本地存储边缘结果
+            std::vector<std::pair<int, int>> local_edges;
+
             for (const auto& lfd : leafData) {
                 const size_t local_size = lfd.size();
+                if (local_size < 2) {
+                    continue;
+                }
 
-                if (local_size < 2) continue;
+                // 调整并查集大小
+                if (lfd.size() > ufs.getSize()) {
+                    ufs = UnionFindSet(lfd.size() * 2);
+                } else {
+                    ufs.init();
+                }
 
-                // 按值捕获关键数据，类成员变量 stats 通过 this 指针捕获
-                pool.enqueue([this, &edges, &edges_mutex, &stats_mutex, lfd_copy = std::vector<Polygon*>(lfd), local_size]
-                    {
-                        // 局部结果容器
-                        std::vector<std::pair<int, int>> local_edges;
-                        int local_intersections = 0;
-                        UnionFindSet ufs(local_size);
-
-                        // 处理多边形对
-                        for (int i = 0; i < local_size; i++) {
-                            for (int j = i + 1; j < local_size; j++) {
-                                if (ufs.find(i) == ufs.find(j)) continue;
-                                if (ManhattanIntersectDetector::manhattanPolygonsIntersect(lfd_copy[i], lfd_copy[j])) {
-                                    local_edges.emplace_back(lfd_copy[i]->id, lfd_copy[j]->id);
-                                    ufs.join(i, j);
-                                    local_intersections++;
-                                }
-                            }
+                // 检查多边形相交
+                for (int i = 0; i < (int)lfd.size(); i++) {
+                    Polygon* a = lfd[i];
+                    for (int j = i + 1; j < (int)lfd.size(); j++) {
+                        Polygon* b = lfd[j];
+                        if (ufs.find(i) == ufs.find(j)) continue;
+                        if (ManhattanIntersectDetector::manhattanPolygonsIntersect(a, b)) {
+                            local_edges.emplace_back(a->id, b->id);
+                            ufs.join(i, j);
                         }
-
-                        // 合并结果到全局
-                        {
-                            std::lock_guard<std::mutex> lock_edges(edges_mutex);
-                            edges.insert(edges.end(), local_edges.begin(), local_edges.end());
-                        }
-
-                        // 更新类成员变量 stats
-                        {
-                            std::lock_guard<std::mutex> lock_stats(stats_mutex);
-                            this->stats.total_leaf_nodes++;
-                            this->stats.total_polygon_pairs += (local_size * (local_size - 1)) / 2;
-                            this->stats.manhattan_complete_used++;
-                            this->stats.intersections_found += local_intersections;
-                        }
-                    });
+                    }
+                }
             }
-            // 处理完该四叉树，后续不再使用，释放其内存
+
+            // 安全合并边结果
+            {
+                std::lock_guard<std::mutex> lock(edges_mutex);
+                edges.insert(edges.end(), local_edges.begin(), local_edges.end());
+            }
+
+            // 释放当前四叉树内存
             qtree->clear();
         }
-        // 依赖线程池析构等待所有任务完成
     }
+
+    // 并行版本-线程池：曼哈顿相交检测建边
+    // void processWithManhattanCompleteParallel(const std::vector<QuadTree*>& quad_trees, std::vector<std::pair<int, int>>& edges, int thread_count) {
+    //     // 创建线程池
+    //     NaiveThreadPool pool(thread_count);
+    //     // 用于合并边的互斥锁
+    //     std::mutex edges_mutex;
+        
+    //     for (int idx = 0; idx < quad_trees.size(); ++idx) {
+    //         QuadTree* qtree = quad_trees[idx];
+    //         pool.enqueue([this, qtree, &edges, &edges_mutex] {
+
+    //             UnionFindSet ufs(100);  // 每个线程有自己的并查集
+    //             std::vector<std::vector<Polygon*>> leafData;
+    //             leafData.reserve(1000000);
+
+    //             // 处理延迟索引划分
+    //             if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
+    //                 spaceIndex.CreatQuadTreeIndex(qtree);
+    //             }
+
+    //             qtree->GetAllLeafData(leafData);
+
+    //             // 线程本地存储边缘结果
+    //             std::vector<std::pair<int, int>> local_edges;
+
+    //             for (const auto& lfd : leafData) {
+    //             const size_t local_size = lfd.size();
+    //             if (local_size < 2) {
+    //                 continue;
+    //             }
+
+    //             // 调整并查集大小
+    //             if (lfd.size() > ufs.getSize()) {
+    //                 ufs = UnionFindSet(lfd.size() * 2);
+    //             } else {
+    //                 ufs.init();
+    //             }
+
+    //             // 检查多边形相交
+    //             for (int i = 0; i < (int)lfd.size(); i++) {
+    //                 Polygon* a = lfd[i];
+    //                 for (int j = i + 1; j < (int)lfd.size(); j++) {
+    //                     Polygon* b = lfd[j];
+    //                     if (ufs.find(i) == ufs.find(j)) continue;
+    //                     if (ManhattanIntersectDetector::manhattanPolygonsIntersect(a, b)) {
+    //                         local_edges.emplace_back(a->id, b->id);
+    //                         ufs.join(i, j);
+    //                     }
+    //                 }
+    //             }
+    //         }
+
+    //             // 安全合并边结果
+    //             {
+    //                 std::lock_guard<std::mutex> lock(edges_mutex);
+    //                 edges.insert(edges.end(), local_edges.begin(), local_edges.end());
+    //             }
+
+    //             // 释放当前四叉树内存
+    //             qtree->clear();
+    //         });
+    //     }
+    // }
 
     /**
      * @brief Process using batch grid method

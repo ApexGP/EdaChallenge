@@ -5,6 +5,8 @@
 #include <numeric>
 #include <iostream>
 #include <fstream>
+#include <omp.h>
+#include <mutex>
 #include "NaiveThreadPool.h" // 线程池
 using goal::NaiveThreadPool;
 

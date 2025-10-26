@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(Trace)
 
-# 设置默认构建类型为 Release（如果未指定）
+# 设置默认构建类型为 Release
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build" FORCE)
 endif()
@@ -13,13 +13,22 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 设置 Release 模式的编译选项
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=native")
-set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG -march=native")
+# 设置完全静态编译标志
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
+set(CMAKE_FIND_LIBRARY_SUFFIXES ".a") # 强制使用静态库
 
-# 设置静态编译标志
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
-set(CMAKE_FIND_LIBRARY_SUFFIXES ".a") # 优先查找静态库
+# 兼容性优化标志 - 在服务器和本地都能高效运行
+set(COMPAT_OPT_FLAGS "-O3 -flto -fno-semantic-interposition -mavx2 -mfma -mbmi2 -mpopcnt")
+
+# 针对两种CPU的微优化
+set(MICRO_OPT_FLAGS "-mtune=generic -march=x86-64-v3")
+
+# 设置Release模式编译选项
+set(CMAKE_CXX_FLAGS_RELEASE "${COMPAT_OPT_FLAGS} ${MICRO_OPT_FLAGS} -DNDEBUG")
+set(CMAKE_C_FLAGS_RELEASE "${COMPAT_OPT_FLAGS} ${MICRO_OPT_FLAGS} -DNDEBUG")
+
+# 包含OpenMP支持
+find_package(OpenMP REQUIRED)
 
 # 设置第三方库路径
 set(THIRD_PARTY_DIR ${CMAKE_SOURCE_DIR}/trace/third_party)
@@ -50,22 +59,19 @@ add_executable(trace
     trace/Trace.hpp
 )
 
+# 解决dlopen警告
+target_link_options(trace PRIVATE "-Wl,--no-as-needed")
 
-# optional 自动收集方式收集所有源文件
-# file(GLOB SOURCES "trace/*.cpp")
-# file(GLOB HEADERS "trace/*.hpp" "trace/*.h")
-
-# add_executable(trace ${SOURCES} ${HEADERS})
-
-
-# 链接静态库文件
-target_link_libraries(trace
-    PRIVATE
-    MBSO  # 链接新创建的MBSO库
+# 链接OpenMP和静态库
+target_link_libraries(trace PRIVATE
+    MBSO
     ${GMP_LINUX_DIR}/lib/libgmp.a
     ${GMP_LINUX_DIR}/lib/libmpfr.a
+    OpenMP::OpenMP_CXX
+    -lpthread
+    -ldl
+    -lrt
 )
 
-
-# 安装目标（可选）
+# 安装目标
 install(TARGETS trace DESTINATION ${CMAKE_SOURCE_DIR}/bin)
