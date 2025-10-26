@@ -116,12 +116,15 @@ public:
         // 初始化根节点数据
         _root->_datas = poly_ptr;
 
-        // 创建线程池
-        NaiveThreadPool pool(thread_count);
-        std::mutex stats_mutex; // 统计数据锁
+        // 设置线程数
+        omp_set_num_threads(thread_count);
 
-        // 递归划分节点
-        SplitNodeParallel(_root, pool, stats_mutex);
+        // 启动并行区域递归划分节点
+        #pragma omp parallel
+        {
+            #pragma omp single nowait
+            SplitNodeParallel(_root);
+        }
     }
 
     // 插入功能（待实现）
@@ -237,24 +240,17 @@ private:
     }
 
     // 并行版本：递归划分节点
-    void SplitNodeParallel(QuadTreeNode* node, NaiveThreadPool& pool, std::mutex& stats_mutex)
+    void SplitNodeParallel(QuadTreeNode* node)
     {
         if (node == nullptr) return;
         const size_t data_size = node->_datas.size();
 
-        {
-            std::lock_guard<std::mutex> lock(stats_mutex);
-            // 节点深度达到最大深度或者节点数据量小于等于限制值，停止划分
-            if (node->_depth >= _maxDepth) {
-                _maxCurrDataNum = static_cast<int>((node->_datas.size() > _maxCurrDataNum) ? node->_datas.size() : _maxCurrDataNum);
-                return;
-            }
-            if (node->_datas.size() <= _maxDataNum) {
-                _maxCurrDataNum = static_cast<int>((node->_datas.size() > _maxCurrDataNum) ? node->_datas.size() : _maxCurrDataNum);
-                return;
-            }
-            // 更新当前实际深度
-            _maxCurrDepth = ((node->_depth + 1 > _maxCurrDepth) ? node->_depth + 1 : _maxCurrDepth);
+        // 节点深度达到最大深度或者节点数据量小于等于限制值，停止划分
+        if (node->_depth >= _maxDepth) {
+            return;
+        }
+        if (node->_datas.size() <= _maxDataNum) {
+            return;
         }
 
         // 计算矩形划分中点
@@ -276,41 +272,48 @@ private:
         node->_lb->_datas.reserve(estimated_size);
         node->_rb->_datas.reserve(estimated_size);
 
-        // 将数据分配到四个子节点中
+        // 分配数据到四个子节点
         const std::vector<Polygon*>& parent_data = node->_datas;
         for (size_t i = 0; i < data_size; i++)
         {
             Polygon* ptr = parent_data[i];
             const Rect& curr_rect = ptr->rect;
+            bool in_left = (curr_rect._xmin <= xmid);
+            bool in_right = (curr_rect._xmax >= xmid);
+            bool in_top = (curr_rect._ymax >= ymid);
+            bool in_bottom = (curr_rect._ymin <= ymid);
 
-            // 根据矩形相交关系，将数据分配到相交的子节点中
-            // 注意：与多个子节点矩形相交的数据会被分配到多个子节点中
-            if (curr_rect._xmin <= xmid) {
-                if (curr_rect._ymax >= ymid) node->_lt->_datas.push_back(ptr);  // 与左上矩形相交
-                if (curr_rect._ymin <= ymid) node->_lb->_datas.push_back(ptr);  // 与左下矩形相交
+            if (in_left) {
+                if(in_top) node->_lt->_datas.push_back(ptr);
+                if(in_bottom) node->_lb->_datas.push_back(ptr);
             }
-            if (curr_rect._xmax >= xmid) {
-                if (curr_rect._ymax >= ymid) node->_rt->_datas.push_back(ptr);  // 与右上矩形相交
-                if (curr_rect._ymin <= ymid) node->_rb->_datas.push_back(ptr);  // 与右下矩形相交
+            if (in_right) {
+                if(in_top) node->_rt->_datas.push_back(ptr);
+                if(in_bottom) node->_rb->_datas.push_back(ptr);
             }
         }
 
-        // 释放父节点数据内存（使用swap技巧真正释放内存）
+        // 释放父节点内存
         std::vector<Polygon*>().swap(node->_datas);
 
-        // 并行递归处理子节点
-        pool.enqueue([this, node_lt = node->_lt, &pool, &stats_mutex] {
-            this->SplitNodeParallel(node_lt, pool, stats_mutex);
-            });
-        pool.enqueue([this, node_rt = node->_rt, &pool, &stats_mutex] {
-            this->SplitNodeParallel(node_rt, pool, stats_mutex);
-            });
-        pool.enqueue([this, node_lb = node->_lb, &pool, &stats_mutex] {
-            this->SplitNodeParallel(node_lb, pool, stats_mutex);
-            });
-        pool.enqueue([this, node_rb = node->_rb, &pool, &stats_mutex] {
-            this->SplitNodeParallel(node_rb, pool, stats_mutex);
-            });
+        // 递归处理子节点（使用任务并行）
+        if (node->_depth < PARALLEL_DEPTH_THRESHOLD) {
+            #pragma omp task default(none) shared(node)
+            SplitNodeParallel(node->_lt);
+            #pragma omp task default(none) shared(node)
+            SplitNodeParallel(node->_rt);
+            #pragma omp task default(none) shared(node)
+            SplitNodeParallel(node->_lb);
+            #pragma omp task default(none) shared(node)
+            SplitNodeParallel(node->_rb);
+            #pragma omp taskwait
+        } else {
+            // 深度超过阈值，串行递归
+            SplitNodeParallel(node->_lt);
+            SplitNodeParallel(node->_rt);
+            SplitNodeParallel(node->_lb);
+            SplitNodeParallel(node->_rb);
+        }
     }
 
     // 递归获取所有叶节点数据

@@ -46,10 +46,6 @@ public:
 		std::string& layer_name = input.layer_id_to_name[layer_id];
 		QuadTree* qtree = layer_name_to_quadtree[layer_name];
 		assert(qtree != nullptr && "起点不在任何层内");
-		// 兼容延迟划分的情况
-		if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
-			CreatQuadTreeIndex(qtree);
-		}
 
 		// 获取起点坐标所在索引格子的多边形数据
 		Point& sp = start_pos.second;
@@ -78,11 +74,6 @@ public:
 		std::string& layer_name = input.layer_id_to_name[layer_id];
 		QuadTree* qtree = layer_name_to_quadtree[layer_name];
 		assert(qtree != nullptr && "起点不在任何层内");
-		// 兼容延迟划分的情况
-		if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
-			// CreatQuadTreeIndexParallel(qtree, thread_count);
-			CreatQuadTreeIndex(qtree);
-		}
 
 		// 获取起点坐标所在索引格子的多边形数据
 		Point& sp = start_pos.second;
@@ -140,7 +131,7 @@ public:
 
 			// 建立四叉树
 			QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, layer_name);
-			CreatQuadTreeIndex(quad_tree);  /* 单层无需延迟划分 */
+			CreatQuadTreeIndex(quad_tree);
 			quad_trees.push_back(quad_tree);
 			layer_name_to_quadtree[layer_name] = quad_tree;
 		}
@@ -157,7 +148,7 @@ public:
 					// 建立四叉树
 					std::string name = input.layer_id_to_name[via.first] + "-" + input.layer_id_to_name[via.second];
 					QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-					//CreatQuadTreeIndex(quad_tree); /* 由于合并建的树只在相交检测时使用一次，故延迟划分，节省内存 */
+					CreatQuadTreeIndex(quad_tree);
 					quad_trees.push_back(quad_tree);
 					//一个层可能指向多棵合并树，这里任意记录一棵即可
 					layer_name_to_quadtree[input.layer_id_to_name[via.first]] = quad_tree;
@@ -181,7 +172,7 @@ public:
 					// 建立四叉树
 					std::string name = input.layer_id_to_name[via.first] + "-" + input.layer_id_to_name[via.second];
 					QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-					//CreatQuadTreeIndex(quad_tree); /* 由于合并建的树只在相交检测时使用一次，故延迟划分，节省内存 */
+					CreatQuadTreeIndex(quad_tree);
 					quad_trees.push_back(quad_tree);
 					//一个层可能指向多棵合并树，这里任意记录一棵即可
 					layer_name_to_quadtree[input.layer_id_to_name[via.first]] = quad_tree;
@@ -322,7 +313,7 @@ public:
 
 			// 建立四叉树
 			QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, layer_name);
-			CreatQuadTreeIndexParallel(quad_tree, thread_count);  /* 单层无需延迟划分 */
+			CreatQuadTreeIndexParallel(quad_tree, thread_count);
 			quad_trees.push_back(quad_tree);
 			layer_name_to_quadtree[layer_name] = quad_tree;
 		}
@@ -339,7 +330,7 @@ public:
 					// 建立四叉树
 					std::string name = input.layer_id_to_name[via.first] + "-" + input.layer_id_to_name[via.second];
 					QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-					//CreatQuadTreeIndexParallel(quad_tree, thread_count); /* 由于合并建的树只在相交检测时使用一次，故延迟划分，节省内存 */
+					CreatQuadTreeIndexParallel(quad_tree, thread_count);
 					quad_trees.push_back(quad_tree);
 					//一个层可能指向多棵合并树，这里任意记录一棵即可
 					layer_name_to_quadtree[input.layer_id_to_name[via.first]] = quad_tree;
@@ -363,7 +354,7 @@ public:
 					// 建立四叉树
 					std::string name = input.layer_id_to_name[via.first] + "-" + input.layer_id_to_name[via.second];
 					QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-					//CreatQuadTreeIndexParallel(quad_tree, thread_count); /* 由于合并建的树只在相交检测时使用一次，故延迟划分，节省内存 */
+					CreatQuadTreeIndexParallel(quad_tree, thread_count);
 					quad_trees.push_back(quad_tree);
 					//一个层可能指向多棵合并树，这里任意记录一棵即可
 					layer_name_to_quadtree[input.layer_id_to_name[via.first]] = quad_tree;

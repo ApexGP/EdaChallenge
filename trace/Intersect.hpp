@@ -268,11 +268,6 @@ private:
             leafData.clear();
             std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
 
-            // 处理延迟索引划分
-            if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
-                spaceIndex.CreatQuadTreeIndex(qtree);
-            }
-
             qtree->GetAllLeafData(leafData);
 
             for (const auto& lfd : leafData) {
@@ -306,8 +301,6 @@ private:
 					}
 				}
             }
-            // 处理完该四叉树，后续不再使用，释放其内存
-            qtree->clear();
         }
     }
 
@@ -326,11 +319,6 @@ private:
             UnionFindSet ufs(100);  // 每个线程有自己的并查集
             std::vector<std::vector<Polygon*>> leafData;
             leafData.reserve(1000000);
-
-            // 处理延迟索引划分
-            if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
-                spaceIndex.CreatQuadTreeIndex(qtree);
-            }
 
             qtree->GetAllLeafData(leafData);
 
@@ -369,9 +357,6 @@ private:
                 std::lock_guard<std::mutex> lock(edges_mutex);
                 edges.insert(edges.end(), local_edges.begin(), local_edges.end());
             }
-
-            // 释放当前四叉树内存
-            qtree->clear();
         }
     }
 
@@ -389,11 +374,6 @@ private:
     //             UnionFindSet ufs(100);  // 每个线程有自己的并查集
     //             std::vector<std::vector<Polygon*>> leafData;
     //             leafData.reserve(1000000);
-
-    //             // 处理延迟索引划分
-    //             if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
-    //                 spaceIndex.CreatQuadTreeIndex(qtree);
-    //             }
 
     //             qtree->GetAllLeafData(leafData);
 
@@ -432,9 +412,6 @@ private:
     //                 std::lock_guard<std::mutex> lock(edges_mutex);
     //                 edges.insert(edges.end(), local_edges.begin(), local_edges.end());
     //             }
-
-    //             // 释放当前四叉树内存
-    //             qtree->clear();
     //         });
     //     }
     // }
@@ -457,11 +434,6 @@ private:
             leafRect.clear();
             std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
 
-            // 处理延迟索引划分
-            if (qtree->_root->_divided == false && qtree->_root->_datas.size() == 0) {
-                spaceIndex.CreatQuadTreeIndex(qtree);
-            }
-
             qtree->GetAllLeafData(leafData, leafRect);
 
             // Process each leaf based on spatial bounds
@@ -479,8 +451,6 @@ private:
                 bgid.batchManhattanPolygonsIntersect(rect, lfd, edges);
                 stats.intersections_found += (edges.size() - edges_nums_before);
             }
-            // 处理完该四叉树，后续不再使用，释放其内存
-            qtree->clear();
         }
     }
 

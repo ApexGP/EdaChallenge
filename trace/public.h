@@ -32,6 +32,7 @@ using Vertexs = std::vector<MPoint_2>;
 
 const int MAX_DEPTH = 12;     // 四叉树最大深度限制
 const int MAX_DATA_NUM = 10;  // 四叉树叶子节点最大数据量限制
+const int PARALLEL_DEPTH_THRESHOLD = 4; // 四叉树并行划分深度阈值
 
 using Range = std::pair<int, int>;         // 范围区间
 using Edge = std::pair<int, int>;          // 边: 多边形id对
