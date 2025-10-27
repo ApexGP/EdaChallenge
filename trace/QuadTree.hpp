@@ -296,23 +296,28 @@ private:
         // 释放父节点内存
         std::vector<Polygon*>().swap(node->_datas);
 
-        // 递归处理子节点（使用任务并行）
-        if (node->_depth < PARALLEL_DEPTH_THRESHOLD) {
-            #pragma omp task default(none) shared(node)
-            SplitNodeParallel(node->_lt);
-            #pragma omp task default(none) shared(node)
-            SplitNodeParallel(node->_rt);
-            #pragma omp task default(none) shared(node)
-            SplitNodeParallel(node->_lb);
-            #pragma omp task default(none) shared(node)
-            SplitNodeParallel(node->_rb);
-            #pragma omp taskwait
-        } else {
-            // 深度超过阈值，串行递归
-            SplitNodeParallel(node->_lt);
-            SplitNodeParallel(node->_rt);
-            SplitNodeParallel(node->_lb);
-            SplitNodeParallel(node->_rb);
+        // 递归处理子节点（基于数据量决定并行）
+        const size_t PARALLEL_SIZE_THRESHOLD = 10000;  // 可调整的并行阈值
+        
+        // 封装子节点处理逻辑
+        auto process_child = [&](QuadTreeNode* child) {
+            if (child->_datas.size() > PARALLEL_SIZE_THRESHOLD) {
+                // 任务并行
+                #pragma omp task firstprivate(child)
+                SplitNodeParallel(child);
+            } else {
+                // 串行递归
+                SplitNodeParallel(child);
+            }
+        };
+
+        // 使用taskgroup确保任务安全
+        #pragma omp taskgroup
+        {
+            process_child(node->_lt);
+            process_child(node->_rt);
+            process_child(node->_lb);
+            process_child(node->_rb);
         }
     }
 

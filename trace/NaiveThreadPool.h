@@ -49,6 +49,9 @@ namespace goal {
 			typename std::result_of<F && (Args&&...)>::type
 #endif
 			>;
+		// 添加同步等待函数
+        void wait();
+		
 		~NaiveThreadPool();
 	private:
 		// need to keep track of threads so we can join them
@@ -58,8 +61,12 @@ namespace goal {
 
 		// synchronization
 		std::mutex queue_mutex;					// 任务队列互斥量，用于防止数据竞争
-		std::condition_variable condition;		// 条件变量，用于实现线程间的同步和通信，避免忙等待
+		std::condition_variable condition;		// 任务队列条件变量，用于实现线程间的同步和通信，避免忙等待
+		std::condition_variable completion_condition; // 完成条件变量
 		bool stop;
+
+		// 任务计数器
+        std::atomic<size_t> active_tasks{0};
 	};
 
 	// the constructor just launches some amount of workers
@@ -85,10 +92,23 @@ namespace goal {
 								return;
 							task = std::move(this->tasks.front());
 							this->tasks.pop();
+							
+                            ++active_tasks; // 增加活动任务计数
 							/* 退出临界区自动释放锁 */
 						}
 
 						task();	// 任务执行
+
+						// 减少活动任务计数
+                        {
+                            std::unique_lock<std::mutex> lock(this->queue_mutex);
+                            --active_tasks;
+                            
+                            // 如果没有活动任务，通知等待线程
+                            if (active_tasks == 0 && tasks.empty()) {
+                                completion_condition.notify_all();
+                            }
+                        }
 					}
 				}
 		);
@@ -130,6 +150,15 @@ namespace goal {
 		condition.notify_one();	// 唤醒一个等待的工作线程，如果没有等待线程，则无操作
 		return res;
 	}
+
+	// 同步等待函数实现
+    inline void NaiveThreadPool::wait() {
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        completion_condition.wait(lock, [this] {
+            // 等待条件：没有活动任务且任务队列为空
+            return active_tasks == 0 && tasks.empty();
+        });
+    }
 
 	// the destructor joins all threads
 	inline NaiveThreadPool::~NaiveThreadPool()

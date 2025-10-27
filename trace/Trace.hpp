@@ -251,7 +251,7 @@ std::vector<int> Trace::TraceUsingCompleteGraphParallel(int thread_count) {
 		/* PO层多边形合并与AA层多边形切割 */
 		std::cout << "----- Starting Merge and Cutting Polygon -----" << std::endl;
 		PolygonCutting cutting(input);
-		robin_hood::unordered_map<int, std::vector<Edge>> po_cut_edges = cutting.MergePOAndCutAA();
+		robin_hood::unordered_map<int, std::vector<Edge>> po_cut_edges = cutting.MergePOAndCutAAParallel(thread_count);
 		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
 		/* 根据输入和规则建立空间索引 */
@@ -337,7 +337,7 @@ std::vector<int> Trace::TraceUsingLazyGraphParallel(int thread_count) {
 		/* PO层多边形合并与AA层多边形切割 */
 		std::cout << "----- Starting Merge and Cutting Polygon -----" << std::endl;
 		PolygonCutting cutting(input);
-		robin_hood::unordered_map<int, std::vector<Edge>> po_cut_edges = cutting.MergePOAndCutAA();
+		robin_hood::unordered_map<int, std::vector<Edge>> po_cut_edges = cutting.MergePOAndCutAAParallel(thread_count);
 		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
 		/* 根据输入和规则建立空间索引 */
@@ -484,6 +484,9 @@ std::vector<int> Trace::RunLazyConnectedComponentParallel(SpaceIndex& spaceIndex
 	std::vector<std::vector<int>> neighbors_list;
 	neighbors_list.reserve(1000);  // 预分配大致容量
 
+	// 设置并行阈值
+    const size_t PARALLEL_THRESHOLD = 100; // 可调整的并行阈值
+
 	omp_set_num_threads(thread_count);
 	while (!bfs_queue.empty()) {
 	    // 处理当前层级的所有节点
@@ -512,27 +515,47 @@ std::vector<int> Trace::RunLazyConnectedComponentParallel(SpaceIndex& spaceIndex
 	        component.push_back(current);
 	    }
 
-	    // 并行获取邻居 (使用 OpenMP) ：动态调度小批次任务并行，负载均衡
-	   	#pragma omp parallel for schedule(dynamic, 8) reduction(+:neighbor_candidates, extra_neighbors)
-	    for (size_t i = 0; i < level_size; ++i) {
-			int current = current_level[i];
-	        // 复用邻居向量（保留容量）
-        	neighbors_list[i].clear();
-	        // 获取基础邻居
-	        intersect.GetNeighborsLazyParallel(current, bfs_visted, neighbors_list[i]);
-	        neighbor_candidates += neighbors_list[i].size();
-	        // 添加额外邻居
-	        if (extra_adj) {
-	            auto it = extra_adj->find(current);
-	            if (it != extra_adj->end()) {
-	                const auto& extra = it->second;
-	                extra_neighbors += extra.size();
-	                neighbors_list[i].insert(neighbors_list[i].end(), extra.begin(), extra.end());
-	            }
-	        }
-		}
+		if (level_size > PARALLEL_THRESHOLD) {
+			// 并行获取邻居 (使用 OpenMP) ：动态调度小批次任务并行，负载均衡
+            #pragma omp parallel for schedule(dynamic, 50) reduction(+:neighbor_candidates, extra_neighbors)
+            for (size_t i = 0; i < level_size; ++i) {
+                int current = current_level[i];
+                // 复用邻居向量（保留容量）
+                neighbors_list[i].clear();
+                // 获取基础邻居
+                intersect.GetNeighborsLazyParallel(current, bfs_visted, neighbors_list[i]);
+                neighbor_candidates += neighbors_list[i].size();
+                // 添加额外邻居
+                if (extra_adj) {
+                    auto it = extra_adj->find(current);
+                    if (it != extra_adj->end()) {
+                        const auto& extra = it->second;
+                        extra_neighbors += extra.size();
+                        neighbors_list[i].insert(neighbors_list[i].end(), extra.begin(), extra.end());
+                    }
+                }
+            }
+        } else {
+            // 串行处理小层级
+            for (size_t i = 0; i < level_size; ++i) {
+                int current = current_level[i];
+                neighbors_list[i].clear();
+                // 获取基础邻居
+                intersect.GetNeighborsLazyParallel(current, bfs_visted, neighbors_list[i]);
+                neighbor_candidates += neighbors_list[i].size();
+                // 添加额外邻居
+                if (extra_adj) {
+                    auto it = extra_adj->find(current);
+                    if (it != extra_adj->end()) {
+                        const auto& extra = it->second;
+                        extra_neighbors += extra.size();
+                        neighbors_list[i].insert(neighbors_list[i].end(), extra.begin(), extra.end());
+                    }
+                }
+            }
+        }
 
-		// 处理邻居节点
+		// 处理邻居节点（统一处理并行/串行结果）
 	    for (size_t i = 0; i < level_size; ++i) {
 	        for (int next : neighbors_list[i]) {
 	            if (!bfs_visted[next]) {
@@ -556,6 +579,5 @@ std::vector<int> Trace::RunLazyConnectedComponentParallel(SpaceIndex& spaceIndex
 
 	return component;
 }
-
 
 #pragma endregion
