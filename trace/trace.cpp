@@ -29,8 +29,8 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
         component = trace.TraceUsingLazyGraph();     // BFS驱动延迟建图
     }
     else { // 多线程并行
-        component = trace.TraceUsingCompleteGraphParallel(thread); // 先完全建图再BFS
-        //component = trace.TraceUsingLazyGraphParallel(thread);     // BFS驱动延迟建图
+        // component = trace.TraceUsingCompleteGraphParallel(thread); // 先完全建图再BFS
+        component = trace.TraceUsingLazyGraphParallel(thread);     // BFS驱动延迟建图
     }
     std::cout << "================================ Trace Use Time : " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
