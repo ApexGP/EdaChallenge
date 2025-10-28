@@ -217,13 +217,13 @@ private:
 
             // 根据矩形相交关系，将数据分配到相交的子节点中
             // 注意：与多个子节点矩形相交的数据会被分配到多个子节点中
-            if (curr_rect._xmin <= xmid){
-                if(curr_rect._ymax >= ymid) node->_lt->_datas.push_back(ptr);  // 与左上矩形相交
-                if(curr_rect._ymin <= ymid) node->_lb->_datas.push_back(ptr);  // 与左下矩形相交
+            if (curr_rect._xmin <= xmid) {
+                if (curr_rect._ymax >= ymid) node->_lt->_datas.push_back(ptr);    // 与左上矩形相交
+                if (curr_rect._ymin <= ymid) node->_lb->_datas.push_back(ptr);    // 与左下矩形相交
             }
-            if (curr_rect._xmax >= xmid){
-                if(curr_rect._ymax >= ymid) node->_rt->_datas.push_back(ptr);  // 与右上矩形相交
-                if(curr_rect._ymin <= ymid) node->_rb->_datas.push_back(ptr);  // 与右下矩形相交
+            if (curr_rect._xmax >= xmid) {
+                if (curr_rect._ymax >= ymid) node->_rt->_datas.push_back(ptr);    // 与右上矩形相交
+                if (curr_rect._ymin <= ymid) node->_rb->_datas.push_back(ptr);    // 与右下矩形相交
             }
         }
 
@@ -278,18 +278,13 @@ private:
         {
             Polygon* ptr = parent_data[i];
             const Rect& curr_rect = ptr->rect;
-            bool in_left = (curr_rect._xmin <= xmid);
-            bool in_right = (curr_rect._xmax >= xmid);
-            bool in_top = (curr_rect._ymax >= ymid);
-            bool in_bottom = (curr_rect._ymin <= ymid);
-
-            if (in_left) {
-                if(in_top) node->_lt->_datas.push_back(ptr);
-                if(in_bottom) node->_lb->_datas.push_back(ptr);
+            if (curr_rect._xmin <= xmid) {
+                if (curr_rect._ymax >= ymid) node->_lt->_datas.push_back(ptr);    // 与左上矩形相交
+                if (curr_rect._ymin <= ymid) node->_lb->_datas.push_back(ptr);    // 与左下矩形相交
             }
-            if (in_right) {
-                if(in_top) node->_rt->_datas.push_back(ptr);
-                if(in_bottom) node->_rb->_datas.push_back(ptr);
+            if (curr_rect._xmax >= xmid) {
+                if (curr_rect._ymax >= ymid) node->_rt->_datas.push_back(ptr);    // 与右上矩形相交
+                if (curr_rect._ymin <= ymid) node->_rb->_datas.push_back(ptr);    // 与右下矩形相交
             }
         }
 
@@ -361,22 +356,24 @@ private:
 
     // 递归收集与指定区域相交的所有非空叶节点
     void CollectIntersectLeaves(QuadTreeNode* node, const Rect& region, std::vector<QuadTreeNode*>& leaves) const {
-        if (!node) return;
+ 
+        if (node->_divided) {   // 非叶节点：递归处理子节点
+            const int xmid = node->_lt->_rect._xmax;
+            const int ymid = node->_lt->_rect._ymin;
 
-        // 如果节点矩形与查询区域不相交，直接返回
-        if (!node->_rect.Intersects(region)) return;
-
-        // 非空叶节点：添加到结果集
-        if (!node->_divided && node->_datas.size() != 0) {
-            leaves.push_back(node);
-            return;
+            if (region._xmin <= xmid) {
+                if (region._ymax >= ymid) CollectIntersectLeaves(node->_lt, region, leaves);    // 与左上矩形相交
+                if (region._ymin <= ymid) CollectIntersectLeaves(node->_lb, region, leaves);    // 与左下矩形相交
+            }
+            if (region._xmax >= xmid) {
+                if (region._ymax >= ymid) CollectIntersectLeaves(node->_rt, region, leaves);    // 与右上矩形相交
+                if (region._ymin <= ymid) CollectIntersectLeaves(node->_rb, region, leaves);    // 与右下矩形相交
+            }
         }
-
-        // 非叶节点：递归处理子节点
-        CollectIntersectLeaves(node->_lt, region, leaves);
-        CollectIntersectLeaves(node->_rt, region, leaves);
-        CollectIntersectLeaves(node->_lb, region, leaves);
-        CollectIntersectLeaves(node->_rb, region, leaves);
+        else if (!node->_datas.empty()) {    // 非空叶节点：添加到结果集
+            leaves.push_back(node);
+        }
+        return;
     }
 
     // 递归搜索包含指定点的叶节点

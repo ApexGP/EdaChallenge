@@ -204,7 +204,7 @@ private:
         while (ptr < end) {
             // 寻找第一个 '('
             while (ptr < end && *ptr != '(') ptr++;
-            if (ptr >= end) break;
+            //if (ptr >= end) break;
 
             ptr++; // 跳过 '('
 
@@ -223,7 +223,7 @@ private:
 
             // 跳过逗号
             while (ptr < end && *ptr != ',') ptr++;
-            if (ptr >= end) break;
+            //if (ptr >= end) break;
             ptr++; // 跳过 ','
 
             // 解析y坐标
@@ -240,11 +240,11 @@ private:
             if (y_negative) y = -y;
 
             // 添加点到顶点列表
-            vertex.push_back(MPoint_2(x, y));
+            vertex.emplace_back(x, y);
 
             // 寻找对应的 ')'
             while (ptr < end && *ptr != ')') ptr++;
-            if (ptr < end) ptr++; // 跳过 ')'
+            ptr++; // 跳过 ')'
         }
     }
 };
