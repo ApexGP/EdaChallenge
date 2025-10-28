@@ -139,7 +139,7 @@ private:
 		std::vector<std::vector<int>> components = unionfs.getComponents();
 		// 合并每个联通分量的多边形
 		std::vector<Polygon*> po_merged_polygons;
-		po_merged_polygons.reserve(po_polygons.size());
+		po_merged_polygons.reserve(components.size());
 		for (auto& comp : components) {
 			if (comp.size() == 1) {
 				po_merged_polygons.push_back(po_polygons[comp[0]]);
@@ -519,42 +519,49 @@ private:
 		UnionFindSet unionfs(po_polygons.size());
 		for (auto& e : edges) unionfs.join(e.first, e.second);
 		std::vector<std::vector<int>> components = unionfs.getComponents();
-		// 合并每个联通分量的多边形
-		std::vector<Polygon*> po_merged_polygons;
-		po_merged_polygons.reserve(po_polygons.size());
-		for (auto& comp : components) {
-			if (comp.size() == 1) {
-				po_merged_polygons.push_back(po_polygons[comp[0]]);
-			}
-			else {
-				Vertexs& po_vertex1 = po_polygons[comp[0]]->vertex;
-				std::vector<MPoint_2> mpoly = reverse_orientation(po_vertex1);
-				mbsoCore.setResultMPS(mpoly); // 设置第一个多边形
-				// 序列式求并集
-				for (int i = 1; i < comp.size(); ++i) {
-					int idx = comp[i];
-					Vertexs& po_vertex2 = po_polygons[idx]->vertex;
-					mpoly = reverse_orientation(po_vertex2);
-					mbsoCore.join(mpoly);
-				}
 
-				// 合并后的多边形转回自定义Polygon类
-				std::vector<std::vector<MPoint_2>> merged_poly_set = mbsoCore.getResult();
-				assert(merged_poly_set.size() == 1 && "合并后多边形应为单一多边形");
-				mpoly = reverse_orientation(merged_poly_set[0]);
-				// new 新多边形
-				Polygon* new_poly = new Polygon();
-				new_poly->layer_id = po_polygons[comp[0]]->layer_id; // 保持层id不变
-				new_poly->vertex = std::move(mpoly);
-				new_poly->rect = input.GetRectofPolygon(new_poly);
-				po_merged_polygons.push_back(new_poly);
-				// 释放旧多边形内存
-				for (auto& idx : comp) {
-					delete po_polygons[idx];
-					po_polygons[idx] = nullptr;
-				}
-			}
-		}
+		// 合并每个联通分量的多边形
+		std::vector<Polygon*> po_merged_polygons(components.size(), nullptr);
+    	#pragma omp parallel num_threads(thread_count) if(components.size() > 10000)
+    	{
+    	    // 每个线程处理自己的组件子集
+    	    #pragma omp for schedule(dynamic, 50)
+    	    for (int i = 0; i < components.size(); i++) {
+    	        auto& comp = components[i];
+    	        if (comp.size() == 1) {
+    	            // 直接赋值，无需临界区
+    	            po_merged_polygons[i] = po_polygons[comp[0]];
+    	        } 
+				else {
+    	            Vertexs& po_vertex1 = po_polygons[comp[0]]->vertex;
+    	            std::vector<MPoint_2> mpoly = reverse_orientation(po_vertex1);
+    	            mbsoCore.setResultMPS(mpoly);
+					// 序列式求并集
+    	            for (int j = 1; j < comp.size(); ++j) {
+    	                int idx = comp[j];
+    	                Vertexs& po_vertex2 = po_polygons[idx]->vertex;
+    	                mpoly = reverse_orientation(po_vertex2);
+    	                mbsoCore.join(mpoly);
+    	            }
+				
+    	            std::vector<std::vector<MPoint_2>> merged_poly_set = mbsoCore.getResult();
+    	            assert(merged_poly_set.size() == 1 && "合并后多边形应为单一多边形");
+    	            mpoly = reverse_orientation(merged_poly_set[0]);
+				
+    	            // 直接创建多边形并赋值
+    	            Polygon* new_poly = new Polygon();
+    	            new_poly->layer_id = po_polygons[comp[0]]->layer_id;
+    	            new_poly->vertex = std::move(mpoly);
+    	            new_poly->rect = input.GetRectofPolygon(new_poly);
+    	            po_merged_polygons[i] = new_poly;
+    	            // 释放旧多边形内存
+    	            for (auto& idx : comp) {
+    	                delete po_polygons[idx];
+    	                po_polygons[idx] = nullptr;
+    	            }
+    	        }
+    	    }
+    	}
 		// 更新po_polygons
 		po_polygons = std::move(po_merged_polygons);
 		// 释放四叉树内存
@@ -743,30 +750,48 @@ private:
 		std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
 		qtree->GetAllLeafData(leafData);
 
-		// 根据空间索引（小格子内），对其内多边形执行相交检测
-		for (auto& lfd : leafData) {
-			if (lfd.size() < 2) continue;
-			for (int i = 0; i < (int)lfd.size(); i++) {
-				Polygon* a = lfd[i];
-				for (int j = i + 1; j < (int)lfd.size(); j++) {
-					Polygon* b = lfd[j];
-					// 使用曼哈顿多边形相交检测
-					if (ManhattanIntersectDetector::manhattanPolygonsIntersect(a, b)) {
-						edges.emplace_back(a->id, b->id);
-					}
-				}
-			}
-		}
-		// 规范边
-		for (auto& edge : edges) {
-			if (edge.first > edge.second) {
-				std::swap(edge.first, edge.second);
-			}
-		}
-		// 排序并去重
-		std::sort(edges.begin(), edges.end());
-		edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
-		return edges;
+		// 并行处理每个叶子节点
+    	#pragma omp parallel num_threads(thread_count)
+    	{
+    	    // 每个线程有自己的局部边集合
+    	    std::vector<std::pair<int, int>> local_edges;
+    	    local_edges.reserve(1000); // 预分配局部内存
+		
+    	    // 并行处理每个叶子节点
+    	    #pragma omp for schedule(dynamic)
+    	    for (int idx = 0; idx < leafData.size(); idx++) {
+    	        auto& lfd = leafData[idx];
+    	        if (lfd.size() < 2) continue;
+			
+    	        // 处理当前叶子节点内的多边形对
+    	        for (int i = 0; i < (int)lfd.size(); i++) {
+    	            Polygon* a = lfd[i];
+    	            for (int j = i + 1; j < (int)lfd.size(); j++) {
+    	                Polygon* b = lfd[j];
+    	                // 使用曼哈顿多边形相交检测
+    	                if (ManhattanIntersectDetector::manhattanPolygonsIntersect(a, b)) {
+    	                    // 规范边（确保 first < second）
+    	                    int min_id = std::min(a->id, b->id);
+    	                    int max_id = std::max(a->id, b->id);
+    	                    local_edges.emplace_back(min_id, max_id);
+    	                }
+    	            }
+    	        }
+    	    }
+		
+    	    // 合并局部结果到全局（使用临界区）
+    	    #pragma omp critical
+    	    {
+    	        edges.insert(edges.end(), local_edges.begin(), local_edges.end());
+    	    }
+    	}
+	
+    	// 全局排序并去重
+    	std::sort(edges.begin(), edges.end());
+    	auto last = std::unique(edges.begin(), edges.end());
+    	edges.erase(last, edges.end());
+	
+    	return edges;
 	}
 
 	// 并行版本：执行给定索引的多边形相交检测，获取其边的集合
@@ -778,30 +803,48 @@ private:
 		std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
 		qtree->GetAllLeafData(leafData);
 
-		// 根据空间索引（小格子内），对其内多边形执行相交检测
-		for (auto& lfd : leafData) {
-			if (lfd.size() < 2) continue;
-			for (int i = 0; i < (int)lfd.size(); i++) {
-				Polygon* a = lfd[i];
-				for (int j = i + 1; j < (int)lfd.size(); j++) {
-					Polygon* b = lfd[j];
-					if (a->layer_id == b->layer_id) continue; // 同层不检测
-					// 使用曼哈顿多边形相交检测
-					if (ManhattanIntersectDetector::manhattanPolygonsIntersect(a, b)) {
-						edges.emplace_back(a->id, b->id);
-					}
-				}
-			}
-		}
-		// 规范边
-		for (auto& edge : edges) {
-			if (edge.first > edge.second) {
-				std::swap(edge.first, edge.second);
-			}
-		}
-		// 排序并去重
-		std::sort(edges.begin(), edges.end());
-		edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+		// 并行处理每个叶子节点
+    	#pragma omp parallel num_threads(thread_count)
+    	{
+    	    // 每个线程有自己的局部边集合
+    	    std::vector<std::pair<int, int>> local_edges;
+    	    local_edges.reserve(1000); // 预分配局部内存
+		
+    	    // 并行处理每个叶子节点
+    	    #pragma omp for schedule(dynamic)
+    	    for (int idx = 0; idx < leafData.size(); idx++) {
+    	        auto& lfd = leafData[idx];
+    	        if (lfd.size() < 2) continue;
+			
+    	        // 处理当前叶子节点内的多边形对
+    	        for (int i = 0; i < (int)lfd.size(); i++) {
+    	            Polygon* a = lfd[i];
+    	            for (int j = i + 1; j < (int)lfd.size(); j++) {
+    	                Polygon* b = lfd[j];
+						if (a->layer_id == b->layer_id) continue; // 同层不检测
+    	                // 使用曼哈顿多边形相交检测
+    	                if (ManhattanIntersectDetector::manhattanPolygonsIntersect(a, b)) {
+    	                    // 规范边（确保 first < second）
+    	                    int min_id = std::min(a->id, b->id);
+    	                    int max_id = std::max(a->id, b->id);
+    	                    local_edges.emplace_back(min_id, max_id);
+    	                }
+    	            }
+    	        }
+    	    }
+		
+    	    // 合并局部结果到全局（使用临界区）
+    	    #pragma omp critical
+    	    {
+    	        edges.insert(edges.end(), local_edges.begin(), local_edges.end());
+    	    }
+    	}
+	
+    	// 全局排序并去重
+    	std::sort(edges.begin(), edges.end());
+    	auto last = std::unique(edges.begin(), edges.end());
+    	edges.erase(last, edges.end());
+
 		return edges;
 	}
 
