@@ -14,18 +14,26 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 设置完全静态编译标志
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a") # 强制使用静态库
 
-# 兼容性优化标志 - 在服务器和本地都能高效运行
+# 选项
+########################## 兼容性优化标志 - 在服务器和本地都能高效运行 ##########################
 set(COMPAT_OPT_FLAGS "-O3 -flto -fno-semantic-interposition -mavx2 -mfma -mbmi2 -mpopcnt")
-
 # 针对两种CPU的微优化
 set(MICRO_OPT_FLAGS "-mtune=generic -march=x86-64-v3")
-
 # 设置Release模式编译选项
 set(CMAKE_CXX_FLAGS_RELEASE "${COMPAT_OPT_FLAGS} ${MICRO_OPT_FLAGS} -DNDEBUG")
 set(CMAKE_C_FLAGS_RELEASE "${COMPAT_OPT_FLAGS} ${MICRO_OPT_FLAGS} -DNDEBUG")
+########################## 兼容性优化标志 - 在服务器和本地都能高效运行 ##########################
+
+
+########################## 设置针对服务器CPU的优化标志 ##########################
+# set(SERVER_CPU_OPT_FLAGS "-march=cascadelake -mtune=cascadelake -O3 -flto -fno-semantic-interposition")
+# # 设置Release模式编译选项
+# set(CMAKE_CXX_FLAGS_RELEASE "${SERVER_CPU_OPT_FLAGS} -DNDEBUG")
+# set(CMAKE_C_FLAGS_RELEASE "${SERVER_CPU_OPT_FLAGS} -DNDEBUG")
+########################## end #########################
 
 # 包含OpenMP支持
 find_package(OpenMP REQUIRED)
@@ -68,9 +76,6 @@ target_link_libraries(trace PRIVATE
     ${GMP_LINUX_DIR}/lib/libgmp.a
     ${GMP_LINUX_DIR}/lib/libmpfr.a
     OpenMP::OpenMP_CXX
-    -lpthread
-    -ldl
-    -lrt
 )
 
 # 安装目标
