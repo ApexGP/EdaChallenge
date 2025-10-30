@@ -12,7 +12,7 @@ public:
     robin_hood::unordered_map<std::string, int> layer_name_to_id;   // 图层名转换id, 0-index, 后续使用id索引
     robin_hood::unordered_map<int, std::string> layer_id_to_name;   // 图层id转名称，用于输出
     int total_polygon;                                              // 多边形总数
-    std::vector<Polygon> polygons;                                 // 所有多边形的列表，下标对应多边形id, 0-index
+    std::vector<Polygon*> polygons;                                 // 所有多边形的列表，下标对应多边形id, 0-index
     std::vector<Range> polygon_id_range_in_layer;                   // 每层的多边形id范围，双闭区间，下标对应图层id
     std::set<Edge> via_rules;                                       // Via规则集合，表示哪些层可以通孔，通过排序保证id小的在前确保set不重复
     bool has_gate_rule;                                             // 是否存在Gate规则
@@ -36,54 +36,94 @@ public:
         rule_file.close();
     }
 
-    ~Input() {
-        for (size_t i = 0; i < polygons.size(); i++) {
-            if (polygons[i]) delete polygons[i];
-        }
-    }
+    ~Input() {}
 
-    // 读取版图文件
+    // 读取版图文件 - 高效版本（一次性读入）
     void readLayout(std::ifstream& layout_file) {
-        // 设置10MB的缓冲区
-        constexpr size_t bufferSize = 1024 * 1024 * 10;
-        std::vector<char> buffer(bufferSize);
-        layout_file.rdbuf()->pubsetbuf(buffer.data(), bufferSize);
+        // 获取文件大小
+        layout_file.seekg(0, std::ios::end);
+        size_t file_size = layout_file.tellg();
+        layout_file.seekg(0, std::ios::beg);
 
-        std::string line;
+        // 一次性读取整个文件到内存
+        std::vector<char> file_buffer(file_size + 1); // 多一个字节用于字符串终止
+        layout_file.read(file_buffer.data(), file_size);
+        file_buffer[file_size] = '\0'; // 添加字符串终止符
+
+        // 第一步：预估多边形数量（统计行数）
+        size_t estimated_polygons = 0;
+        char* count_ptr = file_buffer.data();
+        char* count_end = file_buffer.data() + file_size;
+        
+        while (count_ptr < count_end) {
+            if (*count_ptr == '\n') {
+                estimated_polygons++;
+            }
+            count_ptr++;
+        }
+        // 预留空间
+        polygons.reserve(estimated_polygons);
+
         int layer_id = -1;
         int polygon_id = -1;
 
-        while (std::getline(layout_file, line)) {
-            if (line != "" && line[0] != '(') { // 图层行
-                layer_id++;
-                polygon_id_range_in_layer.emplace_back(polygon_id + 1, 0); // 新建层，已知起始多边形id
-                if (layer_id != 0) {
-                    polygon_id_range_in_layer[layer_id - 1].second = polygon_id; // 已知上一层末尾多边形id
+        char* start = file_buffer.data();
+        char* end = start + file_size;
+        char* current = start;
+
+        // 手动解析行
+         while (current < end) {
+            char* line_start = current;  // 记录当前行的起始位置
+                    
+            // 快速查找行结束：遍历直到遇到换行符或文件结尾
+            while (current < end && *current != '\n' && *current != '\r') {
+                current++;
+            }
+            
+            // 计算当前行的长度（从行开始到当前指针位置）
+            size_t line_len = current - line_start;
+            
+            // 处理非空行
+            if (line_len > 0) {
+                // 判断行类型：不以'('开头的是图层行
+                if (line_start[0] != '(') {
+                    layer_id++;
+                    polygon_id_range_in_layer.emplace_back(polygon_id + 1, 0);
+                    // 如果不是第一个图层，设置前一图层的结束多边形ID
+                    if (layer_id != 0) {
+                        polygon_id_range_in_layer[layer_id - 1].second = polygon_id;
+                    }
+                    // 创建图层名称字符串并建立双向映射
+                    std::string layer_name(line_start, line_len);
+                    layer_name_to_id[layer_name] = layer_id;
+                    layer_id_to_name[layer_id] = layer_name;
+                } else {
+                    // 多边形行处理逻辑
+                    polygon_id++;
+                    Polygon* poly = new Polygon();
+                    poly->id = polygon_id;
+                    poly->layer_id = layer_id;
+                
+                    // 解析坐标数据
+                    fastParseCoordinates(line_start, line_start + line_len, poly->vertex);
+                    // 计算多边形的包围盒矩形
+                    Rect poly_rect = GetRectofPolygon(poly);
+                    poly->rect = poly_rect;
+                
+                    // 更新整个版图的边界范围
+                    layout.update(poly_rect);
+                    // 将多边形添加到容器中
+                    polygons.emplace_back(poly);
                 }
-                layer_name_to_id[line] = layer_id;
-                layer_id_to_name[layer_id] = line;
             }
-            else { // 多边形行
-                polygon_id++;
-                Polygon* poly = new Polygon();
-                poly->id = polygon_id;
-                poly->layer_id = layer_id;
-
-                // 将字符串解析为坐标点存入istringstream
-                fastParseCoordinates(line, poly->vertex);
-                // 计算多边形的矩形包围盒
-                Rect poly_rect = GetRectofPolygon(poly);
-                poly->rect = poly_rect;
-
-                // 更新版图边界
-                layout.update(poly_rect);
-                // 存储多边形
-                polygons.emplace_back(std::move(poly));
-            }
+            
+            // 跳过行结束符：处理连续的回车换行符（兼容不同平台的换行格式）
+            while (current < end && (*current == '\n' || *current == '\r')) current++;
         }
-        polygon_id_range_in_layer[layer_id].second = polygon_id; // 最后一层末尾多边形id
+
+        polygon_id_range_in_layer[layer_id].second = polygon_id;
         total_polygon = polygon_id + 1;
-    }
+    }    
 
     // 读取规则文件
     void readRule(std::ifstream& rule_file) {
@@ -195,10 +235,10 @@ public:
 
 private:
     // 快速解析坐标字符串，使用字符指针代替istringstream
-    void fastParseCoordinates(const std::string& line, Vertexs& vertex) {
+    void fastParseCoordinates(const char* line_start, const char* line_end, Vertexs& vertex) {
         vertex.reserve(12); // 预分配每个多边形12个顶点
-        const char* ptr = line.c_str();
-        const char* end = ptr + line.length();
+        const char* ptr = line_start;
+        const char* end = line_end;
 
         while (ptr < end) {
             // 寻找第一个 '('
