@@ -73,3 +73,8 @@ solution/*
 
 # 特赦第三方库所有目录
 !trace/third_party/**
+
+# submit文件
+submit/*.zip
+# 特赦bestSubmit
+!submit/bestSubmit.zip

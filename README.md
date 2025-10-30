@@ -25,6 +25,9 @@
 
 
 ## 3.代码结构
++ public.h 一些公用数据定义
++ NaiveThreadPool.h 简单线程池
++ robin_hood.h 提供更快的unordered_map/unordered_set
 + Input.hpp 输入类
 + Intersect.hpp 多边形相交检测类
 + ManhattanIntersectDetector.hpp 基于两两边比较和点包含测试的曼哈顿多边形相交检测类
@@ -37,14 +40,15 @@
 
 ## 4.运行方式
 ### 4.1.环境
-​由于我们使用CGAL6.0+​​, 所以要求​C++17及以上, 即编译器要求: GCC 7+, Clang 5+, MSVC 2017+
+~~​由于我们使用CGAL6.0+​~~​, 所以要求​C++17及以上, 即编译器要求: GCC 7+, Clang 5+, MSVC 2017+
 
 ### 4.2.Windows with VS2022
-+ 解决方案属性页，配置-切换为`所有配置`
-+ 配置VC++目录-包含目录：`$(SolutionDir)third_party` 和 `$(SolutionDir)third_party\gmp-win\include`
-+ 配置VC++目录-库目录：`$(SolutionDir)third_party\gmp-win\lib`
-+ 配置链接器-输入-附加依赖项：`gmp.lib` 和 `mpfr.lib`
-+ 配置常规-C++语言标准：`ISO C++17 标准`
++ ~~解决方案属性页，配置-切换为`所有配置`~~
++ ~~配置VC++目录-包含目录：`$(SolutionDir)third_party` 和 `$(SolutionDir)third_party\gmp-win\include`~~
++ ~~配置VC++目录-库目录：`$(SolutionDir)third_party\gmp-win\lib`~~
++ ~~配置链接器-输入-附加依赖项：`gmp.lib` 和 `mpfr.lib`~~
++ ~~配置常规-C++语言标准：`ISO C++17 标准`~~
++ 若依赖openMP，需要添加启用对应编译选项
 
 ### 4.3.Linux
 #### 4.3.1.手动编译运行
@@ -86,15 +90,25 @@ test/visual.py
 调用方式：  
 ```shell
 # 默认
-python visual.py ../solution/res.txt
+python3 visual.py ../solution/res.txt
 # 在每个多边形内部显示层名和编号 -l 或 --label 参数
-python visual.py ../solution/res.txt -l
-python visual.py ../solution/res.txt --label
+python3 visual.py ../solution/res.txt -l
+python3 visual.py ../solution/res.txt --label
 # 设置图片保存路径 -s 或 --save 参数
-python visual.py ../solution/res.txt -s ./output.png
+python3 visual.py ../solution/res.txt -s ./output.png
 ```
 
-## 6.Simple Test
+## 6.打包提交
+test/submit.py  
+调用方式：  
+```shell
+# 基本用法 "my_submission" 指定压缩文件名，未指定线程数则默认写入1
+python3 submit.py my_submission
+# 指定线程数，写入thread.txt文件
+python3 submit.py my_submission 8
+```
+
+## 7.Simple Test
 环境:3.5Ghz CPU, 32G RAM
 ### 测试-单线程-Windows VS2022-Using CGAL do_intersect
 |            case          |  rule  | n^2暴力 |  空间索引 |  矩形框初筛 |  索引+初筛  | 索引+初筛+提前跳出 |

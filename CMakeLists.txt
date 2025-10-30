@@ -13,39 +13,48 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 设置完全静态编译标志
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
-set(CMAKE_FIND_LIBRARY_SUFFIXES ".a") # 强制使用静态库
-
-# 选项
-########################## 兼容性优化标志 - 在服务器和本地都能高效运行 ##########################
-set(COMPAT_OPT_FLAGS "-O3 -flto -fno-semantic-interposition -mavx2 -mfma -mbmi2 -mpopcnt")
-# 针对两种CPU的微优化
-set(MICRO_OPT_FLAGS "-mtune=generic -march=x86-64-v3")
-# 设置Release模式编译选项
-set(CMAKE_CXX_FLAGS_RELEASE "${COMPAT_OPT_FLAGS} ${MICRO_OPT_FLAGS} -DNDEBUG")
-set(CMAKE_C_FLAGS_RELEASE "${COMPAT_OPT_FLAGS} ${MICRO_OPT_FLAGS} -DNDEBUG")
-########################## 兼容性优化标志 - 在服务器和本地都能高效运行 ##########################
-
-
-########################## 设置针对服务器CPU的优化标志 ##########################
-# set(SERVER_CPU_OPT_FLAGS "-march=cascadelake -mtune=cascadelake -O3 -flto -fno-semantic-interposition")
-# # 设置Release模式编译选项
-# set(CMAKE_CXX_FLAGS_RELEASE "${SERVER_CPU_OPT_FLAGS} -DNDEBUG")
-# set(CMAKE_C_FLAGS_RELEASE "${SERVER_CPU_OPT_FLAGS} -DNDEBUG")
-########################## end #########################
+# 针对不同编译器设置优化选项
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    # GCC 和 Clang 的优化选项
+    add_compile_options(
+        -O3                  # 最高级别优化
+        -march=native       # 针对当前 CPU 架构优化
+        -mtune=native       # 针对当前 CPU 调优
+        -flto               # 链接时优化
+        -fno-rtti           # 禁用 RTTI（如果不需要）
+        -DNDEBUG            # 禁用断言和调试代码
+    )
+    
+    # 链接时优化
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    
+    # 额外的性能优化选项
+    add_compile_options(
+        -ffast-math         # 快速数学运算（精度可能受影响）
+        -funroll-loops      # 循环展开
+        -fomit-frame-pointer # 省略帧指针（提高性能但影响调试）
+    )
+    
+elseif(MSVC)
+    # MSVC 的优化选项
+    add_compile_options(
+        /O2                 # 最大优化（速度）
+        /Ob2                # 内联函数扩展
+        /Ot                 # 偏好快速代码
+        /GL                 # 全程序优化
+        /DNDEBUG            # 禁用调试
+        /arch:AVX2          # 使用 AVX2 指令集（如果 CPU 支持）
+    )
+    
+    # 链接时优化
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
 
 # 包含OpenMP支持
 find_package(OpenMP REQUIRED)
 
-# 设置第三方库路径
-set(THIRD_PARTY_DIR ${CMAKE_SOURCE_DIR}/trace/third_party)
-set(GMP_LINUX_DIR ${THIRD_PARTY_DIR}/gmp-linux)
-
 # 包含头文件目录
 include_directories(
-    ${THIRD_PARTY_DIR} # CGAL的和Boost的header
-    ${GMP_LINUX_DIR}/include
     ${CMAKE_SOURCE_DIR}/trace/ManhattanBooleanSetOperation # MBSO头文件
 )
 
@@ -62,19 +71,16 @@ add_executable(trace
     trace/ManhattanIntersectDetector.hpp
     trace/PolygonCutting.hpp
     trace/public.h
+    trace/NaiveThreadPool.h
+    trace/robin_hood.h
     trace/QuadTree.hpp
     trace/SpaceIndex.hpp
     trace/Trace.hpp
 )
 
-# 解决dlopen警告
-target_link_options(trace PRIVATE "-Wl,--no-as-needed")
-
 # 链接OpenMP和静态库
 target_link_libraries(trace PRIVATE
     MBSO
-    ${GMP_LINUX_DIR}/lib/libgmp.a
-    ${GMP_LINUX_DIR}/lib/libmpfr.a
     OpenMP::OpenMP_CXX
 )
 
