@@ -12,7 +12,7 @@ public:
     robin_hood::unordered_map<std::string, int> layer_name_to_id;   // 图层名转换id, 0-index, 后续使用id索引
     robin_hood::unordered_map<int, std::string> layer_id_to_name;   // 图层id转名称，用于输出
     int total_polygon;                                              // 多边形总数
-    std::vector<Polygon*> polygons;                                 // 所有多边形的列表，下标对应多边形id, 0-index
+    std::vector<Polygon> polygons;                                 // 所有多边形的列表，下标对应多边形id, 0-index
     std::vector<Range> polygon_id_range_in_layer;                   // 每层的多边形id范围，双闭区间，下标对应图层id
     std::set<Edge> via_rules;                                       // Via规则集合，表示哪些层可以通孔，通过排序保证id小的在前确保set不重复
     bool has_gate_rule;                                             // 是否存在Gate规则
@@ -22,7 +22,6 @@ public:
 
     // 根据文件路径初始化读取数据
     Input(std::string layout_path, std::string rule_path) {
-        polygons.reserve(1000000); // 预分配一些空间
         layout = Rect(INT_MAX, INT_MAX, INT_MIN, INT_MIN);
         has_gate_rule = false;
 
@@ -204,7 +203,7 @@ private:
         while (ptr < end) {
             // 寻找第一个 '('
             while (ptr < end && *ptr != '(') ptr++;
-            //if (ptr >= end) break;
+            if (ptr >= end) break;
 
             ptr++; // 跳过 '('
 
@@ -223,7 +222,7 @@ private:
 
             // 跳过逗号
             while (ptr < end && *ptr != ',') ptr++;
-            //if (ptr >= end) break;
+            if (ptr >= end) break;
             ptr++; // 跳过 ','
 
             // 解析y坐标
@@ -240,11 +239,11 @@ private:
             if (y_negative) y = -y;
 
             // 添加点到顶点列表
-            vertex.emplace_back(x, y);
+            vertex.push_back(MPoint_2(x, y));
 
             // 寻找对应的 ')'
             while (ptr < end && *ptr != ')') ptr++;
-            ptr++; // 跳过 ')'
+            if (ptr < end) ptr++; // 跳过 ')'
         }
     }
 };
