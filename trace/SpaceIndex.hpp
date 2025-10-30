@@ -1,7 +1,6 @@
 #pragma once
 #include "public.h"
 #include "Input.hpp"
-#include "Graph.hpp"
 #include "QuadTree.hpp"
 #include "ManhattanIntersectDetector.hpp"
 
@@ -16,21 +15,13 @@ class SpaceIndex
 {
 private:
 	Input& input;  // 输入数据引用
-	Graph graph;  // 图层连通关系图(节点为图层id)
 	std::vector<QuadTree*> quad_trees; // 四叉树索引集合
 	robin_hood::unordered_map<std::string, QuadTree*> layer_name_to_quadtree; // 图层名到四叉树的映射
 	std::vector<std::vector<QuadTree*>> layer_quadtrees; // 每层所联通的各层对应的四叉树索引（包括该层本身的树）
 
 public:
 	// 构造函数
-	explicit SpaceIndex(Input& _input) :input(_input) {
-
-		/* 创建图层连通关系图:因为只需要处理存在连通关系的层 */
-		CreatLayerGraph();
-
-		/* 创建四叉树空间索引:根据需求分析哪些图层是必要的, 只为必要的图层建立索引 */
-		// 提供公开函数由外部决定...
-	}
+	explicit SpaceIndex(Input& _input) :input(_input) {}
 
 	// 析构函数 - 清理四叉树内存
 	~SpaceIndex() {
@@ -484,28 +475,5 @@ public:
 			// 实际数据划分
 			quad_tree->CreatIndexParallel(poly_ptr, thread_count);
 		}
-	}
-
-private:
-	// 创建图层连通关系图
-	void CreatLayerGraph() {
-		graph = Graph(static_cast<int>(input.polygon_id_range_in_layer.size()));
-		std::vector<Edge> edges;
-		edges.reserve(input.via_rules.size());
-
-		// 将所有Via规则作为边添加到图中
-		for (auto& via : input.via_rules) {
-			edges.push_back(via);
-		}
-		graph.AddEdges(edges);
-	}
-
-	// 获取图层的连通分量
-	robin_hood::unordered_set<int> GetConnectComponentofLayer(int layer_id) const {
-		std::vector<int> component = graph.GetConnectedComponent(layer_id);
-		robin_hood::unordered_set<int> res;
-		for (auto& node : component)
-			res.insert(node);
-		return res;
 	}
 };

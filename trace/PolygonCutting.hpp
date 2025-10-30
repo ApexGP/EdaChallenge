@@ -23,7 +23,7 @@ public:
 		// 提取PO层多边形（使用范围构造）
 		int po_layer_id = input.gate_rule.first;
 		Range& po_layer_range = input.polygon_id_range_in_layer[po_layer_id];
-		auto po_polygons = std::vector<Polygon*>(
+		auto po_polygons = std::vector<Polygon>(
 			input.polygons.begin() + po_layer_range.first,
 			input.polygons.begin() + po_layer_range.second + 1
 		);
@@ -31,7 +31,7 @@ public:
 		// 提取AA层多边形（使用范围构造）
 		int aa_layer_id = input.gate_rule.second;
 		Range& aa_layer_range = input.polygon_id_range_in_layer[aa_layer_id];
-		auto aa_polygons = std::vector<Polygon*>(
+		auto aa_polygons = std::vector<Polygon>(
 			input.polygons.begin() + aa_layer_range.first,
 			input.polygons.begin() + aa_layer_range.second + 1
 		);
@@ -122,10 +122,10 @@ public:
 
 private:
 	// 合并PO层重叠多边形
-	void Merge_PO(std::vector<Polygon*>& po_polygons) {
+	void Merge_PO(std::vector<Polygon>& po_polygons) {
 		// 重排id, 与下标对应
 		 for (int i = 0; i < po_polygons.size(); i++) {
-			 po_polygons[i]->id = i;
+			 po_polygons[i].id = i;
 		 }
 		// 建立空间索引
 		std::string name = input.layer_id_to_name[input.gate_rule.first];
