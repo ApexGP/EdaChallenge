@@ -130,9 +130,9 @@ public:
     // 插入功能（待实现）
     bool Insert() { return false; }
 
-    // 获取四叉树所有叶节点的数据
-    void GetAllLeafData(std::vector<std::vector<Polygon*>>& outData) {
-        GetAllLeafData(_root, outData);
+    // 获取四叉树所有非空叶节点
+    void GetAllLeafNode(std::vector<QuadTreeNode*>& outData) {
+        GetAllLeafNode(_root, outData);
     }
 
     // 获取四叉树所有叶节点的数据和对应的矩形范围
@@ -316,21 +316,21 @@ private:
         }
     }
 
-    // 递归获取所有叶节点数据
-    void GetAllLeafData(QuadTreeNode* node, std::vector<std::vector<Polygon*>>& outData) {
+    // 递归获取所有有数据叶节点
+    void GetAllLeafNode(QuadTreeNode* node, std::vector<QuadTreeNode*>& outData) {
         if (!node) return;
 
         // 叶节点：收集非空数据
         if (!node->_divided) {
             if (node->_datas.size() != 0)
-                outData.push_back(node->_datas);
+                outData.push_back(node);
         }
         else {
             // 非叶节点：递归处理子节点
-            GetAllLeafData(node->_lt, outData);
-            GetAllLeafData(node->_rt, outData);
-            GetAllLeafData(node->_lb, outData);
-            GetAllLeafData(node->_rb, outData);
+            GetAllLeafNode(node->_lt, outData);
+            GetAllLeafNode(node->_rt, outData);
+            GetAllLeafNode(node->_lb, outData);
+            GetAllLeafNode(node->_rb, outData);
         }
     }
 

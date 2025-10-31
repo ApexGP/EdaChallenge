@@ -15,7 +15,7 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
 	Timer myTimer;
 	 /* 输入 */
     std::cout << "----- Starting Input -----" << std::endl;
-    Input input(layout_path, rule_path);
+    Input input(layout_path, rule_path, thread);
     input.PrintLayoutInfo();
     input.PrintRuleInfo();
     std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
@@ -36,7 +36,7 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
 
     /* 输出 */
     std::cout << "----- Starting Output -----" << std::endl;
-    Output output(input, res_path, component);
+    Output output(input, res_path, component, thread);
     std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
     std::cout << "----- Total Time: " << myTimer.Elapsed() << " s" << std::endl;

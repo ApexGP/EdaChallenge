@@ -108,7 +108,7 @@ std::vector<int> Trace::TraceUsingCompleteGraph() {
 		std::vector<int> component_s1 = graph.GetConnectedComponent(start_pos_s1_id);
 		// 对于高电平PO, 需要考虑增加其切割边
 		for (auto& id : component_s1) {
-			if (input.polygons[id]->layer_id == input.gate_rule.first) { // PO层
+			if (input.polygons[id].layer_id == input.gate_rule.first) { // PO层
 				auto it = po_cut_edges.find(id);
 				if (it != po_cut_edges.end()) { // 有切割边则增加进去
 					for (auto& e : it->second) {
@@ -194,7 +194,7 @@ std::vector<int> Trace::TraceUsingLazyGraph() {
 		robin_hood::unordered_map<int, std::vector<int>> extra_adj;
 		extra_adj.reserve(po_cut_edges.size());
 		for (auto& id : component_s1) {
-			if (input.polygons[id]->layer_id != input.gate_rule.first) continue;
+			if (input.polygons[id].layer_id != input.gate_rule.first) continue;
 			auto it = po_cut_edges.find(id);
 			if (it == po_cut_edges.end()) continue;
 			for (auto& edge : it->second) {
@@ -283,7 +283,7 @@ std::vector<int> Trace::TraceUsingCompleteGraphParallel(int thread_count) {
 		std::vector<int> component_s1 = graph.GetConnectedComponent(start_pos_s1_id);
 		// 对于高电平PO, 需要考虑增加其切割边
 		for (auto& id : component_s1) {
-			if (input.polygons[id]->layer_id == input.gate_rule.first) { // PO层
+			if (input.polygons[id].layer_id == input.gate_rule.first) { // PO层
 				auto it = po_cut_edges.find(id);
 				if (it != po_cut_edges.end()) { // 有切割边则增加进去
 					for (auto& e : it->second) {
@@ -369,7 +369,7 @@ std::vector<int> Trace::TraceUsingLazyGraphParallel(int thread_count) {
 		robin_hood::unordered_map<int, std::vector<int>> extra_adj;
 		extra_adj.reserve(po_cut_edges.size());
 		for (auto& id : component_s1) {
-			if (input.polygons[id]->layer_id != input.gate_rule.first) continue;
+			if (input.polygons[id].layer_id != input.gate_rule.first) continue;
 			auto it = po_cut_edges.find(id);
 			if (it == po_cut_edges.end()) continue;
 			for (auto& edge : it->second) {
@@ -392,7 +392,7 @@ std::vector<int> Trace::RunLazyConnectedComponent(SpaceIndex& spaceIndex, Inters
 	std::vector<bool>& bfs_visted, const robin_hood::unordered_map<int, std::vector<int>>* extra_adj) {
 	if (start_id < 0 || start_id >= input.total_polygon) return {};
 
-	const Polygon* start_poly = input.polygons[start_id];
+	const Polygon* start_poly = &input.polygons[start_id];
 	const std::string& start_layer_name = start_poly ? input.layer_id_to_name[start_poly->layer_id] : std::string("unknown");
 
 	std::cout << "[LazyBFS] start id=" << start_id << " layer=" << start_layer_name << std::endl;
@@ -461,7 +461,7 @@ std::vector<int> Trace::RunLazyConnectedComponentParallel(SpaceIndex& spaceIndex
 	std::vector<bool>& bfs_visted, const robin_hood::unordered_map<int, std::vector<int>>* extra_adj, int thread_count) {
 	if (start_id < 0 || start_id >= input.total_polygon) return {};
 
-	const Polygon* start_poly = input.polygons[start_id];
+	const Polygon* start_poly = &input.polygons[start_id];
 	const std::string& start_layer_name = start_poly ? input.layer_id_to_name[start_poly->layer_id] : std::string("unknown");
 
 	std::cout << "[LazyBFS] start id=" << start_id << " layer=" << start_layer_name << std::endl;

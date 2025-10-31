@@ -36,7 +36,7 @@ public:
 		int& layer_id = start_pos.first;
 		std::string& layer_name = input.layer_id_to_name[layer_id];
 		QuadTree* qtree = layer_name_to_quadtree[layer_name];
-		assert(qtree != nullptr && "起点不在任何层内");
+		assert(qtree != nullptr && "start position is not in any layer!");
 
 		// 获取起点坐标所在索引格子的多边形数据
 		Point& sp = start_pos.second;
@@ -55,7 +55,7 @@ public:
 			}
 		}
 
-		assert(id != -1 && "起点不在任何多边形内");
+		assert(id != -1 && "start position is not inner any polygon!");
 		return id;
 	}
 	// 并行版本
@@ -64,7 +64,7 @@ public:
 		int& layer_id = start_pos.first;
 		std::string& layer_name = input.layer_id_to_name[layer_id];
 		QuadTree* qtree = layer_name_to_quadtree[layer_name];
-		assert(qtree != nullptr && "起点不在任何层内");
+		assert(qtree != nullptr && "start position is not in any layer!");
 
 		// 获取起点坐标所在索引格子的多边形数据
 		Point& sp = start_pos.second;
@@ -83,7 +83,7 @@ public:
 			}
 		}
 
-		assert(id != -1 && "起点不在任何多边形内");
+		assert(id != -1 && "start position is not inner any polygon!");
 		return id;
 	}
 
@@ -126,49 +126,18 @@ public:
 			quad_trees.push_back(quad_tree);
 			layer_name_to_quadtree[layer_name] = quad_tree;
 		}
-		/* 单起点多层：只为起点所在连通分量的层建立索引 */
-		else if (input.start_pos.size() == 1 && !input.via_rules.empty()) {
-			// 关于起点层的联通分量
-			int layer_id = input.start_pos[0].first;
-			robin_hood::unordered_set<int> concomp = GetConnectComponentofLayer(layer_id);
-
+		/* 单起点多层/双起点多层：都是只为起点所在连通分量的层建立索引 */
+		else if (!input.via_rules.empty()) {
 			// 对Via规则连通层, 两层的多边形合并建立一棵树
 			for (auto& via : input.via_rules) {
-				// 此联通的两层在起点联通分量中
-				if (concomp.find(via.first) != concomp.end() && concomp.find(via.second) != concomp.end()) {
-					// 建立四叉树
-					std::string name = input.layer_id_to_name[via.first] + "-" + input.layer_id_to_name[via.second];
-					QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-					CreatQuadTreeIndex(quad_tree);
-					quad_trees.push_back(quad_tree);
-					//一个层可能指向多棵合并树，这里任意记录一棵即可
-					layer_name_to_quadtree[input.layer_id_to_name[via.first]] = quad_tree;
-					layer_name_to_quadtree[input.layer_id_to_name[via.second]] = quad_tree;
-				}
-			}
-		}
-		/* 双起点多层：为两个起点所在的连通分量建立索引 */
-		else if (input.start_pos.size() == 2 && !input.via_rules.empty()) {
-			// 关于起点层的联通分量
-			int layer_id_s1 = input.start_pos[0].first;
-			int layer_id_s2 = input.start_pos[1].first;
-			robin_hood::unordered_set<int> concomp_s1 = GetConnectComponentofLayer(layer_id_s1);
-			robin_hood::unordered_set<int> concomp_s2 = GetConnectComponentofLayer(layer_id_s2);
-
-			// 对Via规则连通层, 两层的多边形合并建立一棵树
-			for (auto& via : input.via_rules) {
-				// 此联通的两层在起点联通分量中
-				if ((concomp_s1.find(via.first) != concomp_s1.end() && concomp_s1.find(via.second) != concomp_s1.end())
-					|| (concomp_s2.find(via.first) != concomp_s2.end() && concomp_s2.find(via.second) != concomp_s2.end())) {
-					// 建立四叉树
-					std::string name = input.layer_id_to_name[via.first] + "-" + input.layer_id_to_name[via.second];
-					QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-					CreatQuadTreeIndex(quad_tree);
-					quad_trees.push_back(quad_tree);
-					//一个层可能指向多棵合并树，这里任意记录一棵即可
-					layer_name_to_quadtree[input.layer_id_to_name[via.first]] = quad_tree;
-					layer_name_to_quadtree[input.layer_id_to_name[via.second]] = quad_tree;
-				}
+				// 建立四叉树
+				std::string name = input.layer_id_to_name[via.first] + "-" + input.layer_id_to_name[via.second];
+				QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
+				CreatQuadTreeIndex(quad_tree);
+				quad_trees.push_back(quad_tree);
+				//一个层可能指向多棵合并树，这里任意记录一棵即可
+				layer_name_to_quadtree[input.layer_id_to_name[via.first]] = quad_tree;
+				layer_name_to_quadtree[input.layer_id_to_name[via.second]] = quad_tree;
 			}
 		}
 		else throw std::logic_error(__func__ + std::string("未处理的情况"));
@@ -192,70 +161,33 @@ public:
 			// 注册自己的四叉树
 			layer_quadtrees[layer_id].push_back(quad_tree);
 		}
-		/* 单起点多层：只为起点所在连通分量的层建立索引 */
-		else if (input.start_pos.size() == 1 && !input.via_rules.empty()) {
-			// 获取起点的连通分量
-			int layer_id = input.start_pos[0].first;
-			robin_hood::unordered_set<int> concomp = GetConnectComponentofLayer(layer_id);
-
-			// 遍历层联通分量，为每层单独建立索引
-			for (auto& layer_id : concomp) {
-				// 创建该层的四叉树索引
-				std::string name = input.layer_id_to_name[layer_id];
-				QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-				CreatQuadTreeIndex(quad_tree);
-				quad_trees.push_back(quad_tree);
-				layer_name_to_quadtree[input.layer_id_to_name[layer_id]] = quad_tree;
-				layer_quadtrees[layer_id].push_back(quad_tree);// 注册自己的四叉树
+		/* 单起点多层/双起点多层：都是只为起点所在连通分量的层建立索引 */
+		else if (!input.via_rules.empty()) {
+			// 遍历Via规则，为每层单独建立索引
+			for (auto& via : input.via_rules) {
+				for (int i = 0; i < 2; i++){
+					int layer_id = (i == 0) ? via.first : via.second;
+					std::string name = input.layer_id_to_name[layer_id];
+					if(layer_name_to_quadtree.find(name) == layer_name_to_quadtree.end()){
+						// 创建该层的四叉树索引
+						QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
+						CreatQuadTreeIndex(quad_tree);
+						quad_trees.push_back(quad_tree);
+						layer_name_to_quadtree[name] = quad_tree;
+						layer_quadtrees[layer_id].push_back(quad_tree);// 注册自己的四叉树
+					}
+				}
 			}
 
 			// 遍历Via规则，注册每层联通的其他四叉树
 			for (auto& via : input.via_rules) {
-				// 此联通的两层在起点联通分量中
-				if (concomp.find(via.first) != concomp.end() && concomp.find(via.second) != concomp.end()) {
-					QuadTree* quad_tree1 = layer_name_to_quadtree[input.layer_id_to_name[via.first]];
-					QuadTree* quad_tree2 = layer_name_to_quadtree[input.layer_id_to_name[via.second]];
-					layer_quadtrees[via.first].push_back(quad_tree2);
-					layer_quadtrees[via.second].push_back(quad_tree1);
-				}
+				QuadTree* quad_tree1 = layer_name_to_quadtree[input.layer_id_to_name[via.first]];
+				QuadTree* quad_tree2 = layer_name_to_quadtree[input.layer_id_to_name[via.second]];
+				layer_quadtrees[via.first].push_back(quad_tree2);
+				layer_quadtrees[via.second].push_back(quad_tree1);
 			}
 		}
-		/* 双起点多层：为两个起点所在的连通分量建立索引 */
-		else if (input.start_pos.size() == 2 && !input.via_rules.empty()) {
-			// 获取两个起点的连通分量
-			int layer_id_s1 = input.start_pos[0].first;
-			int layer_id_s2 = input.start_pos[1].first;
-			robin_hood::unordered_set<int> concomp_s1 = GetConnectComponentofLayer(layer_id_s1);
-			robin_hood::unordered_set<int> concomp_s2 = GetConnectComponentofLayer(layer_id_s2);
-
-			robin_hood::unordered_set<int> total_concomp;
-			for (auto id : concomp_s1) total_concomp.insert(id);
-			for (auto id : concomp_s2) total_concomp.insert(id);
-
-			// 遍历层联通分量，为每层单独建立索引
-			for (auto& layer_id : total_concomp) {
-				// 创建图层的四叉树索引
-				std::string name = input.layer_id_to_name[layer_id];
-				QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-				CreatQuadTreeIndex(quad_tree);
-				quad_trees.push_back(quad_tree);
-				layer_name_to_quadtree[input.layer_id_to_name[layer_id]] = quad_tree;
-				layer_quadtrees[layer_id].push_back(quad_tree); // 注册自己的四叉树
-			}
-
-			// 遍历Via规则，注册每层联通的其他四叉树
-			for (auto& via : input.via_rules) {
-				// 检查Via是否属于任一连通分量
-				if ((concomp_s1.find(via.first) != concomp_s1.end() && concomp_s1.find(via.second) != concomp_s1.end())
-					|| (concomp_s2.find(via.first) != concomp_s2.end() && concomp_s2.find(via.second) != concomp_s2.end())) {
-					QuadTree* quad_tree1 = layer_name_to_quadtree[input.layer_id_to_name[via.first]];
-					QuadTree* quad_tree2 = layer_name_to_quadtree[input.layer_id_to_name[via.second]];
-					layer_quadtrees[via.first].push_back(quad_tree2);
-					layer_quadtrees[via.second].push_back(quad_tree1);
-				}
-			}
-		}
-		else throw std::logic_error(__func__ + std::string("未处理的情况"));
+		else throw std::logic_error(__func__ + std::string("error! cannot reach here!"));
 	}
 
 	// 为给定的四叉树执行实际数据划分
@@ -271,7 +203,7 @@ public:
 			// 收集该层所有多边形
 			Range& a_layer_range = input.polygon_id_range_in_layer[layer1_id];
 			for (int i = a_layer_range.first; i <= a_layer_range.second; i++) { // 取a层多边形
-				poly_ptr.push_back(input.polygons[i]);
+				poly_ptr.push_back(&input.polygons[i]);
 			}
 			// 实际数据划分
 			quad_tree->CreatIndex(poly_ptr);
@@ -284,11 +216,11 @@ public:
 			// 收集层的所有多边形
 			Range& a_layer_range = input.polygon_id_range_in_layer[layer1_id];
 			for (int i = a_layer_range.first; i <= a_layer_range.second; i++) { // 取a层多边形
-				poly_ptr.push_back(input.polygons[i]);
+				poly_ptr.push_back(&input.polygons[i]);
 			}
 			Range& b_layer_range = input.polygon_id_range_in_layer[layer2_id];
 			for (int i = b_layer_range.first; i <= b_layer_range.second; i++) { // 再取b层多边形
-				poly_ptr.push_back(input.polygons[i]);
+				poly_ptr.push_back(&input.polygons[i]);
 			}
 			// 实际数据划分
 			quad_tree->CreatIndex(poly_ptr);
@@ -308,52 +240,21 @@ public:
 			quad_trees.push_back(quad_tree);
 			layer_name_to_quadtree[layer_name] = quad_tree;
 		}
-		/* 单起点多层：只为起点所在连通分量的层建立索引 */
-		else if (input.start_pos.size() == 1 && !input.via_rules.empty()) {
-			// 关于起点层的联通分量
-			int layer_id = input.start_pos[0].first;
-			robin_hood::unordered_set<int> concomp = GetConnectComponentofLayer(layer_id);
-
+		/* 单起点多层/双起点多层：都是只为起点所在连通分量的层建立索引 */
+		else if (!input.via_rules.empty()) {
 			// 对Via规则连通层, 两层的多边形合并建立一棵树
 			for (auto& via : input.via_rules) {
-				// 此联通的两层在起点联通分量中
-				if (concomp.find(via.first) != concomp.end() && concomp.find(via.second) != concomp.end()) {
-					// 建立四叉树
-					std::string name = input.layer_id_to_name[via.first] + "-" + input.layer_id_to_name[via.second];
-					QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-					CreatQuadTreeIndexParallel(quad_tree, thread_count);
-					quad_trees.push_back(quad_tree);
-					//一个层可能指向多棵合并树，这里任意记录一棵即可
-					layer_name_to_quadtree[input.layer_id_to_name[via.first]] = quad_tree;
-					layer_name_to_quadtree[input.layer_id_to_name[via.second]] = quad_tree;
-				}
+				// 建立四叉树
+				std::string name = input.layer_id_to_name[via.first] + "-" + input.layer_id_to_name[via.second];
+				QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
+				CreatQuadTreeIndexParallel(quad_tree, thread_count);
+				quad_trees.push_back(quad_tree);
+				//一个层可能指向多棵合并树，这里任意记录一棵即可
+				layer_name_to_quadtree[input.layer_id_to_name[via.first]] = quad_tree;
+				layer_name_to_quadtree[input.layer_id_to_name[via.second]] = quad_tree;
 			}
 		}
-		/* 双起点多层：为两个起点所在的连通分量建立索引 */
-		else if (input.start_pos.size() == 2 && !input.via_rules.empty()) {
-			// 关于起点层的联通分量
-			int layer_id_s1 = input.start_pos[0].first;
-			int layer_id_s2 = input.start_pos[1].first;
-			robin_hood::unordered_set<int> concomp_s1 = GetConnectComponentofLayer(layer_id_s1);
-			robin_hood::unordered_set<int> concomp_s2 = GetConnectComponentofLayer(layer_id_s2);
-
-			// 对Via规则连通层, 两层的多边形合并建立一棵树
-			for (auto& via : input.via_rules) {
-				// 此联通的两层在起点联通分量中
-				if ((concomp_s1.find(via.first) != concomp_s1.end() && concomp_s1.find(via.second) != concomp_s1.end())
-					|| (concomp_s2.find(via.first) != concomp_s2.end() && concomp_s2.find(via.second) != concomp_s2.end())) {
-					// 建立四叉树
-					std::string name = input.layer_id_to_name[via.first] + "-" + input.layer_id_to_name[via.second];
-					QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-					CreatQuadTreeIndexParallel(quad_tree, thread_count);
-					quad_trees.push_back(quad_tree);
-					//一个层可能指向多棵合并树，这里任意记录一棵即可
-					layer_name_to_quadtree[input.layer_id_to_name[via.first]] = quad_tree;
-					layer_name_to_quadtree[input.layer_id_to_name[via.second]] = quad_tree;
-				}
-			}
-		}
-		else throw std::logic_error(__func__ + std::string("未处理的情况"));
+		else throw std::logic_error(__func__ + std::string("error! cannot reach here!"));
 	}
 
 	// 并行版本：根据图层Via关系创建四叉树空间索引-每层独立建一棵树，注册每层联通关系
@@ -374,70 +275,33 @@ public:
 			// 注册自己的四叉树
 			layer_quadtrees[layer_id].push_back(quad_tree);
 		}
-		/* 单起点多层：只为起点所在连通分量的层建立索引 */
-		else if (input.start_pos.size() == 1 && !input.via_rules.empty()) {
-			// 获取起点的连通分量
-			int layer_id = input.start_pos[0].first;
-			robin_hood::unordered_set<int> concomp = GetConnectComponentofLayer(layer_id);
-
-			// 遍历层联通分量，为每层单独建立索引
-			for (auto& layer_id : concomp) {
-				// 创建该层的四叉树索引
-				std::string name = input.layer_id_to_name[layer_id];
-				QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-				CreatQuadTreeIndexParallel(quad_tree, thread_count);
-				quad_trees.push_back(quad_tree);
-				layer_name_to_quadtree[input.layer_id_to_name[layer_id]] = quad_tree;
-				layer_quadtrees[layer_id].push_back(quad_tree);// 注册自己的四叉树
+		/* 单起点多层/双起点多层：都是只为起点所在连通分量的层建立索引 */
+		else if (!input.via_rules.empty()) {
+			// 遍历Via规则，为每层单独建立索引
+			for (auto& via : input.via_rules) {
+				for (int i = 0; i < 2; i++){
+					int layer_id = (i == 0) ? via.first : via.second;
+					std::string name = input.layer_id_to_name[layer_id];
+					if(layer_name_to_quadtree.find(name) == layer_name_to_quadtree.end()){
+						// 创建该层的四叉树索引
+						QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
+						CreatQuadTreeIndexParallel(quad_tree, thread_count);
+						quad_trees.push_back(quad_tree);
+						layer_name_to_quadtree[name] = quad_tree;
+						layer_quadtrees[layer_id].push_back(quad_tree);// 注册自己的四叉树
+					}
+				}
 			}
 
 			// 遍历Via规则，注册每层联通的其他四叉树
 			for (auto& via : input.via_rules) {
-				// 此联通的两层在起点联通分量中
-				if (concomp.find(via.first) != concomp.end() && concomp.find(via.second) != concomp.end()) {
-					QuadTree* quad_tree1 = layer_name_to_quadtree[input.layer_id_to_name[via.first]];
-					QuadTree* quad_tree2 = layer_name_to_quadtree[input.layer_id_to_name[via.second]];
-					layer_quadtrees[via.first].push_back(quad_tree2);
-					layer_quadtrees[via.second].push_back(quad_tree1);
-				}
+				QuadTree* quad_tree1 = layer_name_to_quadtree[input.layer_id_to_name[via.first]];
+				QuadTree* quad_tree2 = layer_name_to_quadtree[input.layer_id_to_name[via.second]];
+				layer_quadtrees[via.first].push_back(quad_tree2);
+				layer_quadtrees[via.second].push_back(quad_tree1);
 			}
 		}
-		/* 双起点多层：为两个起点所在的连通分量建立索引 */
-		else if (input.start_pos.size() == 2 && !input.via_rules.empty()) {
-			// 获取两个起点的连通分量
-			int layer_id_s1 = input.start_pos[0].first;
-			int layer_id_s2 = input.start_pos[1].first;
-			robin_hood::unordered_set<int> concomp_s1 = GetConnectComponentofLayer(layer_id_s1);
-			robin_hood::unordered_set<int> concomp_s2 = GetConnectComponentofLayer(layer_id_s2);
-
-			robin_hood::unordered_set<int> total_concomp;
-			for (auto id : concomp_s1) total_concomp.insert(id);
-			for (auto id : concomp_s2) total_concomp.insert(id);
-
-			// 遍历层联通分量，为每层单独建立索引
-			for (auto& layer_id : total_concomp) {
-				// 创建图层的四叉树索引
-				std::string name = input.layer_id_to_name[layer_id];
-				QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-				CreatQuadTreeIndexParallel(quad_tree, thread_count);
-				quad_trees.push_back(quad_tree);
-				layer_name_to_quadtree[input.layer_id_to_name[layer_id]] = quad_tree;
-				layer_quadtrees[layer_id].push_back(quad_tree); // 注册自己的四叉树
-			}
-
-			// 遍历Via规则，注册每层联通的其他四叉树
-			for (auto& via : input.via_rules) {
-				// 检查Via是否属于任一连通分量
-				if ((concomp_s1.find(via.first) != concomp_s1.end() && concomp_s1.find(via.second) != concomp_s1.end())
-					|| (concomp_s2.find(via.first) != concomp_s2.end() && concomp_s2.find(via.second) != concomp_s2.end())) {
-					QuadTree* quad_tree1 = layer_name_to_quadtree[input.layer_id_to_name[via.first]];
-					QuadTree* quad_tree2 = layer_name_to_quadtree[input.layer_id_to_name[via.second]];
-					layer_quadtrees[via.first].push_back(quad_tree2);
-					layer_quadtrees[via.second].push_back(quad_tree1);
-				}
-			}
-		}
-		else throw std::logic_error(__func__ + std::string("未处理的情况"));
+		else throw std::logic_error(__func__ + std::string("error! cannot reach here!"));
 	}
 
 	// 并行版本：为给定的四叉树执行实际数据划分
@@ -453,7 +317,7 @@ public:
 			// 收集该层所有多边形
 			Range& a_layer_range = input.polygon_id_range_in_layer[layer1_id];
 			for (int i = a_layer_range.first; i <= a_layer_range.second; i++) { // 取a层多边形
-				poly_ptr.push_back(input.polygons[i]);
+				poly_ptr.push_back(&input.polygons[i]);
 			}
 			// 实际数据划分
 			quad_tree->CreatIndexParallel(poly_ptr, thread_count);
@@ -466,11 +330,11 @@ public:
 			// 收集层的所有多边形
 			Range& a_layer_range = input.polygon_id_range_in_layer[layer1_id];
 			for (int i = a_layer_range.first; i <= a_layer_range.second; i++) { // 取a层多边形
-				poly_ptr.push_back(input.polygons[i]);
+				poly_ptr.push_back(&input.polygons[i]);
 			}
 			Range& b_layer_range = input.polygon_id_range_in_layer[layer2_id];
 			for (int i = b_layer_range.first; i <= b_layer_range.second; i++) { // 再取b层多边形
-				poly_ptr.push_back(input.polygons[i]);
+				poly_ptr.push_back(&input.polygons[i]);
 			}
 			// 实际数据划分
 			quad_tree->CreatIndexParallel(poly_ptr, thread_count);

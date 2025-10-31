@@ -11,8 +11,7 @@ class Input {
 public:
     Rect layout;                                                    // 版图布局边界框
     robin_hood::unordered_map<std::string, int> layer_name_to_id;   // 图层名转换id, 0-index, 后续使用id索引
-    robin_hood::unordered_map<int, std::string> layer_id_to_name;   // 图层id转名称，用于输出
-    int curr_layer_id;                                               
+    robin_hood::unordered_map<int, std::string> layer_id_to_name;   // 图层id转名称，用于输出                                            
 
     int total_polygon;                                              // 多边形总数
     std::vector<Polygon> polygons;                                  // 所有多边形的列表，下标对应多边形id, 0-index
@@ -25,12 +24,11 @@ public:
 private:
     Graph graph;                                                    // 图层连通关系图
 
-
+public:
     // 根据文件路径初始化读取数据
-    Input(std::string layout_path, std::string rule_path) {
+    Input(std::string layout_path, std::string rule_path, int thread_count = 1) {
         layout = Rect(INT_MAX, INT_MAX, INT_MIN, INT_MIN);
         has_gate_rule = false;
-        curr_layer_id = -1;
 
         // 先读规则文件
         std::ifstream rule_file(rule_path);
@@ -40,7 +38,10 @@ private:
 
         std::ifstream layout_file(layout_path); // 打开版图文件
         assert(layout_file.is_open() && "无法打开layout文件");
-        readLayout(layout_file);
+        if(thread_count == 1)
+            readLayout(layout_file);
+        else
+            readLayoutParallel(layout_file, thread_count);
         layout_file.close();
     }
 
@@ -54,6 +55,7 @@ private:
         char c;
         std::string PO_name, AA_name; // 若有则暂存PO和AA层名字, 用于最后重排他们的id, 确保PO是倒数第二id, AA是倒数第一id, 方便合并与切割
 
+        int curr_layer_id = -1;
         while (std::getline(rule_file, line)) {
             if (line == "StartPos" || line == "Via" || line == "Gate") {
                 flag = line;
@@ -106,12 +108,12 @@ private:
                             sid = layer_id_iter->second;
                         }
 
-                        if (fid > sid) { // 保证小的层id在前
-                            std::swap(fid, sid);
-                        }
-                        via_rules.insert(Edge(fid, sid));
+                        // 保证小的层id在前
+                        int min_id = std::min(fid, sid);
+                        int max_id = std::max(fid, sid);
+                        via_rules.insert(Edge(min_id, max_id));
 
-                        first_layer = second_layer; // 确保连续传递性
+                        fid = sid; // 确保连续传递性
                     }
                 }
                 else if (flag == "Gate") { // 处理Gate规则
@@ -128,7 +130,7 @@ private:
                         gate_rule.first = layer_id_iter->second;
                     }
                     // AA层 若为未出现的层id,新增
-                    auto layer_id_iter = layer_name_to_id.find(AA_name);
+                    layer_id_iter = layer_name_to_id.find(AA_name);
                     if (layer_id_iter == layer_name_to_id.end()){ 
                         layer_name_to_id[AA_name] = ++curr_layer_id;
                         layer_id_to_name[curr_layer_id] = AA_name;
@@ -140,7 +142,7 @@ private:
                 }
             }
         }
-    
+
         // 后处理：我们只处理必要的层, 即根据Via规则确定与起点所在层的层间联通分量, 只需保留这些层即可
         CreatLayerGraph();
 
@@ -185,7 +187,7 @@ private:
 				}
 			}
 		}
-		else throw std::logic_error(__func__ + std::string("未处理的情况"));
+		else throw std::logic_error(__func__ + std::string("error! cannot reach here!"));
         
         // 根据起点和有效Via_Rule, 重建规则信息
         robin_hood::unordered_map<std::string, int> new_layer_name_to_id;
@@ -202,7 +204,7 @@ private:
         }
 
         // 确定每层的最终id
-        int curr_layer_id = -1;
+        curr_layer_id = -1;
         for(auto& layer_name : valid_layer){
             if(has_gate_rule && (layer_name == PO_name || layer_name == AA_name))
                 continue;
@@ -237,7 +239,7 @@ private:
         polygon_id_range_in_layer.resize(layer_name_to_id.size());
     }
 
-    // 读取版图文件 - 高效版本（一次性读入）
+    // 读取版图文件 （一次性读入）
     void readLayout(std::ifstream& layout_file) {
         // 获取文件大小
         layout_file.seekg(0, std::ios::end);
@@ -257,50 +259,64 @@ private:
         robin_hood::unordered_map<int, char*> layer_id_to_start_pos; // 存该层的多边形字符指针起始位置
         robin_hood::unordered_map<int, char*> layer_id_to_end_pos; // 存该层的多边形字符指针末尾位置（开区间）
         robin_hood::unordered_map<int, int> layer_id_to_count; // 存该层的多边形计数
-        
-        int last_valid_layer_id = -1;
+
+        int layer_id = -1;
         int layer_polygon_count = 0;
         while (count_ptr < count_end) {
-            if (*count_ptr == '\n') {
-                estimated_polygons++;
-                if(*(count_ptr + 1) == '('){ // 多边形
-                    ++layer_polygon_count;
-                }
-                else{ // 新层
-                    if(last_valid_layer_id != -1){ // 若存在，先更新上一有效层信息
-                        layer_id_to_count[last_valid_layer_id] = layer_polygon_count;
-                        layer_id_to_end_pos[last_valid_layer_id] = count_ptr;
-                    }
-                    // 尝试获取层名
-                    char *start = ++count_ptr;
-                    while (count_ptr < count_end && *count_ptr != '\n' && *count_ptr != '\r')
-                        count_ptr++;
-                    // 非空行
-                    if(count_ptr - start > 0){ 
-                        std::string layer_name(start, count_ptr - start);
-                        // 如果是所需有效层, 记录信息
-                        auto iter = layer_name_to_id.find(layer_name);
-                        if(iter != layer_name_to_id.end()){
-                            while (count_ptr < count_end && (*count_ptr == '\n' || *count_ptr == '\r'))
-                                count_ptr++;
-                            layer_id_to_start_pos[iter->second] = count_ptr;
-                            last_valid_layer_id = iter->second;
-                        }
-                        else{
-                            last_valid_layer_id = -1;
-                        }
-                    }
-                    else{ // 若层名为空行，说明不是有效层
-                        last_valid_layer_id = -1;
-                    }
-                    layer_polygon_count = 0;
+            // 尝试获取层名
+            char *start = count_ptr;
+            while (count_ptr < count_end && *count_ptr != '\n' && *count_ptr != '\r')
+                count_ptr++;
+            if(count_ptr - start == 0) continue;
+            std::string layer_name(start, count_ptr - start);
+
+            // 如果是有效层, 记录信息
+            auto iter = layer_name_to_id.find(layer_name);
+            if (iter != layer_name_to_id.end()){
+                while (count_ptr < count_end && (*count_ptr == '\n' || *count_ptr == '\r')) // 跳过层行空白字符
+                    count_ptr++;
+                layer_id_to_start_pos[iter->second] = count_ptr; // 记录层起始字符位置
+                layer_id = iter->second;
+            }
+            else{
+                layer_id = -1;
+            }
+            layer_polygon_count = 0;
+            count_ptr--; // 此时指向 '\n'
+
+            if(layer_id == -1){ // 非有效层，跳过
+                while (count_ptr < count_end) { 
+                    if (*count_ptr == '\n' && *(++count_ptr) != '(')
+                        break;
+                    count_ptr++;
                 }
             }
-            count_ptr++;
+            else{ // 统计该层多边形信息  
+                while (count_ptr < count_end) { 
+                    if (*count_ptr == '\n') { 
+                        if(*(++count_ptr) == '('){ // 新多边形行
+                            ++estimated_polygons;
+                            ++layer_polygon_count;
+                        }
+                        else{ // 该层结束, 记录结尾信息
+                            layer_id_to_count[layer_id] = layer_polygon_count;
+                            layer_id_to_end_pos[layer_id] = count_ptr - 1;
+                            break;
+                        }
+                    }
+                    count_ptr++;
+                }
+                while (count_ptr < count_end && (*count_ptr == '\n' || *count_ptr == '\r')) // 跳过后续空白字符
+                    count_ptr++;
+            }
         }
 
         // 预留空间
+        if(has_gate_rule){ // 存在gate rule, 需要预估AA层切割后的多边形数量(假设平均一个变7个)
+            estimated_polygons += (layer_id_to_count[gate_rule.second] * 7);
+        }
         polygons.resize(estimated_polygons);
+        std::cout << "estimated_polygons:" << estimated_polygons << "\n";
 
         // 第二步：按层id去顺序获取该层多边形，手动解析行
         for (int layer_id = 0; layer_id < layer_name_to_id.size(); ++layer_id){
@@ -310,8 +326,8 @@ private:
             if(layer_id == 0)
                 polygon_id_range_in_layer[layer_id].first = 0;
             else
-                polygon_id_range_in_layer[layer_id].first = polygon_id_range_in_layer[layer_id-1].second;
-            int curr_polygon_id = polygon_id_range_in_layer[layer_id].first;
+                polygon_id_range_in_layer[layer_id].first = polygon_id_range_in_layer[layer_id-1].second + 1;
+            int curr_polygon_id = polygon_id_range_in_layer[layer_id].first; // 当前层起始多边形id
             polygon_id_range_in_layer[layer_id].second = curr_polygon_id + layer_id_to_count[layer_id] - 1;
 
             // 解析每个多边形
@@ -346,6 +362,141 @@ private:
         }
         total_polygon = polygon_id_range_in_layer.back().second + 1;
     }    
+
+#pragma region parallel_implement
+    // 并行版本：读取版图文件 （一次性读入, 并行解析）
+    void readLayoutParallel(std::ifstream& layout_file, int thread_count) {
+        // 获取文件大小
+        layout_file.seekg(0, std::ios::end);
+        size_t file_size = layout_file.tellg();
+        layout_file.seekg(0, std::ios::beg);
+
+        // 一次性读取整个文件到内存
+        std::vector<char> file_buffer(file_size + 2);
+        layout_file.read(file_buffer.data(), file_size);
+        file_buffer[file_size] = '\n'; // 添加一个换行符和字符串终止符
+        file_buffer[file_size+1] = '\0';
+
+        // 第一步：预估多边形数量（统计行数）以及统计所需层的多边形信息
+        size_t estimated_polygons = 0;
+        char* count_ptr = file_buffer.data();
+        char* count_end = file_buffer.data() + file_size; // 指向'\n'
+        robin_hood::unordered_map<int, char*> layer_id_to_start_pos; // 存该层的多边形字符指针起始位置
+        robin_hood::unordered_map<int, char*> layer_id_to_end_pos; // 存该层的多边形字符指针末尾位置（开区间）
+        robin_hood::unordered_map<int, int> layer_id_to_count; // 存该层的多边形计数
+
+        int layer_id = -1;
+        int layer_polygon_count = 0;
+        while (count_ptr < count_end) {
+            // 尝试获取层名
+            char *start = count_ptr;
+            while (count_ptr < count_end && *count_ptr != '\n' && *count_ptr != '\r')
+                count_ptr++;
+            if(count_ptr - start == 0) continue;
+            std::string layer_name(start, count_ptr - start);
+
+            // 如果是有效层, 记录信息
+            auto iter = layer_name_to_id.find(layer_name);
+            if (iter != layer_name_to_id.end()){
+                while (count_ptr < count_end && (*count_ptr == '\n' || *count_ptr == '\r')) // 跳过层行空白字符
+                    count_ptr++;
+                layer_id_to_start_pos[iter->second] = count_ptr; // 记录层起始字符位置
+                layer_id = iter->second;
+            }
+            else{
+                layer_id = -1;
+            }
+            layer_polygon_count = 0;
+            count_ptr--; // 此时指向 '\n'
+
+            if(layer_id == -1){ // 非有效层，跳过
+                while (count_ptr < count_end) { 
+                    if (*count_ptr == '\n' && *(++count_ptr) != '(')
+                        break;
+                    count_ptr++;
+                }
+            }
+            else{ // 统计该层多边形信息  
+                while (count_ptr < count_end) { 
+                    if (*count_ptr == '\n') { 
+                        if(*(++count_ptr) == '('){ // 新多边形行
+                            ++estimated_polygons;
+                            ++layer_polygon_count;
+                        }
+                        else{ // 该层结束, 记录结尾信息
+                            layer_id_to_count[layer_id] = layer_polygon_count;
+                            layer_id_to_end_pos[layer_id] = count_ptr - 1;
+                            break;
+                        }
+                    }
+                    count_ptr++;
+                }
+                while (count_ptr < count_end && (*count_ptr == '\n' || *count_ptr == '\r')) // 跳过后续空白字符
+                    count_ptr++;
+            }
+        }
+
+        // 预留空间
+        if(has_gate_rule){ // 存在gate rule, 需要预估AA层切割后的多边形数量(假设平均一个变7个)
+            estimated_polygons += (layer_id_to_count[gate_rule.second] * 7);
+        }
+        polygons.resize(estimated_polygons);
+        std::cout << "estimated_polygons:" << estimated_polygons << "\n";
+
+        // 第二步：按层id去顺序获取该层多边形，手动解析行
+        // 先串行计算每层的ID范围
+        for (int layer_id = 0; layer_id < layer_name_to_id.size(); ++layer_id) {
+            if(layer_id == 0)
+                polygon_id_range_in_layer[layer_id].first = 0;
+            else
+                polygon_id_range_in_layer[layer_id].first = polygon_id_range_in_layer[layer_id-1].second + 1;
+            polygon_id_range_in_layer[layer_id].second = polygon_id_range_in_layer[layer_id].first + layer_id_to_count[layer_id] - 1;
+        }
+        // 并行处理每层内的多边形
+        #pragma omp parallel for schedule(dynamic)
+        for (int layer_id = 0; layer_id < layer_name_to_id.size(); ++layer_id) {
+            char *start = layer_id_to_start_pos[layer_id];
+            char *end = layer_id_to_end_pos[layer_id];
+            int curr_polygon_id = polygon_id_range_in_layer[layer_id].first;
+
+            // 线程局部的layout用于累积更新，避免锁竞争
+            Rect thread_local_layout;
+
+            char* current = start;
+            while (current < end) {
+                char* line_start = current;
+                while (current < end && *current != '\n' && *current != '\r') {
+                    current++;
+                }
+                size_t line_len = current - line_start;
+
+                if (line_len > 0) {
+                    Polygon& poly = polygons[curr_polygon_id];
+                    poly.id = curr_polygon_id;
+                    poly.layer_id = layer_id;
+
+                    fastParseCoordinates(line_start, line_start + line_len, poly.vertex);
+                    Rect poly_rect = GetRectofPolygon(poly.vertex);
+                    poly.rect = poly_rect;
+
+                    // 更新线程局部layout
+                    thread_local_layout.update(poly_rect);
+
+                    curr_polygon_id++;
+                }
+
+                while (current < end && (*current == '\n' || *current == '\r')) current++;
+            }
+
+            // 合并线程局部的layout更新到全局layout（需要同步）
+            #pragma omp critical
+            {
+                layout.update(thread_local_layout);
+            }
+        }
+        total_polygon = polygon_id_range_in_layer.back().second + 1;
+    }    
+#pragma endregion 
 
     // 打印版图信息
     void PrintLayoutInfo() {
@@ -409,12 +560,12 @@ private:
 private:
 	// 创建图层连通关系图
 	void CreatLayerGraph() {
-		graph = Graph(static_cast<int>(input.layer_name_to_id.size()));
+		graph = Graph(static_cast<int>(layer_name_to_id.size()));
 		std::vector<Edge> edges;
-		edges.reserve(input.via_rules.size());
+		edges.reserve(via_rules.size());
 
 		// 将所有Via规则作为边添加到图中
-		for (auto& via : input.via_rules) {
+		for (auto& via : via_rules) {
 			edges.push_back(via);
 		}
 		graph.AddEdges(edges);

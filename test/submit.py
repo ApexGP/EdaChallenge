@@ -1,15 +1,60 @@
 #!/usr/bin/env python3
 """
 submit.py - 打包脚本
-将 ../trace 文件夹、../CMakeLists.txt 和 ../submit 下的非.zip文件打包成 zip
-submit文件夹下的文件直接放在压缩包根目录，不包含submit文件夹
+编译项目并将生成的可执行文件打包成zip
 """
 
 import os
 import sys
 import zipfile
 import argparse
+import subprocess
+import shutil
 from pathlib import Path
+
+def compile_project(base_dir):
+    """编译项目"""
+    build_dir = base_dir / "build"
+    
+    # 删除旧的build目录
+    if build_dir.exists():
+        print(f"删除旧的构建目录: {build_dir}")
+        shutil.rmtree(build_dir)
+    
+    # 创建新的build目录
+    build_dir.mkdir()
+    print(f"✓ 创建新的构建目录: {build_dir}")
+    
+    try:
+        # 进入build目录
+        original_dir = os.getcwd()
+        os.chdir(build_dir)
+        
+        # 运行cmake
+        print("运行 cmake ...")
+        result = subprocess.run(["cmake", ".."], capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"✗ cmake 失败: {result.stderr}")
+            return False
+        print("✓ cmake 成功")
+        
+        # 运行make
+        print("运行 make ...")
+        result = subprocess.run(["make", "-j4"], capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"✗ make 失败: {result.stderr}")
+            return False
+        print("✓ make 成功")
+        
+        # 返回原目录
+        os.chdir(original_dir)
+        return True
+        
+    except Exception as e:
+        print(f"✗ 编译过程出错: {e}")
+        # 确保返回原目录
+        os.chdir(original_dir)
+        return False
 
 def write_thread_number(thread_num, submit_dir):
     """将线程数写入 thread.txt 文件"""
@@ -23,7 +68,21 @@ def write_thread_number(thread_num, submit_dir):
         print(f"✗ 写入 thread.txt 失败: {e}")
         return False
 
-def create_zip(zip_filename, base_dir, submit_dir):
+def find_executable(bin_dir):
+    """在bin目录中查找可执行文件"""
+    if not bin_dir.exists():
+        print(f"⚠ 警告: {bin_dir} 目录不存在")
+        return []
+    
+    executables = []
+    # 查找所有可执行文件
+    for file_path in bin_dir.iterdir():
+        if file_path.is_file() and os.access(file_path, os.X_OK):
+            executables.append(file_path)
+    
+    return executables
+
+def create_zip(zip_filename, base_dir, submit_dir, thread_num):
     """创建压缩包"""
     # 确保 zip 文件名有 .zip 扩展名
     if not zip_filename.endswith('.zip'):
@@ -40,33 +99,33 @@ def create_zip(zip_filename, base_dir, submit_dir):
     
     try:
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            # 添加 trace 文件夹
-            trace_dir = base_dir / "trace"
-            if trace_dir.exists():
-                for file_path in trace_dir.rglob('*'):
-                    if file_path.is_file() and not str(file_path).endswith(".zip"):
-                        # 在 zip 中保持相对路径结构
-                        arcname = file_path.relative_to(base_dir)
-                        zipf.write(file_path, arcname)
-                        print(f"✓ 添加: {arcname}")
-            else:
-                print(f"⚠ 警告: {trace_dir} 不存在")
+            # 1. 添加可执行文件
+            bin_dir = base_dir / "bin"
+            executables = find_executable(bin_dir)
             
-            # 添加 CMakeLists.txt
-            cmake_file = base_dir / "CMakeLists.txt"
-            if cmake_file.exists():
-                arcname = cmake_file.relative_to(base_dir)
-                zipf.write(cmake_file, arcname)
+            if executables:
+                for exe in executables:
+                    # 可执行文件放在压缩包根目录
+                    arcname = exe.name
+                    zipf.write(exe, arcname)
+                    print(f"✓ 添加可执行文件: {arcname}")
+            else:
+                print("⚠ 警告: 未找到可执行文件")
+            
+            # 2. 添加线程数文件
+            thread_file = submit_dir / "thread.txt"
+            if thread_file.exists():
+                arcname = "thread.txt"
+                zipf.write(thread_file, arcname)
                 print(f"✓ 添加: {arcname}")
-            else:
-                print(f"⚠ 警告: {cmake_file} 不存在")
             
-            # 添加 submit 文件夹下的非.zip文件（直接放在压缩包根目录）
+            # 3. 添加 submit 文件夹下的其他非.zip文件
             if submit_dir.exists():
                 for file_path in submit_dir.iterdir():
-                    # 排除.zip文件（避免包含自己）
-                    if file_path.is_file() and file_path.suffix != '.zip':
-                        # 文件直接放在zip根目录，不包含submit文件夹
+                    # 排除.zip文件（避免包含自己）和thread.txt（已单独处理）
+                    if (file_path.is_file() and 
+                        file_path.suffix != '.zip' and 
+                        file_path.name != 'thread.txt'):
                         arcname = file_path.name
                         zipf.write(file_path, arcname)
                         print(f"✓ 添加: {arcname}")
@@ -88,7 +147,7 @@ def create_zip(zip_filename, base_dir, submit_dir):
 
 def main():
     """主函数"""
-    parser = argparse.ArgumentParser(description='打包提交文件')
+    parser = argparse.ArgumentParser(description='编译并打包项目')
     parser.add_argument('zip_name', help='压缩文件名（必需）')
     parser.add_argument('thread_num', nargs='?', type=int, default=1, 
                        help='线程数（默认: 1）')
@@ -101,7 +160,7 @@ def main():
     submit_dir = base_dir / "submit"
     
     print("=" * 50)
-    print("开始打包操作")
+    print("开始编译和打包操作")
     print(f"压缩文件名: {args.zip_name}")
     print(f"线程数: {args.thread_num}")
     print(f"项目根目录: {base_dir}")
@@ -113,16 +172,24 @@ def main():
         print(f"✗ 错误: 提交目录 {submit_dir} 不存在")
         sys.exit(1)
     
-    # 1. 写入线程数
+    # 1. 编译项目
+    print("步骤 1/3: 编译项目...")
+    if not compile_project(base_dir):
+        print("✗ 编译失败，请检查项目配置")
+        sys.exit(1)
+    
+    # 2. 写入线程数
+    print("步骤 2/3: 写入线程数配置...")
     if not write_thread_number(args.thread_num, submit_dir):
         sys.exit(1)
     
-    # 2. 创建压缩包
-    if not create_zip(args.zip_name, base_dir, submit_dir):
+    # 3. 创建压缩包
+    print("步骤 3/3: 创建压缩包...")
+    if not create_zip(args.zip_name, base_dir, submit_dir, args.thread_num):
         sys.exit(1)
     
     print("=" * 50)
-    print("打包操作完成！")
+    print("编译和打包操作完成！")
     print("=" * 50)
 
 if __name__ == "__main__":
