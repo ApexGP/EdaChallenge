@@ -4,7 +4,7 @@
 #include "QuadTree.hpp"
 #include "Intersect.hpp"
 #include "ManhattanIntersectDetector.hpp"
-#include "../ManhattanBooleanSetOperation/solve/MBSOCore.h"
+#include "./ManhattanBooleanSetOperation/solve/MBSOCore.h"
 
 static thread_local MBSO::MBSOCore mbsoCore; // 曼哈顿多边形布尔运算核心类
 

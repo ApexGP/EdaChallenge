@@ -109,7 +109,7 @@ python3 submit.py my_submission 8
 ```
 
 ## 7.Simple Test
-环境:3.5Ghz CPU, 32G RAM
+环境:3.5Ghz CPU, 32G RAM, Intel(R) Core(TM) i3-14100
 ### 测试-单线程-Windows VS2022-Using CGAL do_intersect
 |            case          |  rule  | n^2暴力 |  空间索引 |  矩形框初筛 |  索引+初筛  | 索引+初筛+提前跳出 |
 |:------------------------:|:------:|:-------:|:---------:|:-----------:|:----------:|:------------------:|

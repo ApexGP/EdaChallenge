@@ -1,5 +1,9 @@
 #pragma once
 #include "public.h"
+#include "./ManhattanBooleanSetOperation/utils/HighPerfMemoryPool.h"
+
+class QuadTreeNode;
+static thread_local MBSO::HighPerfMemoryPool<QuadTreeNode> quadTreeNodePool(65536); // 四叉树节点内存池
 
 // 四叉树节点定义
 class QuadTreeNode
@@ -42,16 +46,16 @@ public:
 
         // 手动删除所有子节点
         if (_lt) {
-            delete _lt; _lt = nullptr;
+            quadTreeNodePool.pushReuseElement(_lt); _lt = nullptr;
         }
         if (_rt) {
-            delete _rt; _rt = nullptr;
+            quadTreeNodePool.pushReuseElement(_rt); _rt = nullptr;
         }
         if (_lb) {
-            delete _lb; _lb = nullptr;
+            quadTreeNodePool.pushReuseElement(_lb); _lb = nullptr;
         }
         if (_rb) {
-            delete _rb; _rb = nullptr;
+            quadTreeNodePool.pushReuseElement(_rb); _rb = nullptr;
         }
     }
 
@@ -81,14 +85,14 @@ public:
     * name: 四叉树名称
     */
     QuadTree(const Rect& rect, int maxDepth, int maxDataNum, const std::string& name = "QUADTREE")
-        : _root(new QuadTreeNode(rect, 1)), _maxDepth(maxDepth), _maxDataNum(maxDataNum), _name(name) {
+        : _root(quadTreeNodePool.newElement(rect, 1)), _maxDepth(maxDepth), _maxDataNum(maxDataNum), _name(name) {
         _maxCurrDepth = 1;
         _maxCurrDataNum = 0;
     }
 
     // 析构函数
     ~QuadTree() {
-        delete _root;
+        quadTreeNodePool.pushReuseElement(_root);
     }
 
     // 禁止拷贝构造和赋值操作
@@ -196,10 +200,10 @@ private:
 
         // 创建四个子矩形节点
         node->_divided = true;
-        node->_lt = new QuadTreeNode(Rect(parent_rect._xmin, ymid, xmid, parent_rect._ymax), node->_depth + 1); // 左上
-        node->_rt = new QuadTreeNode(Rect(xmid, ymid, parent_rect._xmax, parent_rect._ymax), node->_depth + 1); // 右上
-        node->_lb = new QuadTreeNode(Rect(parent_rect._xmin, parent_rect._ymin, xmid, ymid), node->_depth + 1); // 左下
-        node->_rb = new QuadTreeNode(Rect(xmid, parent_rect._ymin, parent_rect._xmax, ymid), node->_depth + 1); // 右下
+        node->_lt = quadTreeNodePool.newElement(Rect(parent_rect._xmin, ymid, xmid, parent_rect._ymax), node->_depth + 1); // 左上
+        node->_rt = quadTreeNodePool.newElement(Rect(xmid, ymid, parent_rect._xmax, parent_rect._ymax), node->_depth + 1); // 右上
+        node->_lb = quadTreeNodePool.newElement(Rect(parent_rect._xmin, parent_rect._ymin, xmid, ymid), node->_depth + 1); // 左下
+        node->_rb = quadTreeNodePool.newElement(Rect(xmid, parent_rect._ymin, parent_rect._xmax, ymid), node->_depth + 1); // 右下
 
         // 为数据分配预留空间（优化性能）
         size_t estimated_size = (data_size / 3); // 保守估计，避免过度分配
@@ -260,10 +264,10 @@ private:
 
         // 创建四个子矩形节点
         node->_divided = true;
-        node->_lt = new QuadTreeNode(Rect(parent_rect._xmin, ymid, xmid, parent_rect._ymax), node->_depth + 1); // 左上
-        node->_rt = new QuadTreeNode(Rect(xmid, ymid, parent_rect._xmax, parent_rect._ymax), node->_depth + 1); // 右上
-        node->_lb = new QuadTreeNode(Rect(parent_rect._xmin, parent_rect._ymin, xmid, ymid), node->_depth + 1); // 左下
-        node->_rb = new QuadTreeNode(Rect(xmid, parent_rect._ymin, parent_rect._xmax, ymid), node->_depth + 1); // 右下
+        node->_lt = quadTreeNodePool.newElement(Rect(parent_rect._xmin, ymid, xmid, parent_rect._ymax), node->_depth + 1); // 左上
+        node->_rt = quadTreeNodePool.newElement(Rect(xmid, ymid, parent_rect._xmax, parent_rect._ymax), node->_depth + 1); // 右上
+        node->_lb = quadTreeNodePool.newElement(Rect(parent_rect._xmin, parent_rect._ymin, xmid, ymid), node->_depth + 1); // 左下
+        node->_rb = quadTreeNodePool.newElement(Rect(xmid, parent_rect._ymin, parent_rect._xmax, ymid), node->_depth + 1); // 右下
 
         // 为数据分配预留空间（优化性能）
         size_t estimated_size = (data_size / 3); // 保守估计，避免过度分配

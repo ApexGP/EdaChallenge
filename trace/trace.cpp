@@ -40,6 +40,7 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
     std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
     std::cout << "----- Total Time: " << myTimer.Elapsed() << " s" << std::endl;
+    std::_Exit(0); // 快速返回，避免析构开销
 }
 
 

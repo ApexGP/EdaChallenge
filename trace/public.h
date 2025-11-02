@@ -26,7 +26,7 @@ using Polygon_set_2 = CGAL::Polygon_set_2<Kernel>;
 */
 
 #include "robin_hood.h" // 高效哈希表
-#include "../ManhattanBooleanSetOperation/utils/MPoint_2.h" // 二维点表示
+#include "./ManhattanBooleanSetOperation/utils/MPoint_2.h" // 二维点表示
 using MPoint_2 = MBSO::MPoint_2;
 using Vertexs = std::vector<MPoint_2>;
 

@@ -1,6 +1,6 @@
 #pragma once
 #include "public.h"
-#include "../ManhattanBooleanSetOperation/utils/Grid.h"
+#include "./ManhattanBooleanSetOperation/utils/Grid.h"
 #include <cmath>
 #include <algorithm>
 
