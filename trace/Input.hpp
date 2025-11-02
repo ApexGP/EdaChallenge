@@ -38,7 +38,7 @@ public:
 
         std::ifstream layout_file(layout_path); // 打开版图文件
         assert(layout_file.is_open() && "无法打开layout文件");
-        if(thread_count == 1)
+        if(thread_count == 1 || layer_name_to_id.size() == 1) // 若是单层也不用并行读，除非实现层内并行
             readLayout(layout_file);
         else
             readLayoutParallel(layout_file, thread_count);

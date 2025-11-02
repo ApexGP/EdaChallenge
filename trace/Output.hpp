@@ -140,7 +140,7 @@ public:
         std::vector<char> file_buffer(BUFFER_SIZE);
         setvbuf(file, file_buffer.data(), _IOFBF, BUFFER_SIZE); // 将缓冲区关联到文件流,数据会先写入内存缓冲区，不会立即触发磁盘I/O,只有当缓冲区满、调用fflush()或fclose()时，才会真正写入磁盘
         
-        if(thread_count == 1)
+        if(thread_count == 1 || input.layer_name_to_id.size() == 1) // 若是单层也不用并行写，除非实现层内并行
             printResult(file);
         else
             printResultParallel(file);

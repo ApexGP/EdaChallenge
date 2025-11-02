@@ -104,9 +104,9 @@ namespace MBSO {
 
 
 	private:
-		/* 在指针 mps 指向的内存区域, 将多边形点集 poly 转换成 MPolygonSet* 类型，调用前确保 mps 非空且 mps->mpolygons.size() 为 0 */
+		/* 在指针 mps 指向的内存区域, 将多边形点集 poly 转换成 MPolygonSet* 类型，调用前确保 mps 非空且 mps->mpolygons.size() 为 0 , 外部传进来的是逆时针顺序*/
 		void convertToMPS(const std::vector<MPoint_2> & poly, MPolygonSet* & mps);
-		/* 在指针 mps 指向的内存区域，将多边形集合的点集 polyset 转换成 MPolygonSet* 类型，调用前确保 mps 非空且 mps->mpolygons.size() 为 0*/
+		/* 在指针 mps 指向的内存区域，将多边形集合的点集 polyset 转换成 MPolygonSet* 类型，调用前确保 mps 非空且 mps->mpolygons.size() 为 0 , 外部传进来的是逆时针顺序*/
 		void convertToMPS(const std::vector<std::vector<MPoint_2>> & polyset, MPolygonSet* & mps);
 		
 		/* @brief 传入两个多边形集，根据布尔运算类型OP_TYPE, 返回结果多边形集

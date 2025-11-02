@@ -122,8 +122,10 @@ namespace MBSO {
 			auto& ansPolygon = ans[i];
 			ansPolygon.reserve(resultMps->mpolygons[i].edges.size());
 			// 提取每个点
-			for (auto& edgePtr : resultMps->mpolygons[i].edges) {
-				ansPolygon.emplace_back(edgePtr->ori->point);
+			const auto& edges = resultMps->mpolygons[i].edges;
+			for (auto it = edges.rbegin(); it != edges.rend(); ++it) {
+			    const auto& edgePtr = *it;
+			    ansPolygon.emplace_back(edgePtr->ori->point);
 			}
 		}
 		return ans;
@@ -207,7 +209,7 @@ namespace MBSO {
 		return getResult();
 	}
 
-	/* --------------- 将外部多边形表示转成内部多边形集 --------------- */
+	/* --------------- 将外部多边形表示转成内部多边形集, 外部传进来的是逆时针顺序 --------------- */
 	void MBSOCore::convertToMPS(const std::vector<MPoint_2> & poly, MPolygonSet* & mps){
 		if (mps == nullptr || mps->mpolygons.size() != 0) { // 传进来的 mps 一般情况只会是 重置状态后的 成员变量 mps1,mps2或resultMps
 			std::logic_error(__func__ + std::string("本函数不负责显式内存管理，mps不应为空指针，请在外部申请好空间, mps内部不应存在多边形，请在外部释放"));
@@ -221,9 +223,10 @@ namespace MBSO {
 		mpolygon.edges.reserve(_mpolySize);
 		// 构造点集
 		auto& vertexs = mpolygon.vertexs;
-		for (const auto& _mpoint : poly) {
-			MVertex* mvertex = vertexsMemoryPool.newElement(_mpoint);
-			vertexs.emplace_back(mvertex);
+		for (auto it = poly.rbegin(); it != poly.rend(); ++it) { // 反向遍历，因为内部是顺时针顺序
+		    const auto& _mpoint = *it;
+		    MVertex* mvertex = vertexsMemoryPool.newElement(_mpoint);
+		    vertexs.emplace_back(mvertex);
 		}
 		// 基于点集构造边集
 		for (int i = 0; i < _mpolySize; ++i) {
@@ -254,9 +257,10 @@ namespace MBSO {
 			mpolygon.edges.reserve(_mpolySize);
 			// 构造点集
 			auto& vertexs = mpolygon.vertexs;
-			for (const auto& _mpoint : _mpoly) {
-				MVertex* mvertex = vertexsMemoryPool.newElement(_mpoint);
-				vertexs.emplace_back(mvertex);
+			for (auto it = _mpoly.rbegin(); it != _mpoly.rend(); ++it) { // 反向遍历，因为内部是顺时针顺序
+			    const auto& _mpoint = *it;
+			    MVertex* mvertex = vertexsMemoryPool.newElement(_mpoint);
+			    vertexs.emplace_back(mvertex);
 			}
 			// 基于点集构造边集
 			for (int i = 0; i < _mpolySize; ++i) {
