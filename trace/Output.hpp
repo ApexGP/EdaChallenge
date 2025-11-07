@@ -1,120 +1,3 @@
-/*
-#pragma once
-#include "public.h"
-#include "Input.hpp"
-#include <fstream>
-#include <charconv>
-#include <system_error>
-#include <string>
-#include <vector>
-#include <array>
-
-class Output {
-public:
-    static constexpr size_t FILE_BUFFER_THRESHOLD = 128 * 1024;
-
-    Output(Input& _input, std::string res_path, std::vector<int>& _component)
-        : input(_input), component(_component) {
-        file_buffer.reserve(FILE_BUFFER_THRESHOLD * 2);
-        std::ofstream res_file(res_path);
-        assert(res_file.is_open() && "Failed to open output file");
-        stream_buffer.resize(FILE_BUFFER_THRESHOLD);
-        res_file.rdbuf()->pubsetbuf(stream_buffer.data(), static_cast<std::streamsize>(stream_buffer.size()));
-        printResult(res_file);
-        flushBuffer(res_file);
-    }
-
-private:
-    Input& input;
-    std::vector<int>& component;
-
-    std::string file_buffer;
-    std::vector<char> stream_buffer;
-    std::array<char, 32> int_buffer{};
-
-    void flushBuffer(std::ofstream& res_file) {
-        if (!file_buffer.empty()) {
-            res_file.write(file_buffer.data(), static_cast<std::streamsize>(file_buffer.size()));
-            file_buffer.clear();
-        }
-    }
-
-    void appendRaw(std::ofstream& res_file, const char* data, size_t len) {
-        if (len >= FILE_BUFFER_THRESHOLD) {
-            flushBuffer(res_file);
-            res_file.write(data, static_cast<std::streamsize>(len));
-            return;
-        }
-        if (file_buffer.size() + len > FILE_BUFFER_THRESHOLD) {
-            flushBuffer(res_file);
-        }
-        file_buffer.append(data, len);
-    }
-
-    void appendChar(std::ofstream& res_file, char c) {
-        if (file_buffer.size() == FILE_BUFFER_THRESHOLD) {
-            flushBuffer(res_file);
-        }
-        file_buffer.push_back(c);
-    }
-
-    void appendInt(std::ofstream& res_file, int value) {
-        auto* begin = int_buffer.data();
-        auto* end = begin + int_buffer.size();
-        auto result = std::to_chars(begin, end, value);
-        if (result.ec == std::errc()) {
-            appendRaw(res_file, int_buffer.data(), static_cast<size_t>(result.ptr - int_buffer.data()));
-        } else {
-            const auto fallback = std::to_string(value);
-            appendRaw(res_file, fallback.data(), fallback.size());
-        }
-    }
-
-    void printResult(std::ofstream& res_file) {
-        const int layer_num = static_cast<int>(input.polygon_id_range_in_layer.size());
-        std::vector<std::vector<int>> layer_polygons(layer_num);
-        layer_polygons.reserve(layer_num);
-
-        auto& polygons = input.polygons;
-        for (int poly_id : component) {
-            int layer_id = polygons[poly_id].layer_id;
-            layer_polygons[layer_id].emplace_back(poly_id);
-        }
-
-        for (int i = 0; i < layer_num; ++i) {
-            const auto& ids = layer_polygons[i];
-            if (ids.empty()) {
-                continue;
-            }
-
-            const std::string& layer_name = input.layer_id_to_name[i];
-            appendRaw(res_file, layer_name.data(), layer_name.size());
-            appendChar(res_file, '\n');
-
-            for (int poly_id : ids) {
-                OutputPolygon(res_file, polygons[poly_id]);
-            }
-        }
-    }
-
-    void OutputPolygon(std::ofstream& res_file, Polygon& p) {
-        const auto vertex_count = p.vertex.size();
-        for (size_t j = 0; j < vertex_count; ++j) {
-            appendChar(res_file, '(');
-            appendInt(res_file, p.vertex[j].x);
-            appendChar(res_file, ',');
-            appendInt(res_file, p.vertex[j].y);
-            appendChar(res_file, ')');
-            if (j + 1 != vertex_count) {
-                appendChar(res_file, ',');
-            }
-        }
-        appendChar(res_file, '\n');
-    }
-};
-*/
-
-#pragma region another_implement
 #pragma once
 #include "public.h"
 #include "Input.hpp"
@@ -135,15 +18,15 @@ public:
             throw std::runtime_error("Failed to open output file");
         }
         
-        // 设置大缓冲区（4MB）
+        // 设置文件大缓冲区（4MB）
         const size_t BUFFER_SIZE = 4 * 1024 * 1024;
         std::vector<char> file_buffer(BUFFER_SIZE);
         setvbuf(file, file_buffer.data(), _IOFBF, BUFFER_SIZE); // 将缓冲区关联到文件流,数据会先写入内存缓冲区，不会立即触发磁盘I/O,只有当缓冲区满、调用fflush()或fclose()时，才会真正写入磁盘
         
-        if(thread_count == 1 || input.layer_name_to_id.size() == 1) // 若是单层也不用并行写，除非实现层内并行
+        if(thread_count == 1)
             printResult(file);
         else
-            printResultParallel(file);
+            printResultParallel(file, thread_count);
 
         fclose(file);
     }
@@ -152,142 +35,238 @@ private:
     Input& input;
     std::vector<int>& component;
     char num_buffer[32]; // 整数转换缓冲区
+
+    // 预计算数字查找表
+    static inline const char digits_table[201] = 
+        "0001020304050607080910111213141516171819"
+        "2021222324252627282930313233343536373839"
+        "4041424344454647484950515253545556575859"
+        "6061626364656667686970717273747576777879"
+        "8081828384858687888990919293949596979899";
     
     // 超快速整数转字符串
     char* ultraFastIntToStr(int value, char* end) {
         char* ptr = end;
-        bool negative = value < 0;
-        unsigned int n = negative ? -value : value;
         
-        do {
-            *--ptr = '0' + (n % 10);
-            n /= 10;
-        } while (n > 0);
-        
-        if (negative) {
+        // 特殊处理INT_MIN
+        if (value == INT_MIN) {
+            // 直接写入"-2147483648"
+            *--ptr = '8'; *--ptr = '4'; *--ptr = '6'; *--ptr = '3';
+            *--ptr = '8'; *--ptr = '4'; *--ptr = '7'; *--ptr = '4';
+            *--ptr = '1'; *--ptr = '2'; *--ptr = '-';
+            return ptr;
+        }
+
+        unsigned int n;
+        if (value < 0) {
+            n = -value;
+        } else {
+            n = value;
+        }
+
+        // 处理0的特殊情况
+        if (n == 0) {
+            *--ptr = '0';
+            if (value < 0) *--ptr = '-';
+            return ptr;
+        }
+
+        // 每次处理2位数字
+        while (n >= 100) {
+            unsigned int index = (n % 100) * 2;
+            n /= 100;
+            *--ptr = digits_table[index + 1];
+            *--ptr = digits_table[index];
+        }
+
+        // 处理剩余的数字（0-99）
+        if (n < 10) {
+            *--ptr = '0' + n;
+        } else {
+            unsigned int index = n * 2;
+            *--ptr = digits_table[index + 1];
+            *--ptr = digits_table[index];
+        }
+
+        if (value < 0) {
             *--ptr = '-';
         }
-        
+
         return ptr;
     }
     
     void printResult(FILE* file) {
+        Timer stage;
         const int layer_num = static_cast<int>(input.polygon_id_range_in_layer.size());
-        
-        // 直接使用哈希表避免预分配
-        std::vector<int>* layer_polygons = new std::vector<int>[layer_num]();
-        
-        // 单次遍历分组
+
+        // 分组
+        std::vector<std::vector<int>> layer_polygons(layer_num);
         for (int poly_id : component) {
             int layer_id = input.polygons[poly_id].layer_id;
             layer_polygons[layer_id].push_back(poly_id);
         }
-        
-        // 超大缓冲区用于构建输出行
-        const size_t LINE_BUFFER_SIZE = 64 * 1024; // 64KB行缓冲区
-        std::vector<char> line_buffer(LINE_BUFFER_SIZE);
-        
+        double group_time = stage.FromLastCallElapsed();
+
+        // 图层级缓冲区（1MB）
+        const size_t BUFFER_SIZE = 1024 * 1024;
+        std::vector<char> buffer(BUFFER_SIZE);
+        char* buffer_ptr = buffer.data();
+        const char* buffer_end = buffer.data() + BUFFER_SIZE;
+
         for (int i = 0; i < layer_num; ++i) {
-            const auto& ids = layer_polygons[i];
-            if (ids.empty()) continue;
-            
+            if (layer_polygons[i].empty()) continue;
+
+            const auto& polygon_ids = layer_polygons[i];
             const std::string& layer_name = input.layer_id_to_name[i];
-            
-            // 写入图层名称
-            fwrite(layer_name.data(), 1, layer_name.size(), file);
-            fputc('\n', file);
-            
-            // 批量处理每个多边形
-            for (int poly_id : ids) {
-                outputPolygon(file, input.polygons[poly_id], line_buffer);
+
+            // 写入图层头到缓冲区
+            const char* layer_name_data = layer_name.data();
+            size_t layer_name_size = layer_name.size();
+
+            if (buffer_ptr + layer_name_size + 1 >= buffer_end) {
+                fwrite(buffer.data(), 1, buffer_ptr - buffer.data(), file);
+                buffer_ptr = buffer.data();
+            }
+
+            memcpy(buffer_ptr, layer_name_data, layer_name_size);
+            buffer_ptr += layer_name_size;
+            *buffer_ptr++ = '\n';
+
+            // 批量处理当前图层的所有多边形
+            for (int poly_id : polygon_ids) {
+                const Polygon& p = input.polygons[poly_id];
+                const size_t vertex_count = p.vertex.size();
+
+                // 估计当前多边形所需空间（保守估计）
+                size_t estimated_size = vertex_count * 32 + 2; // 每个顶点约32字节
+
+                if (buffer_ptr + estimated_size >= buffer_end) {
+                    // 缓冲区不足，先刷新
+                    fwrite(buffer.data(), 1, buffer_ptr - buffer.data(), file);
+                    buffer_ptr = buffer.data();
+                }
+
+                // 写入多边形数据
+                for (size_t j = 0; j < vertex_count; ++j) {
+                    // 检查缓冲区空间
+                    if (buffer_ptr + 64 >= buffer_end) {
+                        fwrite(buffer.data(), 1, buffer_ptr - buffer.data(), file);
+                        buffer_ptr = buffer.data();
+                    }
+
+                    *buffer_ptr++ = '(';
+
+                    // 转换x坐标
+                    char* num_str = ultraFastIntToStr(p.vertex[j].x, num_buffer + sizeof(num_buffer) - 1);
+                    while (*num_str) {
+                        *buffer_ptr++ = *num_str++;
+                    }
+
+                    *buffer_ptr++ = ',';
+
+                    // 转换y坐标  
+                    num_str = ultraFastIntToStr(p.vertex[j].y, num_buffer + sizeof(num_buffer) - 1);
+                    while (*num_str) {
+                        *buffer_ptr++ = *num_str++;
+                    }
+
+                    *buffer_ptr++ = ')';
+
+                    if (j + 1 != vertex_count) {
+                        *buffer_ptr++ = ',';
+                    }
+                }
+
+                *buffer_ptr++ = '\n';
             }
         }
-        
-        delete[] layer_polygons;
-    }
-    
-    void outputPolygon(FILE* file, const Polygon& p, std::vector<char>& line_buffer) {
-        char* ptr = line_buffer.data();
-        const char* end = ptr + line_buffer.size();
-        const size_t vertex_count = p.vertex.size();
-        
-        for (size_t j = 0; j < vertex_count; ++j) {
-            if (ptr + 64 >= end) { // 预留足够空间
-                fwrite(line_buffer.data(), 1, ptr - line_buffer.data(), file);
-                ptr = line_buffer.data();
-            }
-            
-            *ptr++ = '(';
-            
-            // 手动整数转换
-            char* num_start = ultraFastIntToStr(p.vertex[j].x, num_buffer + sizeof(num_buffer) - 1);
-            char* num_ptr = num_start;
-            while (num_ptr < num_buffer + sizeof(num_buffer) && *num_ptr) {
-                *ptr++ = *num_ptr++;
-            }
-            
-            *ptr++ = ',';
-            
-            // 第二个整数
-            num_start = ultraFastIntToStr(p.vertex[j].y, num_buffer + sizeof(num_buffer) - 1);
-            num_ptr = num_start;
-            while (num_ptr < num_buffer + sizeof(num_buffer) && *num_ptr) {
-                *ptr++ = *num_ptr++;
-            }
-            
-            *ptr++ = ')';
-            
-            if (j + 1 != vertex_count) {
-                *ptr++ = ',';
-            }
-        }
-        
-        *ptr++ = '\n';
-        
+
         // 写入剩余数据
-        if (ptr > line_buffer.data()) {
-            fwrite(line_buffer.data(), 1, ptr - line_buffer.data(), file);
+        if (buffer_ptr > buffer.data()) {
+            fwrite(buffer.data(), 1, buffer_ptr - buffer.data(), file);
         }
-    }
+        fflush(file);
+        double output_time = stage.FromLastCallElapsed();
+
+        std::cout << "[Optimized Output ][Timing] group: " << group_time
+                  << " s, output: " << output_time
+                  << " s, total: " << stage.Elapsed() << " s" << std::endl;
+    }  
 
 #pragma region parallel_implement
     // 并行版本
-    void printResultParallel(FILE* file) {
+    void printResultParallel(FILE* file, int thread_count) {
+        Timer stage;
         const int layer_num = static_cast<int>(input.polygon_id_range_in_layer.size());
-        
+
         // 按图层分组
         std::vector<std::vector<int>> layer_polys(layer_num);
         for (int poly_id : component) {
             int layer_id = input.polygons[poly_id].layer_id;
             layer_polys[layer_id].push_back(poly_id);
         }
-        
-        // 并行处理每个图层
-        #pragma omp parallel for schedule(dynamic)
+        double group_time = stage.FromLastCallElapsed();
+
+        const int chunk_min_polygons = 10000;
+        // 层间串行处理，避免输出交叉，大图层层内并行，小图层层内串行
         for (int layer_id = 0; layer_id < layer_num; ++layer_id) {
             if (layer_polys[layer_id].empty()) continue;
-            
-            // 每个线程有自己的num_buffer
-            char num_buffer[32];
-            std::string poly_result;
-            
-            std::string layer_content;
-            layer_content.reserve(layer_polys[layer_id].size() * 256);
-            layer_content.append(input.layer_id_to_name[layer_id]); // 层名
-            layer_content.push_back('\n');
-            
-            // 层的每个多边形
-            for (int poly_id : layer_polys[layer_id]) {
-                layer_content.append(polygonToString(input.polygons[poly_id], num_buffer, poly_result));
-            }
-            
-            #pragma omp critical
+
+            const auto& polygons = layer_polys[layer_id];
+            const int total_polygons = polygons.size();
+
+            // 写入图层头
+            std::string layer_header = input.layer_id_to_name[layer_id] + "\n";
+            fwrite(layer_header.data(), 1, layer_header.size(), file);
+
+            if (total_polygons > chunk_min_polygons * 2) {
+            // 大图层：使用独立的并行区域
+            #pragma omp parallel num_threads(thread_count)
             {
-                fwrite(layer_content.data(), 1, layer_content.size(), file);
+                // 线程局部变量
+                char num_buffer[32];
+                std::string poly_result;
+                std::string thread_buffer;
+                thread_buffer.reserve(1024 * 1024); // 线程局部缓存区，预分配1MB
+                
+                int chunk_size = std::max(chunk_min_polygons, total_polygons / (thread_count * 4));
+                
+                // 分块并行
+                #pragma omp for schedule(dynamic, 1)
+                for (int chunk_start = 0; chunk_start < total_polygons; chunk_start += chunk_size) {
+                    int chunk_end = std::min(chunk_start + chunk_size, total_polygons);
+                    
+                    thread_buffer.clear();
+                    for (int i = chunk_start; i < chunk_end; ++i) {
+                        int poly_id = polygons[i];
+                        thread_buffer.append(polygonToString(input.polygons[poly_id], num_buffer, poly_result));
+                    }
+                    
+                    #pragma omp critical
+                    {
+                        fwrite(thread_buffer.data(), 1, thread_buffer.size(), file);
+                    }
+                }
             }
+            } else {
+                // 小图层：串行处理，避免并行开销
+                char num_buffer[32];
+                std::string poly_result;
+                for (int poly_id : polygons) {
+                    std::string poly_str = polygonToString(input.polygons[poly_id], num_buffer, poly_result);
+                    fwrite(poly_str.data(), 1, poly_str.size(), file);
+                }
+            }
+            // 刷新文件缓冲区
+            fflush(file);
         }
+        double output_time = stage.FromLastCallElapsed();
+
+        std::cout << "[Output][Timing] group: " << group_time
+          << " s, output: " << output_time
+          << " s, total: " << stage.Elapsed() << " s" << std::endl;
     }
-    
+
     std::string polygonToString(const Polygon& p, char* num_buffer, std::string& poly_result) {
         auto &result = poly_result;
         result.clear();
@@ -325,5 +304,3 @@ private:
 
 #pragma endregion
 };
-
-#pragma endregion
