@@ -28,11 +28,13 @@ public:
 
 private:
 	// Lazy BFS：仅按需扩展起点可达区域
-	std::vector<int> RunLazyConnectedComponent(SpaceIndex& spaceIndex, Intersect& intersect, int start_id,
-		std::vector<bool>& bfs_visted, const robin_hood::unordered_map<int, std::vector<int>>* extra_adj = nullptr);
+	std::vector<int> RunLazyConnectedComponent(SpaceIndex& spaceIndex, Intersect& intersect, int start_id, 
+		std::vector<bool>& bfs_visted, const robin_hood::unordered_map<int, std::vector<int>>* extra_adj = nullptr, 
+		std::vector<bool>* s1_visted = nullptr, std::vector<int>* s1_component = nullptr);
 	// 并行版本 Lazy BFS：仅按需扩展起点可达区域
 	std::vector<int> RunLazyConnectedComponentParallel(SpaceIndex &spaceIndex, Intersect &intersect, int start_id,
-		std::vector<bool> &bfs_visted, const robin_hood::unordered_map<int, std::vector<int>> *extra_adj, int thread_count);
+		std::vector<bool> &bfs_visted, const robin_hood::unordered_map<int, std::vector<int>> *extra_adj, 
+		std::vector<bool>* s1_visted, std::vector<int>* s1_component, int thread_count);
 };
 
 #pragma region implement
@@ -181,11 +183,11 @@ std::vector<int> Trace::TraceUsingLazyGraph() {
 		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
 		Intersect intersect(input, spaceIndex);
-		std::vector<bool> bfs_visted(input.total_polygon, false);
+		std::vector<bool> s1_bfs_visted(input.total_polygon, false);
 
 		/* s1 懒惰 BFS */
 		std::cout << "----- Starting Lazy BFS (s1) -----" << std::endl;
-		std::vector<int> component_s1 = RunLazyConnectedComponent(spaceIndex, intersect, start_pos_s1_id, bfs_visted);
+		std::vector<int> component_s1 = RunLazyConnectedComponent(spaceIndex, intersect, start_pos_s1_id, s1_bfs_visted);
 		intersect.FlushStats();
 		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
@@ -202,8 +204,8 @@ std::vector<int> Trace::TraceUsingLazyGraph() {
 				extra_adj[edge.second].push_back(edge.first);
 			}
 		}
-		bfs_visted.assign(input.total_polygon, false);
-		std::vector<int> component_s2 = RunLazyConnectedComponent(spaceIndex, intersect, start_pos_s2_id, bfs_visted, &extra_adj);
+		std::vector<bool> s2_bfs_visted(input.total_polygon, false);
+		std::vector<int> component_s2 = RunLazyConnectedComponent(spaceIndex, intersect, start_pos_s2_id, s2_bfs_visted, &extra_adj, &s1_bfs_visted, &component_s1);
 		intersect.FlushStats();
 		std::cout << "s1 connected polygon size: " << component_s1.size() << ", s2 connected polygon size: " << component_s2.size() << std::endl;
 		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
@@ -325,7 +327,7 @@ std::vector<int> Trace::TraceUsingLazyGraphParallel(int thread_count) {
         std::cout << "----- Starting Lazy BFS -----" << std::endl;
         Intersect intersect(input, spaceIndex);
         std::vector<bool> bfs_visted(input.total_polygon, false);
-        std::vector<int> component = RunLazyConnectedComponentParallel(spaceIndex, intersect, start_pos_id, bfs_visted, nullptr, thread_count);
+        std::vector<int> component = RunLazyConnectedComponentParallel(spaceIndex, intersect, start_pos_id, bfs_visted, nullptr, nullptr, nullptr, thread_count);
 		intersect.FlushStats();
         std::cout << "s1 connected polygon size: " << component.size() << std::endl;
         std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
@@ -356,11 +358,11 @@ std::vector<int> Trace::TraceUsingLazyGraphParallel(int thread_count) {
 		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
 		Intersect intersect(input, spaceIndex);
-		std::vector<bool> bfs_visted(input.total_polygon, false);
+		std::vector<bool> s1_bfs_visted(input.total_polygon, false);
 
 		/* s1 懒惰 BFS */
 		std::cout << "----- Starting Lazy BFS (s1) -----" << std::endl;
-		std::vector<int> component_s1 = RunLazyConnectedComponentParallel(spaceIndex, intersect, start_pos_s1_id, bfs_visted, nullptr, thread_count);
+		std::vector<int> component_s1 = RunLazyConnectedComponentParallel(spaceIndex, intersect, start_pos_s1_id, s1_bfs_visted, nullptr, nullptr, nullptr, thread_count);
 		intersect.FlushStats();
 		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
 
@@ -377,8 +379,8 @@ std::vector<int> Trace::TraceUsingLazyGraphParallel(int thread_count) {
 				extra_adj[edge.second].push_back(edge.first);
 			}
 		}
-		bfs_visted.assign(input.total_polygon, false);
-		std::vector<int> component_s2 = RunLazyConnectedComponentParallel(spaceIndex, intersect, start_pos_s2_id, bfs_visted, &extra_adj, thread_count);
+		std::vector<bool> s2_bfs_visted(input.total_polygon, false);
+		std::vector<int> component_s2 = RunLazyConnectedComponentParallel(spaceIndex, intersect, start_pos_s2_id, s2_bfs_visted, &extra_adj, &s1_bfs_visted, &component_s1, thread_count);
 		intersect.FlushStats();
 		std::cout << "s1 connected polygon size: " << component_s1.size() << ", s2 connected polygon size: " << component_s2.size() << std::endl;
 		std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
@@ -389,7 +391,8 @@ std::vector<int> Trace::TraceUsingLazyGraphParallel(int thread_count) {
 
 // Lazy BFS：仅按需扩展起点可达区域
 std::vector<int> Trace::RunLazyConnectedComponent(SpaceIndex& spaceIndex, Intersect& intersect, int start_id,
-	std::vector<bool>& bfs_visted, const robin_hood::unordered_map<int, std::vector<int>>* extra_adj) {
+	std::vector<bool>& bfs_visted, const robin_hood::unordered_map<int, std::vector<int>>* extra_adj,
+	std::vector<bool>* s1_visted, std::vector<int>* s1_component) {
 	if (start_id < 0 || start_id >= input.total_polygon) return {};
 
 	const Polygon* start_poly = &input.polygons[start_id];
@@ -432,8 +435,37 @@ std::vector<int> Trace::RunLazyConnectedComponent(SpaceIndex& spaceIndex, Inters
 			}
 		}
 
-		// 未访问邻居入队
+		// 处理当前节点的邻居
 		for (int next : neighbors) {
+			// 如果此时是起点s2的 lazyBFS, 则检查一下next节点是否属于s1的联通分量，若是，则合并s1的连通分量
+			if (s1_visted && (*s1_visted)[next]) {
+			    std::cout << "s1 and s2 component overlap! merging s1's component into s2!" << std::endl;
+				// 先全部合并过来，做已访问标记
+			    for (int s1_node : *s1_component) {
+			        if (bfs_visted[s1_node]) continue; // 避免重复处理
+			        bfs_visted[s1_node] = true;
+			        component.push_back(s1_node);
+			    }
+				// 再遍历处理s1连通分量节点的额外邻居
+				for (int s1_node : *s1_component) {
+			        auto it = extra_adj->find(s1_node);
+			        if (it != extra_adj->end()) {
+			            extra_neighbors += it->second.size();
+						for (int extra_next : it->second) {
+                		    if (!bfs_visted[extra_next]) {
+                		        bfs_visted[extra_next] = true;
+                		        bfs_queue.push(extra_next);
+                		        ++enqueued;
+                		    } else {
+                		        ++skipped_visited;
+                		    }
+                		}
+			        }
+			    }
+			    s1_visted = nullptr; // 置空，保证只会在第一次检测到有重叠时合并一次
+			}
+
+			// 未访问邻居入队
 			if (!bfs_visted[next]) {
 				bfs_visted[next] = true;
 				bfs_queue.push(next);
@@ -458,7 +490,8 @@ std::vector<int> Trace::RunLazyConnectedComponent(SpaceIndex& spaceIndex, Inters
 
 // 并行版本：Lazy BFS：仅按需扩展起点可达区域
 std::vector<int> Trace::RunLazyConnectedComponentParallel(SpaceIndex& spaceIndex, Intersect& intersect, int start_id,
-	std::vector<bool>& bfs_visted, const robin_hood::unordered_map<int, std::vector<int>>* extra_adj, int thread_count) {
+	std::vector<bool>& bfs_visted, const robin_hood::unordered_map<int, std::vector<int>>* extra_adj, 
+	std::vector<bool>* s1_visted, std::vector<int>* s1_component, int thread_count) {
 	if (start_id < 0 || start_id >= input.total_polygon) return {};
 
 	const Polygon* start_poly = &input.polygons[start_id];
@@ -558,13 +591,43 @@ std::vector<int> Trace::RunLazyConnectedComponentParallel(SpaceIndex& spaceIndex
 		// 处理邻居节点（统一处理并行/串行结果）
 	    for (size_t i = 0; i < level_size; ++i) {
 	        for (int next : neighbors_list[i]) {
-	            if (!bfs_visted[next]) {
-	                bfs_visted[next] = true;
-	                bfs_queue.push(next);
-	                ++enqueued;
-	            } else {
-	                ++skipped_visited;
-	            }
+				// 如果此时是起点s2的 lazyBFS, 则检查一下next节点是否属于s1的联通分量，若是，则合并s1的连通分量
+				if (s1_visted && (*s1_visted)[next]) {
+				    std::cout << "s1 and s2 component overlap! merging s1's component into s2!" << std::endl;
+					// 先全部合并过来，做已访问标记
+				    for (int s1_node : *s1_component) {
+				        if (bfs_visted[s1_node]) continue; // 避免重复处理
+				        bfs_visted[s1_node] = true;
+				        component.push_back(s1_node);
+				    }
+					// 再遍历处理s1连通分量节点的额外邻居
+					for (int s1_node : *s1_component) {
+				        auto it = extra_adj->find(s1_node);
+				        if (it != extra_adj->end()) {
+				            extra_neighbors += it->second.size();
+							for (int extra_next : it->second) {
+        	        		    if (!bfs_visted[extra_next]) {
+        	        		        bfs_visted[extra_next] = true;
+        	        		        bfs_queue.push(extra_next);
+        	        		        ++enqueued;
+        	        		    } else {
+        	        		        ++skipped_visited;
+        	        		    }
+        	        		}
+				        }
+				    }
+				    s1_visted = nullptr; // 置空，保证只会在第一次检测到有重叠时合并一次
+				}
+
+				// 未访问邻居入队
+				if (!bfs_visted[next]) {
+					bfs_visted[next] = true;
+					bfs_queue.push(next);
+					++enqueued;
+				}
+				else {
+					++skipped_visited;
+				}
 	        }
 	    }
 	}
