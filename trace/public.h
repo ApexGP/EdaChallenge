@@ -10,6 +10,16 @@
 #include "NaiveThreadPool.h" // 线程池
 using goal::NaiveThreadPool;
 
+// #define INFO    // 若定义则会进行一些统计和输出运行info信息
+
+#ifdef INFO
+#define INFO_MSG(x) std::cout << "[INFO] " << x << std::endl;
+#define INFO_INSTR(x) x
+#else
+#define INFO_MSG(x)
+#define INFO_INSTR(x)
+#endif
+
 /* For CGAL if using
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/Polygon_2.h>

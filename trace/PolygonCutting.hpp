@@ -67,8 +67,8 @@ public:
 		}
 		input.polygon_id_range_in_layer[aa_layer_id] = Range(aa_start_id, aa_start_id + aa_polygons.size() - 1);
 
-		std::cout << "After Merge and Cutting Polygons" << std::endl;
-		input.PrintLayoutInfo();
+		INFO_MSG( "After Merge and Cutting Polygons" )
+		INFO_INSTR(input.PrintLayoutInfo();)
 
 		// 新的id已确定，可更新po_cut_edges为使用对应的多边形id表示
 		robin_hood::unordered_map<int, std::vector<Edge>> updated_po_cut_edges;
@@ -278,7 +278,7 @@ private:
 		edges.reserve(500000);
 		// 收集空间索引
 		std::vector<QuadTreeNode*> leafNode;
-		std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
+		INFO_MSG( "Handling QuadTree : " << qtree->_name )
 		qtree->GetAllLeafNode(leafNode);
 
 		// 根据空间索引（小格子内），对其内多边形执行相交检测
@@ -311,7 +311,7 @@ private:
 		edges.reserve(500000);
 		// 收集空间索引
 		std::vector<QuadTreeNode*> leafNode;
-		std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
+		INFO_MSG( "Handling QuadTree : " << qtree->_name )
 		qtree->GetAllLeafNode(leafNode);
 
 		// 根据空间索引（小格子内），对其内多边形执行相交检测
@@ -389,8 +389,8 @@ public:
 		}
 		input.polygon_id_range_in_layer[aa_layer_id] = Range(aa_start_id, aa_start_id + aa_polygons.size() - 1);
 
-		std::cout << "After Merge and Cutting Polygons" << std::endl;
-		input.PrintLayoutInfo();
+		INFO_MSG( "After Merge and Cutting Polygons" )
+		INFO_INSTR(input.PrintLayoutInfo();)
 
 		// 新的id已确定，可更新po_cut_edges为使用对应的多边形id表示
 		robin_hood::unordered_map<int, std::vector<Edge>> updated_po_cut_edges;
@@ -650,7 +650,7 @@ private:
 		edges.reserve(500000);
 		// 收集空间索引
 		std::vector<QuadTreeNode*> leafNode;
-		std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
+		INFO_MSG( "Handling QuadTree : " << qtree->_name )
 		qtree->GetAllLeafNode(leafNode);
 
 		// 并行处理每个叶子节点
@@ -703,7 +703,7 @@ private:
 		edges.reserve(500000);
 		// 收集空间索引
 		std::vector<QuadTreeNode*> leafNode;
-		std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
+		INFO_MSG( "Handling QuadTree : " << qtree->_name )
 		qtree->GetAllLeafNode(leafNode);
 
 		// 并行处理每个叶子节点

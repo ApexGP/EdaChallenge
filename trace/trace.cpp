@@ -12,13 +12,13 @@ using namespace std::chrono;
 
 // 求解
 static void solve(string layout_path, string rule_path, int thread, string res_path) {
-	Timer myTimer;
+	INFO_INSTR(Timer myTimer;)
 	 /* 输入 */
     std::cout << "----- Starting Input -----" << std::endl;
     Input input(layout_path, rule_path, thread);
-    input.PrintLayoutInfo();
-    input.PrintRuleInfo();
-    std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+    INFO_INSTR(input.PrintLayoutInfo();)
+    INFO_INSTR(input.PrintRuleInfo();)
+    INFO_MSG( "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl )
 
     /* 链路追踪 */
     std::cout << "================================ Starting Trace ================================" << std::endl;
@@ -32,14 +32,14 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
         // component = trace.TraceUsingCompleteGraphParallel(thread); // 先完全建图再BFS
         component = trace.TraceUsingLazyGraphParallel(thread);     // BFS驱动延迟建图
     }
-    std::cout << "================================ Trace Use Time : " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+    INFO_MSG( "================================ Trace Use Time : " << myTimer.FromLastCallElapsed() << " s" << std::endl )
 
     /* 输出 */
     std::cout << "----- Starting Output -----" << std::endl;
     Output output(input, res_path, component, thread);
-    std::cout << "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl << std::endl;
+    INFO_MSG( "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl )
 
-    std::cout << "----- Total Time: " << myTimer.Elapsed() << " s" << std::endl;
+    INFO_MSG( "----- Total Time: " << myTimer.Elapsed() << " s" )
     std::_Exit(0); // 快速返回，避免析构开销
 }
 

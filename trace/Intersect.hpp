@@ -75,7 +75,7 @@ private:
     SpaceIndex& spaceIndex;
 
     /* For 完全建图 */
-    mutable IntersectionStats stats;
+    INFO_INSTR(mutable IntersectionStats stats;)
     // Current intersection detection method
     IntersectionMethod method = IntersectionMethod::MANHATTAN_COMPLETE;
 
@@ -85,11 +85,11 @@ private:
     // Cache for neighbor candidate detection
     robin_hood::unordered_set<int> neighbor_candidate_cache;
     // Statistics for lazy neighbor detection
-    size_t lazy_neighbor_calls = 0;
-    size_t lazy_neighbor_candidates = 0;
-    size_t lazy_neighbor_enqueues = 0;
-    size_t lazy_neighbor_cache_hits = 0;
-    size_t lazy_neighbor_duplicates = 0;
+    INFO_INSTR(size_t lazy_neighbor_calls = 0;)
+    INFO_INSTR(size_t lazy_neighbor_candidates = 0;)
+    INFO_INSTR(size_t lazy_neighbor_enqueues = 0;)
+    INFO_INSTR(size_t lazy_neighbor_cache_hits = 0;)
+    INFO_INSTR(size_t lazy_neighbor_duplicates = 0;)
 
 public:
     /**
@@ -109,14 +109,14 @@ public:
      * @return Vector of polygon ID pairs that intersect
      */
     std::vector<std::pair<int, int>> getAllEdge() {
-        Timer total_timer;
-        stats.reset();
+        INFO_INSTR(Timer total_timer;)
+        INFO_INSTR(stats.reset();)
 
         std::vector<std::pair<int, int>> edges;
         edges.reserve(500000);
         const std::vector<QuadTree*>& quad_trees = spaceIndex.GetSpaceIndex();
 
-        std::cout << "Using intersection method: " << getMethodName() << std::endl;
+        INFO_MSG( "Using intersection method: " << getMethodName() )
 
         // Process based on selected method
         switch (method) {
@@ -132,22 +132,22 @@ public:
         removeDuplicateEdges(edges);
 
         // Print statistics
-        stats.total_time_ms = total_timer.ElapsedMs();
-        stats.print();
+        INFO_INSTR(stats.total_time_ms = total_timer.ElapsedMs();)
+        INFO_INSTR(stats.print();)
 
         return edges;
     }
 
     // 并行版本：获取所有相交边
     std::vector<std::pair<int, int>> getAllEdgeParallel(int thread_count) {
-        Timer total_timer;
-        stats.reset();
+        INFO_INSTR(Timer total_timer;)
+        INFO_INSTR(stats.reset();)
 
         std::vector<std::pair<int, int>> edges;
         edges.reserve(500000);
         const std::vector<QuadTree*>& quad_trees = spaceIndex.GetSpaceIndex();
 
-        std::cout << "Using intersection method: " << getMethodName() << std::endl;
+        INFO_MSG( "Using intersection method: " << getMethodName() )
 
         // Process based on selected method
         switch (method) {
@@ -163,8 +163,8 @@ public:
         removeDuplicateEdges(edges);
 
         // Print statistics
-        stats.total_time_ms = total_timer.ElapsedMs();
-        stats.print();
+        INFO_INSTR(stats.total_time_ms = total_timer.ElapsedMs();)
+        INFO_INSTR(stats.print();)
 
         return edges;
     }
@@ -185,7 +185,7 @@ public:
      * @brief Gets intersection statistics
      * @return Reference to statistics object
      */
-    const IntersectionStats& getStats() const { return stats; }
+    INFO_INSTR(const IntersectionStats& getStats() const { return stats; })
 
 #pragma region for_lazy_bfs
     /* ===================== For 延迟建图 begin =====================*/
@@ -200,7 +200,7 @@ public:
 
         Polygon* source = &input.polygons[polygon_id];
         neighbor_candidate_cache.clear();
-        ++lazy_neighbor_calls;
+        INFO_INSTR(++lazy_neighbor_calls;)
 
         // 获取与该多边形所在层有关联的所有四叉树
         const auto& quad_trees = spaceIndex.GetQuadTreesForLayer(source->layer_id);
@@ -214,21 +214,21 @@ public:
             for (auto* leaf : leaf_buffer) {
                 // Direct checking for light leaves
                 for (auto* candidate : leaf->_datas) {
-                    ++lazy_neighbor_candidates;
+                    INFO_INSTR(++lazy_neighbor_candidates;)
                     const int candidate_id = candidate->id;
 
                     if (candidate_id == polygon_id) continue; // 是自身
                     if (bfs_visted[candidate_id]) continue;   // bfs已访问过
 
                     //if (!neighbor_candidate_cache.insert(candidate_id).second) { // 重复邻居 ps:不去重更快
-                    //    ++lazy_neighbor_duplicates;
+                    //    INFO_INSTR(++lazy_neighbor_duplicates;)
                     //    continue;
                     //}
 
                     // Detailed Manhattan intersection check
                     if (ManhattanIntersectDetector::manhattanPolygonsIntersect(source, candidate)) {
                         neighbors.push_back(candidate_id);
-                        ++lazy_neighbor_enqueues;
+                        INFO_INSTR(++lazy_neighbor_enqueues;)
                     }
                 }
             }
@@ -272,13 +272,15 @@ public:
      * @brief Flushes and prints statistics
      */
     void FlushStats() const {
-        if (lazy_neighbor_calls > 0) {
-            std::cout << "[LazyBFS] neighbor stats - calls=" << lazy_neighbor_calls
+        INFO_INSTR(
+            if (lazy_neighbor_calls > 0) {
+            INFO_MSG( "[LazyBFS] neighbor stats - calls=" << lazy_neighbor_calls
                 << " candidates=" << lazy_neighbor_candidates
                 << " enqueued=" << lazy_neighbor_enqueues
                 << " cache_hits=" << lazy_neighbor_cache_hits
-                << " duplicates=" << lazy_neighbor_duplicates << std::endl;
-        }
+                << " duplicates=" << lazy_neighbor_duplicates )
+            }
+        )
     }
 
     /* ===================== For 延迟建图 end =====================*/
@@ -299,7 +301,7 @@ private:
 
         for (auto& qtree : quad_trees) {
             leafNode.clear();
-            std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
+            INFO_MSG( "Handling QuadTree : " << qtree->_name )
 
             qtree->GetAllLeafNode(leafNode);
 
@@ -310,9 +312,9 @@ private:
                     continue;
                 }
 
-                stats.total_leaf_nodes++;
-                stats.total_polygon_pairs += (local_size * (local_size - 1)) / 2;
-                stats.manhattan_complete_used++;
+                INFO_INSTR(stats.total_leaf_nodes++;)
+                INFO_INSTR(stats.total_polygon_pairs += (local_size * (local_size - 1)) / 2;)
+                INFO_INSTR(stats.manhattan_complete_used++;)
 
                 // 建立小型并查集
 				if (lfd.size() > ufs.getSize())
@@ -330,7 +332,7 @@ private:
 						if (ManhattanIntersectDetector::manhattanPolygonsIntersect(a, b)) {
 							edges.emplace_back(a->id, b->id);
 							ufs.join(i, j);
-							stats.intersections_found++;
+							INFO_INSTR(stats.intersections_found++;)
 						}
 					}
 				}
@@ -423,7 +425,7 @@ private:
             // Collect spatial data
             leafData.clear();
             leafRect.clear();
-            std::cout << "Handling QuadTree : " << qtree->_name << std::endl;
+            INFO_MSG( "Handling QuadTree : " << qtree->_name )
 
             qtree->GetAllLeafData(leafData, leafRect);
 
@@ -433,14 +435,14 @@ private:
                 const auto& rect = leafRect[i];
                 if (lfd.size() < 2) continue;
 
-                stats.total_leaf_nodes++;
-                stats.total_polygon_pairs += (lfd.size() * (lfd.size() - 1)) / 2;
-                stats.batch_grid_used++;
+                INFO_INSTR(stats.total_leaf_nodes++;)
+                INFO_INSTR(stats.total_polygon_pairs += (lfd.size() * (lfd.size() - 1)) / 2;)
+                INFO_INSTR(stats.batch_grid_used++;)
 
                 // Use batch grid detector
                 size_t edges_nums_before = edges.size();
                 bgid.batchManhattanPolygonsIntersect(rect, lfd, edges);
-                stats.intersections_found += (edges.size() - edges_nums_before);
+                INFO_INSTR(stats.intersections_found += (edges.size() - edges_nums_before);)
             }
         }
     }

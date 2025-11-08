@@ -183,7 +183,7 @@ public:
 
     // 读取规则文件
     void readRule(const std::string& rule_path) {
-        Timer timing;
+        INFO_INSTR(Timer timing;)
         auto view = mapRuleFile(rule_path);
         const char* const data_begin = view.data;
         const char* const data_end = view.data ? view.data + view.size : view.data;
@@ -403,22 +403,22 @@ public:
         polygon_id_range_in_layer.assign(layer_name_to_id.size(), Range{0, -1});
         rebuildLayerNameCache();
 
-        std::cout << "[Input][Timing] readRule total: " << timing.Elapsed() << " s" << std::endl;
+        INFO_MSG( "[Input][Timing] readRule total: " << timing.Elapsed() << " s" )
     }
 
     // 读取版图文件
     void readLayout(const std::string& layout_path) {
-        Timer stage;
+        INFO_INSTR(Timer stage;)
         // 内存映射文件
         LayoutFileView layout_view = mapLayoutFile(layout_path);
         const char* file_data = layout_view.data;
         size_t file_size = layout_view.size;
         assert(file_data && file_size > 0 && "empty layout file");
-        double buffer_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double buffer_time = stage.FromLastCallElapsed();)
 
         // 第一轮扫描统计层信息
         size_t total_polygons_scanned = preprocessLayoutBuffer(file_data, file_size);
-        double first_pass_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double first_pass_time = stage.FromLastCallElapsed();)
 
         // 预留多边形数组空间
         size_t reserve_count = total_polygons_scanned;
@@ -428,7 +428,7 @@ public:
         }
         polygons.reserve(reserve_count);
         polygons.resize(total_polygons_scanned);
-        double resize_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double resize_time = stage.FromLastCallElapsed();)
 
         // 更新层多边形的id范围
         size_t layer_count = layer_name_to_id.size();
@@ -444,7 +444,7 @@ public:
             next_polygon_id += polygon_count;
         }
         total_polygon = next_polygon_id;
-        double range_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double range_time = stage.FromLastCallElapsed();)
 
         // 收集每个层分块的任务
         std::vector<ParseTaskRange> tasks;
@@ -480,37 +480,37 @@ public:
                 }
             }
         }
-        double collect_task_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double collect_task_time = stage.FromLastCallElapsed();)
 
         // 依次执行解析任务
         for (size_t i = 0; i < tasks.size(); ++i) {
             executeParseRange(tasks[i], layout);
         }
-        double parse_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double parse_time = stage.FromLastCallElapsed();)
 
-        std::cout << "[Input][Timing] readLayout buffer: " << buffer_time
+        INFO_MSG( "[Input][Timing] readLayout buffer: " << buffer_time
                   << " s, first_pass: " << first_pass_time
                   << " s, resize: " << resize_time
                   << " s, range: " << range_time
                   << " s, collect_task: " << collect_task_time
                   << " s, parse: " << parse_time
-                  << " s, total: " << stage.Elapsed() << " s" << std::endl;
+                  << " s, total: " << stage.Elapsed() << " s" )
     }
 
 #pragma region read_parallel
     // 并行读取版图文件
     void readLayoutParallel(const std::string& layout_path, int thread_count) {
-        Timer stage;
+        INFO_INSTR(Timer stage;)
         // 内存映射文件
         LayoutFileView layout_view = mapLayoutFile(layout_path);
         const char* file_data = layout_view.data;
         size_t file_size = layout_view.size;
         assert(file_data && file_size > 0 && "empty layout file");
-        double buffer_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double buffer_time = stage.FromLastCallElapsed();)
 
         // 第一轮扫描统计层信息
         size_t total_polygons_scanned = preprocessLayoutBuffer(file_data, file_size);
-        double first_pass_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double first_pass_time = stage.FromLastCallElapsed();)
 
         // 预留多边形数组空间
         size_t reserve_count = total_polygons_scanned;
@@ -520,7 +520,7 @@ public:
         }
         polygons.reserve(reserve_count);
         polygons.resize(total_polygons_scanned);
-        double resize_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double resize_time = stage.FromLastCallElapsed();)
 
         // 更新层多边形的id范围
         size_t layer_count = layer_name_to_id.size();
@@ -536,7 +536,7 @@ public:
             next_polygon_id += polygon_count;
         }
         total_polygon = next_polygon_id;
-        double range_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double range_time = stage.FromLastCallElapsed();)
 
         // 收集每个层分块的任务
         std::vector<ParseTaskRange> tasks;
@@ -572,14 +572,14 @@ public:
                 }
             }
         }
-        double collect_task_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double collect_task_time = stage.FromLastCallElapsed();)
 
         // 按任务量从大到小排序任务
         std::vector<Rect> thread_local_layouts(thread_count);
         std::sort(tasks.begin(), tasks.end(), [](const ParseTaskRange& a, const ParseTaskRange& b) {
             return a.polygon_count > b.polygon_count;
         });
-        double sort_task_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double sort_task_time = stage.FromLastCallElapsed();)
 
         // 任务并行解析
         #pragma omp parallel for schedule(dynamic) num_threads(thread_count)
@@ -593,16 +593,16 @@ public:
                 layout.update(rect);
             }
         }
-        double parse_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double parse_time = stage.FromLastCallElapsed();)
 
-        std::cout << "[Input][Timing] readLayoutParallel buffer: " << buffer_time
+        INFO_MSG( "[Input][Timing] readLayoutParallel buffer: " << buffer_time
                   << " s, first_pass: " << first_pass_time
                   << " s, resize: " << resize_time
                   << " s, range: " << range_time
                   << " s, collect_task: " << collect_task_time
                   << " s, sort_task: " << sort_task_time
                   << " s, parse: " << parse_time
-                  << " s, total: " << stage.Elapsed() << " s" << std::endl;
+                  << " s, total: " << stage.Elapsed() << " s" )
     }
 #pragma endregion
 

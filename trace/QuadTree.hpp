@@ -182,16 +182,16 @@ private:
 
         // 节点深度达到最大深度或者节点数据量小于等于限制值，停止划分
         if (node->_depth >= _maxDepth) {
-            _maxCurrDataNum = static_cast<int>((node->_datas.size() > _maxCurrDataNum) ? node->_datas.size() : _maxCurrDataNum);
+            INFO_INSTR(_maxCurrDataNum = static_cast<int>((node->_datas.size() > _maxCurrDataNum) ? node->_datas.size() : _maxCurrDataNum);)
             return;
         }
         if (node->_datas.size() <= _maxDataNum) {
-            _maxCurrDataNum = static_cast<int>((node->_datas.size() > _maxCurrDataNum) ? node->_datas.size() : _maxCurrDataNum);
+            INFO_INSTR(_maxCurrDataNum = static_cast<int>((node->_datas.size() > _maxCurrDataNum) ? node->_datas.size() : _maxCurrDataNum);)
             return;
         }
 
         // 更新当前实际深度
-        _maxCurrDepth = ((node->_depth + 1 > _maxCurrDepth) ? node->_depth + 1 : _maxCurrDepth);
+        INFO_INSTR(_maxCurrDepth = ((node->_depth + 1 > _maxCurrDepth) ? node->_depth + 1 : _maxCurrDepth);)
 
         // 计算矩形划分中点
         const Rect& parent_rect = node->_rect;

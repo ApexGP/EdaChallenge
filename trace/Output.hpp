@@ -96,7 +96,7 @@ private:
     }
     
     void printResult(FILE* file) {
-        Timer stage;
+        INFO_INSTR(Timer stage;)
         const int layer_num = static_cast<int>(input.polygon_id_range_in_layer.size());
 
         // 分组
@@ -105,7 +105,7 @@ private:
             int layer_id = input.polygons[poly_id].layer_id;
             layer_polygons[layer_id].push_back(poly_id);
         }
-        double group_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double group_time = stage.FromLastCallElapsed();)
 
         // 图层级缓冲区（1MB）
         const size_t BUFFER_SIZE = 1024 * 1024;
@@ -186,17 +186,17 @@ private:
             fwrite(buffer.data(), 1, buffer_ptr - buffer.data(), file);
         }
         fflush(file);
-        double output_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double output_time = stage.FromLastCallElapsed();)
 
-        std::cout << "[Optimized Output ][Timing] group: " << group_time
+        INFO_MSG( "[Output][Timing] group: " << group_time
                   << " s, output: " << output_time
-                  << " s, total: " << stage.Elapsed() << " s" << std::endl;
+                  << " s, total: " << stage.Elapsed() << " s" )
     }  
 
 #pragma region parallel_implement
     // 并行版本
     void printResultParallel(FILE* file, int thread_count) {
-        Timer stage;
+        INFO_INSTR(Timer stage;)
         const int layer_num = static_cast<int>(input.polygon_id_range_in_layer.size());
 
         // 按图层分组
@@ -205,7 +205,7 @@ private:
             int layer_id = input.polygons[poly_id].layer_id;
             layer_polys[layer_id].push_back(poly_id);
         }
-        double group_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double group_time = stage.FromLastCallElapsed();)
 
         const int chunk_min_polygons = 10000;
         // 层间串行处理，避免输出交叉，大图层层内并行，小图层层内串行
@@ -260,11 +260,11 @@ private:
             // 刷新文件缓冲区
             fflush(file);
         }
-        double output_time = stage.FromLastCallElapsed();
+        INFO_INSTR(double output_time = stage.FromLastCallElapsed();)
 
-        std::cout << "[Output][Timing] group: " << group_time
+        INFO_MSG( "[Output][Timing] group: " << group_time
           << " s, output: " << output_time
-          << " s, total: " << stage.Elapsed() << " s" << std::endl;
+          << " s, total: " << stage.Elapsed() << " s" )
     }
 
     std::string polygonToString(const Polygon& p, char* num_buffer, std::string& poly_result) {
