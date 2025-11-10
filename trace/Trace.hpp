@@ -585,9 +585,9 @@ std::vector<int> Trace::RunLazyConnectedComponentParallel(SpaceIndex& spaceIndex
 	                if (!bfs_visted[next]) {
 	                    bfs_visted[next] = 1;
 	                    next_frontier.push_back(next);
-	                    enqueued++;
+	                    INFO_INSTR(enqueued++;)
 	                } else {
-	                    skipped_visited++;
+	                    INFO_INSTR(skipped_visited++;)
 	                }
 	            }
 	            neighbors.clear();
@@ -600,8 +600,7 @@ std::vector<int> Trace::RunLazyConnectedComponentParallel(SpaceIndex& spaceIndex
 	    else {
 	        uint8_t* visited_ptr = bfs_visted.data();
 
-	        #pragma omp parallel for schedule(dynamic, 50) num_threads(thread_count) \
-	            reduction(+:neighbor_candidates, extra_neighbors, skipped_visited, enqueued)
+	        #pragma omp parallel for schedule(dynamic, 50) INFO_INSTR(reduction(+:neighbor_candidates, extra_neighbors, skipped_visited, enqueued))
 	        for (int idx = 0; idx < static_cast<int>(level_size); ++idx) {
 	            int current = frontier[idx];
 	            int tid = omp_get_thread_num();
