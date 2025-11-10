@@ -131,6 +131,16 @@ public:
         }
     }
 
+    void CreatIndexParallelSharedTeam(std::vector<Polygon*>& poly_ptr) {
+        clear();
+
+        // 初始化根节点数据
+        _root->_datas = poly_ptr;
+
+        // 并行划分，直接共享外部并行区（ps:外部已开树级别的并行区，若再开并行区则将嵌套并行，而openMP默认禁止嵌套并行，此时内部划分的节点任务将无法利用外部的空闲线程）
+        SplitNodeParallel(_root);
+    }
+
     // 插入功能（待实现）
     bool Insert() { return false; }
 
@@ -296,7 +306,7 @@ private:
         std::vector<Polygon*>().swap(node->_datas);
 
         // 递归处理子节点（基于数据量决定并行）
-        const size_t PARALLEL_SIZE_THRESHOLD = 10000;  // 可调整的并行阈值
+        const size_t PARALLEL_SIZE_THRESHOLD = 2048;  // 可调整的并行阈值
         
         // 封装子节点处理逻辑
         auto process_child = [&](QuadTreeNode* child) {

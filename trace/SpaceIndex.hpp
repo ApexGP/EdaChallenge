@@ -229,6 +229,7 @@ public:
 
 	// 并行版本：根据图层Via关系创建四叉树空间索引-相连的两层合并建一棵树
 	void CreatSpaceIndexMergedParallel(int thread_count) {
+		std::vector<QuadTree*> pending_trees; // 先收集需要处理的树
 		/* 单起点单层：只为起点层建立索引 */
 		if (input.start_pos.size() == 1 && input.via_rules.empty()) {
 			int layer_id = input.start_pos[0].first;
@@ -236,7 +237,8 @@ public:
 
 			// 建立四叉树
 			QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, layer_name);
-			CreatQuadTreeIndexParallel(quad_tree, thread_count);
+			// CreatQuadTreeIndexParallel(quad_tree, thread_count);
+			pending_trees.push_back(quad_tree);
 			quad_trees.push_back(quad_tree);
 			layer_name_to_quadtree[layer_name] = quad_tree;
 		}
@@ -247,7 +249,8 @@ public:
 				// 建立四叉树
 				std::string name = input.layer_id_to_name[via.first] + "-" + input.layer_id_to_name[via.second];
 				QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-				CreatQuadTreeIndexParallel(quad_tree, thread_count);
+				// CreatQuadTreeIndexParallel(quad_tree, thread_count);
+				pending_trees.push_back(quad_tree);
 				quad_trees.push_back(quad_tree);
 				//一个层可能指向多棵合并树，这里任意记录一棵即可
 				layer_name_to_quadtree[input.layer_id_to_name[via.first]] = quad_tree;
@@ -255,11 +258,15 @@ public:
 			}
 		}
 		else throw std::logic_error(__func__ + std::string("error! cannot reach here!"));
+
+		// 多树任务并行
+		BuildQuadTreesParallel(pending_trees, thread_count);
 	}
 
 	// 并行版本：根据图层Via关系创建四叉树空间索引-每层独立建一棵树，注册每层联通关系
 	void CreatSpaceIndexSeparatedParallel(int thread_count) {
 		layer_quadtrees.resize(input.polygon_id_range_in_layer.size()); // 初始化每层关联的四叉树容器
+		std::vector<QuadTree*> pending_trees; // 先收集需要处理的树
 
 		/* 单起点情况：只为起点层建立索引 */
 		if (input.start_pos.size() == 1 && input.via_rules.empty()) {
@@ -268,7 +275,8 @@ public:
 
 			// 创建四叉树索引
 			QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, layer_name);
-			CreatQuadTreeIndexParallel(quad_tree, thread_count);
+			// CreatQuadTreeIndexParallel(quad_tree, thread_count);
+			pending_trees.push_back(quad_tree);
 			quad_trees.push_back(quad_tree);
 			layer_name_to_quadtree[layer_name] = quad_tree;
 
@@ -285,7 +293,8 @@ public:
 					if(layer_name_to_quadtree.find(name) == layer_name_to_quadtree.end()){
 						// 创建该层的四叉树索引
 						QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, name);
-						CreatQuadTreeIndexParallel(quad_tree, thread_count);
+						// CreatQuadTreeIndexParallel(quad_tree, thread_count);
+						pending_trees.push_back(quad_tree);
 						quad_trees.push_back(quad_tree);
 						layer_name_to_quadtree[name] = quad_tree;
 						layer_quadtrees[layer_id].push_back(quad_tree);// 注册自己的四叉树
@@ -302,10 +311,13 @@ public:
 			}
 		}
 		else throw std::logic_error(__func__ + std::string("error! cannot reach here!"));
+
+		// 多树任务并行
+		BuildQuadTreesParallel(pending_trees, thread_count);
 	}
 
-	// 并行版本：为给定的四叉树执行实际数据划分
-	void CreatQuadTreeIndexParallel(QuadTree* quad_tree, int thread_count) {
+	// 并行版本：为给定的四叉树执行实际数据划分，若 use_shared_team = true，表示所调用的函数内部不另开并行区，产生的任务直接共享外部并行区
+	void CreatQuadTreeIndexParallel(QuadTree* quad_tree, int thread_count, bool use_shared_team = false) {
 		std::string& name = quad_tree->_name;
 		std::vector<Polygon*> poly_ptr;
 		poly_ptr.reserve(input.total_polygon / 10);
@@ -319,8 +331,6 @@ public:
 			for (int i = a_layer_range.first; i <= a_layer_range.second; i++) { // 取a层多边形
 				poly_ptr.push_back(&input.polygons[i]);
 			}
-			// 实际数据划分
-			quad_tree->CreatIndexParallel(poly_ptr, thread_count);
 		}
 		else { // 双层合并
 			std::string layer1_name = name.substr(0, dashPos);
@@ -336,8 +346,38 @@ public:
 			for (int i = b_layer_range.first; i <= b_layer_range.second; i++) { // 再取b层多边形
 				poly_ptr.push_back(&input.polygons[i]);
 			}
-			// 实际数据划分
+		}
+
+		// 实际数据划分
+		if (use_shared_team) {
+			quad_tree->CreatIndexParallelSharedTeam(poly_ptr); // 直接共享外部的并行区
+		} else {
 			quad_tree->CreatIndexParallel(poly_ptr, thread_count);
+		}
+	}
+
+	// 树级别的任务并行
+	void BuildQuadTreesParallel(const std::vector<QuadTree*>& trees, int thread_count) {
+		if (trees.empty()) return;
+
+		if (trees.size() == 1) {
+			CreatQuadTreeIndexParallel(trees[0], thread_count);
+			return;
+		}
+
+		omp_set_num_threads(thread_count);
+		#pragma omp parallel
+		{
+			#pragma omp single
+			{
+				for (auto* tree : trees) {
+					#pragma omp task firstprivate(tree)
+					{
+						CreatQuadTreeIndexParallel(tree, thread_count, true);
+					}
+				}
+				#pragma omp taskwait
+			}
 		}
 	}
 };

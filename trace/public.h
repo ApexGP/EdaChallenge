@@ -10,7 +10,7 @@
 #include "NaiveThreadPool.h" // 线程池
 using goal::NaiveThreadPool;
 
-// #define INFO    // 若定义则会进行一些统计和输出运行info信息
+#define INFO    // 若定义则会进行一些统计和输出运行info信息
 
 #ifdef INFO
 #define INFO_MSG(x) std::cout << "[INFO] " << x << std::endl;
