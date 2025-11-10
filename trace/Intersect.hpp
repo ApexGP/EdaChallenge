@@ -195,7 +195,7 @@ public:
     * @param bfs_visted BFS Visit tracking array
     * @param neighbors Output vector for neighbor IDs
     */
-    void GetNeighborsLazy(int polygon_id, const std::vector<bool>& bfs_visted, std::vector<int>& neighbors) {
+    void GetNeighborsLazy(int polygon_id, const std::vector<uint8_t>& bfs_visted, std::vector<int>& neighbors) {
         neighbors.clear();
 
         Polygon* source = &input.polygons[polygon_id];
@@ -236,7 +236,7 @@ public:
     }
 
     // 并行版本：改成线程安全的
-    void GetNeighborsLazyParallel(int polygon_id, const std::vector<bool>& bfs_visted, std::vector<int>& neighbors) {
+    void GetNeighborsLazyParallel(int polygon_id, const std::vector<uint8_t>& bfs_visted, std::vector<int>& neighbors) {
         neighbors.clear();
 
         Polygon* source = &input.polygons[polygon_id];
@@ -257,7 +257,8 @@ public:
                     const int candidate_id = candidate->id;
 
                     if (candidate_id == polygon_id) continue; // 是自身
-                    if (bfs_visted[candidate_id]) continue;   // bfs已访问过
+                    // 原子访问
+                    if (__atomic_load_n(&bfs_visted[candidate_id], __ATOMIC_RELAXED)) continue;   // bfs已访问过
 
                     // Detailed Manhattan intersection check
                     if (ManhattanIntersectDetector::manhattanPolygonsIntersect(source, candidate)) {
