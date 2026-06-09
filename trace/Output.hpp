@@ -11,18 +11,18 @@ class Output {
 public:
     Output(Input& _input, const std::string& res_path, std::vector<int>& _component, int thread_count = 1)
         : input(_input), component(_component) {
-        
+
         // 使用C风格文件操作，最高性能
         FILE* file = fopen(res_path.c_str(), "wb");
         if (!file) {
             throw std::runtime_error("Failed to open output file");
         }
-        
+
         // 设置文件大缓冲区（4MB）
         const size_t BUFFER_SIZE = 4 * 1024 * 1024;
         std::vector<char> file_buffer(BUFFER_SIZE);
         setvbuf(file, file_buffer.data(), _IOFBF, BUFFER_SIZE); // 将缓冲区关联到文件流,数据会先写入内存缓冲区，不会立即触发磁盘I/O,只有当缓冲区满、调用fflush()或fclose()时，才会真正写入磁盘
-        
+
         if(thread_count == 1)
             printResult(file);
         else
@@ -37,17 +37,17 @@ private:
     char num_buffer[32]; // 整数转换缓冲区
 
     // 预计算数字查找表
-    static inline const char digits_table[201] = 
+    static inline const char digits_table[201] =
         "0001020304050607080910111213141516171819"
         "2021222324252627282930313233343536373839"
         "4041424344454647484950515253545556575859"
         "6061626364656667686970717273747576777879"
         "8081828384858687888990919293949596979899";
-    
+
     // 超快速整数转字符串
     char* ultraFastIntToStr(int value, char* end) {
         char* ptr = end;
-        
+
         // 特殊处理INT_MIN
         if (value == INT_MIN) {
             // 直接写入"-2147483648"
@@ -94,7 +94,7 @@ private:
 
         return ptr;
     }
-    
+
     void printResult(FILE* file) {
         INFO_INSTR(Timer stage;)
         const int layer_num = static_cast<int>(input.polygon_id_range_in_layer.size());
@@ -164,7 +164,7 @@ private:
 
                     *buffer_ptr++ = ',';
 
-                    // 转换y坐标  
+                    // 转换y坐标
                     num_str = ultraFastIntToStr(p.vertex[j].y, num_buffer + sizeof(num_buffer) - 1);
                     while (*num_str) {
                         *buffer_ptr++ = *num_str++;
@@ -191,7 +191,7 @@ private:
         INFO_MSG( "[Output][Timing] group: " << group_time
                   << " s, output: " << output_time
                   << " s, total: " << stage.Elapsed() << " s" )
-    }  
+    }
 
 #pragma region parallel_implement
     // 并行版本
@@ -228,20 +228,20 @@ private:
                 std::string poly_result;
                 std::string thread_buffer;
                 thread_buffer.reserve(1024 * 1024); // 线程局部缓存区，预分配1MB
-                
+
                 int chunk_size = std::max(chunk_min_polygons, total_polygons / (thread_count * 4));
-                
+
                 // 分块并行
                 #pragma omp for schedule(dynamic, 1)
                 for (int chunk_start = 0; chunk_start < total_polygons; chunk_start += chunk_size) {
                     int chunk_end = std::min(chunk_start + chunk_size, total_polygons);
-                    
+
                     thread_buffer.clear();
                     for (int i = chunk_start; i < chunk_end; ++i) {
                         int poly_id = polygons[i];
                         thread_buffer.append(polygonToString(input.polygons[poly_id], num_buffer, poly_result));
                     }
-                    
+
                     #pragma omp critical
                     {
                         fwrite(thread_buffer.data(), 1, thread_buffer.size(), file);
@@ -275,30 +275,30 @@ private:
 
         for (size_t j = 0; j < vertex_count; ++j) {
             result.push_back('(');
-            
+
             // 使用传入的num_buffer，避免竞争
             char* num_start = ultraFastIntToStr(p.vertex[j].x, num_buffer + sizeof(num_buffer) - 1);
             char* num_ptr = num_start;
             while (num_ptr < num_buffer + sizeof(num_buffer) && *num_ptr) {
                 result.push_back(*num_ptr++);
             }
-            
+
             result.push_back(',');
-            
+
             num_start = ultraFastIntToStr(p.vertex[j].y, num_buffer + sizeof(num_buffer) - 1);
             num_ptr = num_start;
             while (num_ptr < num_buffer + sizeof(num_buffer) && *num_ptr) {
                 result.push_back(*num_ptr++);
             }
-            
+
             result.push_back(')');
-            
+
             if (j + 1 != vertex_count) {
                 result.push_back(',');
             }
         }
         result.push_back('\n');
-        
+
         return result;
     }
 

@@ -18,7 +18,7 @@ def main():
 
     # 获取项目根目录
     project_root = Path(__file__).parent.parent.resolve()
-    
+
     # 清空并重新创建build目录
     build_dir = project_root / 'build'
     print(f"🧹 === Cleaning build directory: {build_dir} ===")
@@ -26,27 +26,27 @@ def main():
         shutil.rmtree(build_dir)
     build_dir.mkdir(exist_ok=True)
     os.chdir(build_dir)
-    
+
     # 执行CMake和Make
     print("🔧 === Configuring and building project ===")
     subprocess.run(['cmake', '..'], check=True)
     subprocess.run(['make'], check=True)
     print("✅ Build completed successfully!")
-    
+
     # 构建trace命令，确保-thread参数在-rule后面
     trace_cmd = [
         './trace',
         '-layout', str(Path(args.layout).resolve()),
         '-rule', str(Path(args.rule).resolve())
     ]
-    
+
     # 添加线程参数（如果提供），放在-rule后面
     if args.thread:
         trace_cmd.extend(['-thread', str(args.thread)])
-    
+
     # 添加-output参数
     trace_cmd.extend(['-output', str(Path(args.output).resolve())])
-    
+
     # 切换bin目录
     bin_dir = project_root / 'bin'
     os.chdir(bin_dir)
@@ -56,11 +56,11 @@ def main():
     print("🔧 Command:", ' '.join(trace_cmd))
     subprocess.run(trace_cmd, check=True)
     print("✅ Trace execution completed!")
-    
+
     # 切换到答案检查器目录
     checker_dir = project_root / 'checker'
     os.chdir(checker_dir)
-    
+
     # 运行答案检查器
     print("\n🔍 === Running answer checker ===")
     checker_cmd = [

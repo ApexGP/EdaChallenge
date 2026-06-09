@@ -18,7 +18,7 @@ public:
 	PolygonCutting(Input& _input) :input(_input) {
 		assert(input.has_gate_rule && "there is not exist gate rule! no need");
 	}
-	
+
 	robin_hood::unordered_map<int, std::vector<Edge>> MergePOAndCutAA() {
 		// 提取PO层多边形
 		int po_layer_id = input.gate_rule.first;
@@ -76,7 +76,7 @@ public:
 
 		for (auto& [po_index, edges] : po_cut_edges) {
 			// 直接在新映射表中使用正确ID，避免中间容器
-			auto& new_edges = updated_po_cut_edges[po_start_id + po_index]; 
+			auto& new_edges = updated_po_cut_edges[po_start_id + po_index];
 			new_edges.reserve(edges.size());  // 预分配每条边的列表
 
 			for (auto& edge : edges) {  // 使用新的多边形id
@@ -146,9 +146,9 @@ private:
 	}
 
 	// PO层多边形切割AA层多边形
-	void Cut_AA(std::vector<Polygon>& po_polygons, std::vector<Polygon>& aa_polygons, 
-		robin_hood::unordered_map<int, std::vector<Edge>>& po_cut_edges) 
-	{	
+	void Cut_AA(std::vector<Polygon>& po_polygons, std::vector<Polygon>& aa_polygons,
+		robin_hood::unordered_map<int, std::vector<Edge>>& po_cut_edges)
+	{
 		// PO和AA合并重排id, 与下标对应
 		std::vector<Polygon*> poly_ptr;
 		poly_ptr.reserve(po_polygons.size() + aa_polygons.size());
@@ -165,7 +165,7 @@ private:
 		QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, "PO-AA:" + name);
 		quad_tree->CreatIndex(poly_ptr);
 		// 相交检测求边，要求边的两点属于不同层
-		std::vector<Edge> edges = getEdgeofQuadTree_cutAA(quad_tree); 
+		std::vector<Edge> edges = getEdgeofQuadTree_cutAA(quad_tree);
 
 		// 对每个AA多边形，记录其被哪些PO多边形切割
 		robin_hood::unordered_map<int, std::vector<int>> aa_cut_by_po; // key为AA多边形此时id, value为切割它的PO多边形此时id
@@ -398,7 +398,7 @@ public:
 
 		for (auto& [po_index, edges] : po_cut_edges) {
 			// 直接在新映射表中使用正确ID，避免中间容器
-			auto& new_edges = updated_po_cut_edges[po_start_id + po_index]; 
+			auto& new_edges = updated_po_cut_edges[po_start_id + po_index];
 			new_edges.reserve(edges.size());  // 预分配每条边的列表
 
 			for (auto& edge : edges) {  // 使用新的多边形id
@@ -444,7 +444,7 @@ private:
     	        if (comp.size() == 1) {
     	            // 直接赋值，无需临界区
     	            po_merged_polygons[i] = std::move(po_polygons[comp[0]]);
-    	        } 
+    	        }
 				else {
     	            Vertexs& po_vertex1 = po_polygons[comp[0]].vertex;
     	            mbsoCore.setResultMPS(po_vertex1);
@@ -454,10 +454,10 @@ private:
     	                Vertexs& po_vertex2 = po_polygons[idx].vertex;
     	                mbsoCore.join(po_vertex2);
     	            }
-				
+
     	            std::vector<std::vector<MPoint_2>> merged_poly_set = mbsoCore.getResult();
     	            assert(merged_poly_set.size() == 1 && "合并后多边形应为单一多边形");
-				
+
     	            // 直接创建多边形并赋值
     	            Polygon& new_poly = po_merged_polygons[i];
     	            new_poly.layer_id = po_polygons[comp[0]].layer_id;
@@ -473,9 +473,9 @@ private:
 	}
 
 	// 并行版本：PO层多边形切割AA层多边形
-	void Cut_AA_Parallel(std::vector<Polygon>& po_polygons, std::vector<Polygon>& aa_polygons, 
-		robin_hood::unordered_map<int, std::vector<Edge>>& po_cut_edges, int thread_count) 
-	{	
+	void Cut_AA_Parallel(std::vector<Polygon>& po_polygons, std::vector<Polygon>& aa_polygons,
+		robin_hood::unordered_map<int, std::vector<Edge>>& po_cut_edges, int thread_count)
+	{
 		// PO和AA合并重排id, 与下标对应
 		std::vector<Polygon*> poly_ptr;
 		poly_ptr.reserve(po_polygons.size() + aa_polygons.size());
@@ -492,7 +492,7 @@ private:
 		QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, "PO-AA:" + name);
 		quad_tree->CreatIndexParallel(poly_ptr, thread_count);
 		// 相交检测求边，要求边的两点属于不同层
-		std::vector<Edge> edges = getEdgeofQuadTree_cutAA_Parallel(quad_tree, thread_count); 
+		std::vector<Edge> edges = getEdgeofQuadTree_cutAA_Parallel(quad_tree, thread_count);
 
 		// 对每个AA多边形，记录其被哪些PO多边形切割
 		robin_hood::unordered_map<int, std::vector<int>> aa_cut_by_po; // key为AA多边形此时id, value为切割它的PO多边形此时id
@@ -509,7 +509,7 @@ private:
     	size_t total_estimated_polys = aa_polygons.size() * 7; // 预估平均一个被切成七个
     	std::vector<Polygon> aa_cut_polygons;
     	aa_cut_polygons.reserve(total_estimated_polys);
-		
+
     	// 使用线程局部存储，避免临界区竞争
     	omp_set_num_threads(thread_count);
     	#pragma omp parallel
@@ -517,11 +517,11 @@ private:
     	    // 每个线程有自己的结果容器
     	    std::vector<Polygon> local_polys;
     	    robin_hood::unordered_map<int, std::vector<Edge>> local_edges;
-		
+
     	    // 预分配空间，避免动态扩容
     	    local_polys.reserve(total_estimated_polys / thread_count + 1000);
     	    local_edges.reserve(po_polygons.size() / thread_count + 100);
-		
+
     	    #pragma omp for schedule(dynamic, 50) nowait
     	    for (int i = 0; i < aa_polygons.size(); i++) {
     	        Polygon& aa_poly = aa_polygons[i];
@@ -535,7 +535,7 @@ private:
     	        // 若被PO切割
     	        std::vector<int>& cutting_po = it->second;
     	        size_t start_index = local_polys.size(); // 记录切割前的位置
-			
+
     	        // 被一个PO切割
     	        if (cutting_po.size() == 1) {
     	            // 设置 AA 多边形
@@ -547,7 +547,7 @@ private:
     	            // 获取结果
     	            std::vector<std::vector<MBSO::MPoint_2>> cut_poly_set = mbsoCore.getResult();
     	            assert(cut_poly_set.size() > 1 && "切割后多边形应不止一个");
-				
+
     	            // 切割后多边形转回自定义Polygon类
     	            for (auto& poly : cut_poly_set) {
     	                // reverse(poly.begin(), poly.end());
@@ -557,7 +557,7 @@ private:
     	                new_poly.rect = input.GetRectofPolygon(new_poly.vertex);
     	                local_polys.emplace_back(std::move(new_poly));
     	            }
-				
+
     	            // 链式记录该PO的切割边
     	            for (size_t j = start_index + 1; j < local_polys.size(); j++) {
     	                local_edges[cutting_po[0]].emplace_back(j - 1, j);
@@ -575,14 +575,14 @@ private:
     	                Vertexs& po_vertex = poly_ptr[po_id]->vertex;
     	                mpolys_2.push_back(po_vertex);
     	            }
-				
+
     	            robin_hood::unordered_map<int, std::vector<int>> po_cut_nodes;
     	            mbsoCore.difference(mpolys_2, po_cut_nodes);
-				
+
     	            // 获取结果
     	            std::vector<std::vector<MBSO::MPoint_2>> cut_poly_set = mbsoCore.getResult();
     	            assert(cut_poly_set.size() > 1 && "切割后多边形应不止一个");
-				
+
     	            // 切割后多边形转回自定义Polygon类
     	            for (auto& poly : cut_poly_set) {
     	                // reverse(poly.begin(), poly.end());
@@ -592,7 +592,7 @@ private:
     	                new_poly.rect = input.GetRectofPolygon(new_poly.vertex);
     	                local_polys.emplace_back(std::move(new_poly));
     	            }
-				
+
     	            // 记录切割边
     	            for (auto& item : po_cut_nodes) {
     	                int po_idx = item.first;
@@ -607,27 +607,27 @@ private:
     	            }
     	        }
     	    }
-		
+
     	    // 将本地结果合并到全局（需要临界区保护）
     	    #pragma omp critical
     	    {
     	        // 计算当前线程结果在全局中的偏移量
     	        size_t global_offset = aa_cut_polygons.size();
     	        // 移动语义批量插入多边形
-            	aa_cut_polygons.insert(aa_cut_polygons.end(), 
-                                  	std::make_move_iterator(local_polys.begin()), 
+            	aa_cut_polygons.insert(aa_cut_polygons.end(),
+                                  	std::make_move_iterator(local_polys.begin()),
                                   	std::make_move_iterator(local_polys.end()));
-			
+
     	        // 调整边索引并合并
             	for (auto& pair : local_edges) {
             	    int po_id = pair.first;
             	    auto& edge_vec = po_cut_edges[po_id];
-				
+
             	    // 预分配空间
             	    if (edge_vec.capacity() - edge_vec.size() < pair.second.size()) {
             	        edge_vec.reserve(edge_vec.size() + pair.second.size());
             	    }
-				
+
             	    for (Edge& edge : pair.second) {
             	        edge.first += global_offset;
             	        edge.second += global_offset;
@@ -636,10 +636,10 @@ private:
             	}
     	    }
     	}
-	
+
     	// 更新结果
     	aa_polygons = std::move(aa_cut_polygons);
-	
+
     	// 释放四叉树内存
     	delete quad_tree;
 	}
@@ -659,13 +659,13 @@ private:
     	    // 每个线程有自己的局部边集合
     	    std::vector<std::pair<int, int>> local_edges;
     	    local_edges.reserve(1000); // 预分配局部内存
-		
+
     	    // 并行处理每个叶子节点
     	    #pragma omp for schedule(dynamic)
     	    for (int idx = 0; idx < leafNode.size(); idx++) {
 				auto& lfd = leafNode[idx]->_datas;
     	        if (lfd.size() < 2) continue;
-			
+
     	        // 处理当前叶子节点内的多边形对
     	        for (int i = 0; i < (int)lfd.size(); i++) {
     	            Polygon* a = lfd[i];
@@ -681,19 +681,19 @@ private:
     	            }
     	        }
     	    }
-		
+
     	    // 合并局部结果到全局（使用临界区）
     	    #pragma omp critical
     	    {
     	        edges.insert(edges.end(), local_edges.begin(), local_edges.end());
     	    }
     	}
-	
+
     	// 全局排序并去重
     	std::sort(edges.begin(), edges.end());
     	auto last = std::unique(edges.begin(), edges.end());
     	edges.erase(last, edges.end());
-	
+
     	return edges;
 	}
 
@@ -712,13 +712,13 @@ private:
     	    // 每个线程有自己的局部边集合
     	    std::vector<std::pair<int, int>> local_edges;
     	    local_edges.reserve(1000); // 预分配局部内存
-		
+
     	    // 并行处理每个叶子节点
     	    #pragma omp for schedule(dynamic)
     	    for (int idx = 0; idx < leafNode.size(); idx++) {
 				auto& lfd = leafNode[idx]->_datas;
     	        if (lfd.size() < 2) continue;
-			
+
     	        // 处理当前叶子节点内的多边形对
     	        for (int i = 0; i < (int)lfd.size(); i++) {
     	            Polygon* a = lfd[i];
@@ -735,14 +735,14 @@ private:
     	            }
     	        }
     	    }
-		
+
     	    // 合并局部结果到全局（使用临界区）
     	    #pragma omp critical
     	    {
     	        edges.insert(edges.end(), local_edges.begin(), local_edges.end());
     	    }
     	}
-	
+
     	// 全局排序并去重
     	std::sort(edges.begin(), edges.end());
     	auto last = std::unique(edges.begin(), edges.end());

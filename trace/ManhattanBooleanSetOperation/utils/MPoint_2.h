@@ -3,7 +3,7 @@
 
 namespace MBSO
 {
-	// ¶şÎ¬µã»òÏòÁ¿
+	// äºŒç»´ç‚¹æˆ–å‘é‡
     class MPoint_2
     {
     public:
@@ -12,53 +12,53 @@ namespace MBSO
 
         MPoint_2(int _x, int _y) : x(_x), y(_y) {}
 
-        // ÖØÔØ±È½Ï·û
+        // é‡è½½æ¯”è¾ƒç¬¦
         bool operator==(const MPoint_2& p) const { return p.x == x && p.y == y; }
         bool operator<(const MPoint_2& p) const { return p.x == x ? y < p.y : x < p.x; }
         bool operator>(const MPoint_2& p) const { return p < (*this); }
 
-        // ÖØÔØ¸ººÅ
+        // é‡è½½è´Ÿå·
         MPoint_2 operator-() const { return MPoint_2(-x, -y); }
 
-		// ÖØÔØ¼Ó¼õ
+		// é‡è½½åŠ å‡
         MPoint_2 operator+(const MPoint_2& p) const { return MPoint_2(x + p.x, y + p.y); }
         MPoint_2 operator-(const MPoint_2& p) const { return MPoint_2(x - p.x, y - p.y); }
 
-        // ²æ»ı
+        // å‰ç§¯
         double operator^(const MPoint_2& p) const
         {
             return static_cast<double>(x) * static_cast<double>(p.y) - static_cast<double>(y) * static_cast<double>(p.x);
         }
-        // µã»ı
+        // ç‚¹ç§¯
         double operator*(const MPoint_2& p) const
         {
             return static_cast<double>(x) * static_cast<double>(p.x) + static_cast<double>(y) * static_cast<double>(p.y);
         }
-        
-		// »ñÈ¡ÏòÁ¿³¤¶È
+
+		// è·å–å‘é‡é•¿åº¦
         double length() const
         {
             return hypot(x, y);
         }
-		// »ñÈ¡x×ø±ê
+		// è·å–xåæ ‡
         int getX() const
         {
             return x;
         }
-		// »ñÈ¡y×ø±ê
+		// è·å–yåæ ‡
         int getY() const
         {
             return y;
         }
 
-        // ½ÇµÄ¼Ğ½Ç£¬½Ç¶¥µãÎª this, Á½¸ö¶ËµãÎª p1, p2;
+        // è§’çš„å¤¹è§’ï¼Œè§’é¡¶ç‚¹ä¸º this, ä¸¤ä¸ªç«¯ç‚¹ä¸º p1, p2;
         double rad(const MPoint_2& p1, const MPoint_2& p2)
         {
             MPoint_2 v1(p1.x - x, p1.y - y);
             MPoint_2 v2(p2.x - x, p2.y - y);
             return radVector(v1, v2);
         }
-        // ÏòÁ¿¼Ğ½Ç [0, pi], ´«½øÀ´Á½¸öÏòÁ¿
+        // å‘é‡å¤¹è§’ [0, pi], ä¼ è¿›æ¥ä¸¤ä¸ªå‘é‡
         double radVector(const MPoint_2& v1, const MPoint_2& v2)
         {
             double cross = v1 ^ v2;

@@ -14,8 +14,8 @@ cmake-build-*
 [Xx]86/
 *.user
 .vs/
-*.suo        
-*.VC.db      
+*.suo
+*.VC.db
 
 # Prerequisites
 *.d
@@ -71,8 +71,8 @@ solution/*
 !instance/case/case1_small_layout.txt
 !solution/case1_small_layout_q1.txt
 
-# 特赦第三方库所有目录
-!trace/third_party/**
+# 第三方库
+trace/third_party/*
 
 # submit文件
 submit/*.zip

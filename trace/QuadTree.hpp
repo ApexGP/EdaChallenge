@@ -16,7 +16,7 @@ public:
 
     // 四个子节点
     QuadTreeNode* _lt;    // 左上
-    QuadTreeNode* _rt;    // 右上  
+    QuadTreeNode* _rt;    // 右上
     QuadTreeNode* _lb;    // 左下
     QuadTreeNode* _rb;    // 右下
 
@@ -176,9 +176,9 @@ public:
     }
 
     // 清空四叉树
-    void clear() 
+    void clear()
     {
-        _root->clear(); 
+        _root->clear();
         _maxCurrDepth = 1;
         _maxCurrDataNum = 0;
     }
@@ -307,7 +307,7 @@ private:
 
         // 递归处理子节点（基于数据量决定并行）
         const size_t PARALLEL_SIZE_THRESHOLD = 2048;  // 可调整的并行阈值
-        
+
         // 封装子节点处理逻辑
         auto process_child = [&](QuadTreeNode* child) {
             if (child->_datas.size() > PARALLEL_SIZE_THRESHOLD) {
@@ -370,7 +370,7 @@ private:
 
     // 递归收集与指定区域相交的所有非空叶节点
     void CollectIntersectLeaves(QuadTreeNode* node, const Rect& region, std::vector<QuadTreeNode*>& leaves) const {
- 
+
         if (node->_divided) {   // 非叶节点：递归处理子节点
             const int xmid = node->_lt->_rect._xmax;
             const int ymid = node->_lt->_rect._ymin;

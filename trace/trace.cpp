@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
         // 验证必需参数
         if (!layout_path || !rule_path || !output_path) {
             std::cerr << "错误：缺少必需参数\n";
-            std::cerr << "用法: " << argv[0] 
+            std::cerr << "用法: " << argv[0]
                       << " -layout <文件> -rule <文件> [-thread <n>] -output <文件>\n";
             return 1;
         }
