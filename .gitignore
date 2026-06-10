@@ -17,6 +17,10 @@ cmake-build-*
 *.suo
 *.VC.db
 
+# clangd diagnostics
+.clangd
+clangd-stubs/
+
 # Prerequisites
 *.d
 

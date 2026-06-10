@@ -52,10 +52,10 @@ public:
 			if (x == x1 && y == y1) return true;
 
 			// 检查点是否在水平边上
-			if (y1 == y2 && y == y1 && x1 <= x <= x2) return true;
+			if (y1 == y2 && y == y1 && (x1 <= x && x <= x2)) return true;
 
 			// 检查点是否在垂直边上
-			if (x1 == x2 && x == x1 && y1 <= y <= y2) return true;
+			if (x1 == x2 && x == x1 && (y1 <= y && y <= y2)) return true;
 
 			// 水平向右射线法统计交点
 			if (y1 == y2) continue; // 水平边，跳过

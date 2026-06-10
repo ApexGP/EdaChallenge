@@ -3,7 +3,7 @@
 赛题描述： [EDA赛题三](./doc/eda赛题三.pdf)
 
 ## 1.问题分析
-本质是一个P问题，预处理建图之后，只需根据起点结点求连通分量。  
+本质是一个P问题，预处理建图之后，只需根据起点结点求连通分量。
 难点：
 + 多边形数量在千万级到亿级之间，规模很大，如何设计数据存储结构？
 + 如何快速进行多边形之间的相交检测？
@@ -19,8 +19,8 @@
 + instance/ 算例
 + solution/ 结果
 + trace/ 源码
-+ + third_party/ 第三方库（gitignored）：Boost（头文件）、CGAL（头文件，当前未使用）、GMP/MPFR 预编译库
-+ + ManhattanBooleanSetOperation/ 自研曼哈顿布尔运算静态库（`libMBSO.a`），替代了早期的 CGAL 依赖
+  + third_party/ 第三方库（gitignored）：Boost（头文件）、CGAL（头文件，当前未使用）、GMP/MPFR 预编译库
+  + ManhattanBooleanSetOperation/ 自研曼哈顿布尔运算静态库（`libMBSO.a`），替代了早期的 CGAL 依赖
 + test/ 测试
 + checker/ 检验答案程序 查阅 [检验程序说明](./checker/README.md)
 
@@ -73,8 +73,8 @@ cmake --preset gcc-release && cmake --build --preset gcc-release
 cd ../bin
 ./trace -layout <layout_file> -rule <rule_file> [-thread n] -output <output_file>
 # 例: ./trace -layout ../instance/case/case1_small_layout.txt \
-#            -rule ../instance/Rule/public_small_rule1.txt \
-#            -output ../solution/case1_small_layout_q1.txt
+#             -rule ../instance/Rule/public_small_rule1.txt \
+#             -output ../solution/case1_small_layout_q1.txt
 ```
 
 | 参数 | 说明 |
@@ -93,8 +93,8 @@ python3 run_trace.py -layout <layout_file> -rule <rule_file> [-thread n] -output
 脚本自动完成 cmake/make 编译、运行 trace、调用 checker 验证结果。
 
 ## 5.可视化脚本
-test/visual.py  
-调用方式：  
+test/visual.py
+调用方式：
 ```shell
 # 默认
 python3 visual.py ../solution/res.txt
@@ -107,7 +107,7 @@ python3 visual.py ../solution/res.txt -s ./output.png
 
 ## 6.打包提交
 test/submit.py  自动编译提取打包压缩
-调用方式：  
+调用方式：
 ```shell
 # 基本用法 "my_submission" 指定压缩文件名，未指定线程数则默认写入1
 python3 submit.py my_submission

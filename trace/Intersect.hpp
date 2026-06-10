@@ -126,6 +126,8 @@ public:
         //case IntersectionMethod::BATCH_GRID:
         //    processWithBatchGrid(quad_trees, edges);
         //    break;
+        default:
+            break;
         }
 
         // Remove duplicate edges
@@ -157,6 +159,8 @@ public:
         //case IntersectionMethod::BATCH_GRID:
         //    processWithBatchGrid(quad_trees, edges);
         //    break;
+        default:
+            break;
         }
 
         // Remove duplicate edges
