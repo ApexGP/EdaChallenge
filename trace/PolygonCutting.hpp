@@ -511,8 +511,7 @@ private:
     	aa_cut_polygons.reserve(total_estimated_polys);
 
     	// 使用线程局部存储，避免临界区竞争
-    	omp_set_num_threads(thread_count);
-    	#pragma omp parallel
+    	#pragma omp parallel num_threads(thread_count)
     	{
     	    // 每个线程有自己的结果容器
     	    std::vector<Polygon> local_polys;

@@ -40,7 +40,6 @@ static void solve(string layout_path, string rule_path, int thread, string res_p
     INFO_MSG( "----- Use Time: " << myTimer.FromLastCallElapsed() << " s" << std::endl )
 
     INFO_MSG( "----- Total Time: " << myTimer.Elapsed() << " s" )
-    std::_Exit(0); // 快速返回，避免析构开销
 }
 
 
@@ -59,7 +58,14 @@ int main(int argc, char* argv[])
             } else if (strcmp(argv[i], "-rule") == 0 && i + 1 < argc) {
                 rule_path = argv[++i];
             } else if (strcmp(argv[i], "-thread") == 0 && i + 1 < argc) {
-                thread_count = atoi(argv[++i]);
+                char* end = nullptr;
+	                long val = strtol(argv[++i], &end, 10);
+	                if (end == argv[i] || *end != '\0' || val <= 0 || val > 256) {
+	                    std::cerr << "警告：无效的线程数 '" << argv[i] << "'，使用默认值1\n";
+	                    thread_count = 1;
+	                } else {
+	                    thread_count = static_cast<int>(val);
+	                }
             } else if (strcmp(argv[i], "-output") == 0 && i + 1 < argc) {
                 output_path = argv[++i];
             }
@@ -73,9 +79,9 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        // 验证线程数
-        if (thread_count <= 0) {
-            std::cerr << "警告：无效的线程数，使用默认值1\n";
+        // 验证线程数（strtol解析已在上面做了校验，此处为兜底）
+        if (thread_count <= 0 || thread_count > 256) {
+            std::cerr << "警告：线程数 " << thread_count << " 超出有效范围，使用默认值1\n";
             thread_count = 1;
         }
 

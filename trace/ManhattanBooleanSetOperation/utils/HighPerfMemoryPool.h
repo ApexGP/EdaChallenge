@@ -1,7 +1,9 @@
 #pragma once
 #include <vector>
 #include <iostream>
-#include <cstddef> // for std::max_align_t
+#include <mutex>
+#include <cstddef>  // for std::max_align_t
+#include <cstdint>  // for uint8_t
 
 namespace MBSO {
 
@@ -121,6 +123,7 @@ namespace MBSO {
         size_t elements_per_block_;        // 每个内存块可容纳的元素数量
         size_t total_allocated_ = 0;       // 总共分配的对象计数
         size_t total_freed_ = 0;           // 总共释放的对象计数
+        mutable std::mutex mutex_;         // 保护自由链表的互斥锁（支持跨线程分配/释放）
 
         /**
          * @brief 计算对齐后的元素大小
@@ -219,6 +222,7 @@ namespace MBSO {
          */
         template <typename... Args>
         T* newElement(Args&&... args) {
+            std::lock_guard<std::mutex> lock(mutex_);
             // 确保自由链表不为空（必要时分配新内存块）
             if (!free_list_) {
                 add_block();
@@ -250,6 +254,7 @@ namespace MBSO {
             // 调用对象的析构函数
             object->~T();
 
+            std::lock_guard<std::mutex> lock(mutex_);
             // 将对象内存重新解释为Node指针
             Node* node = reinterpret_cast<Node*>(object);
 

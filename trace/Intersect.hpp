@@ -74,12 +74,12 @@ private:
     Input& input;
     SpaceIndex& spaceIndex;
 
-    /* For ��ȫ��ͼ */
+    /* For 完全建图 */
     INFO_INSTR(mutable IntersectionStats stats;)
     // Current intersection detection method
     IntersectionMethod method = IntersectionMethod::MANHATTAN_COMPLETE;
 
-    /* For �ӳٽ�ͼ */
+    /* For 延迟建图 */
     // Buffer for collecting leaf nodes
     std::vector<QuadTreeNode*> leaf_buffer;
     // Cache for neighbor candidate detection
@@ -138,7 +138,7 @@ public:
         return edges;
     }
 
-    // ���а汾����ȡ�����ཻ��
+    // 并行版本：获取所有相交边
     std::vector<std::pair<int, int>> getAllEdgeParallel(int thread_count) {
         INFO_INSTR(Timer total_timer;)
         INFO_INSTR(stats.reset();)
@@ -188,7 +188,7 @@ public:
     INFO_INSTR(const IntersectionStats& getStats() const { return stats; })
 
 #pragma region for_lazy_bfs
-    /* ===================== For �ӳٽ�ͼ begin =====================*/
+    /* ===================== For 延迟建图 begin =====================*/
     /**
     * @brief Gets neighboring polygons that intersect with the given polygon using lazy evaluation
     * @param polygon_id ID of the source polygon
@@ -202,7 +202,7 @@ public:
         neighbor_candidate_cache.clear();
         INFO_INSTR(++lazy_neighbor_calls;)
 
-        // ��ȡ��ö�������ڲ��й����������Ĳ���
+        // 获取该多边形所在层关联的四叉树
         const auto& quad_trees = spaceIndex.GetQuadTreesForLayer(source->layer_id);
         for (auto* qtree : quad_trees) {
             if (!qtree) continue;
@@ -210,17 +210,17 @@ public:
             // Collect leaves that intersect with the source polygon's bounding box
             leaf_buffer.clear();
             qtree->CollectIntersectLeaves(source->rect, leaf_buffer);
-            // ����ÿ��Ҷ�ڵ�
+            // 遍历每个叶节点
             for (auto* leaf : leaf_buffer) {
                 // Direct checking for light leaves
                 for (auto* candidate : leaf->_datas) {
                     INFO_INSTR(++lazy_neighbor_candidates;)
                     const int candidate_id = candidate->id;
 
-                    if (candidate_id == polygon_id) continue; // ������
-                    if (bfs_visted[candidate_id]) continue;   // bfs�ѷ��ʹ�
+                    if (candidate_id == polygon_id) continue; // 跳过自身
+                    if (bfs_visted[candidate_id]) continue;   // bfs已访问过
 
-                    //if (!neighbor_candidate_cache.insert(candidate_id).second) { // �ظ��ھ� ps:��ȥ�ظ���
+                    //if (!neighbor_candidate_cache.insert(candidate_id).second) { // 重复邻居 ps:已去重复
                     //    INFO_INSTR(++lazy_neighbor_duplicates;)
                     //    continue;
                     //}
@@ -235,13 +235,13 @@ public:
         }
     }
 
-    // ���а汾���ĳ��̰߳�ȫ��
+    // 并行版本，注意线程安全
     void GetNeighborsLazyParallel(int polygon_id, const std::vector<uint8_t>& bfs_visted, std::vector<int>& neighbors) {
         neighbors.clear();
 
         Polygon* source = &input.polygons[polygon_id];
 
-        // ��ȡ��ö�������ڲ��й����������Ĳ���
+        // 获取该多边形所在层关联的四叉树
         const auto& quad_trees = spaceIndex.GetQuadTreesForLayer(source->layer_id);
         thread_local std::vector<QuadTreeNode*> leaf_buffer_local;
         for (auto* qtree : quad_trees) {
@@ -250,15 +250,15 @@ public:
             // Collect leaves that intersect with the source polygon's bounding box
             leaf_buffer_local.clear();
             qtree->CollectIntersectLeaves(source->rect, leaf_buffer_local);
-            // ����ÿ��Ҷ�ڵ�
+            // 遍历每个叶节点
             for (auto* leaf : leaf_buffer_local) {
                 // Direct checking for light leaves
                 for (auto* candidate : leaf->_datas) {
                     const int candidate_id = candidate->id;
 
-                    if (candidate_id == polygon_id) continue; // ������
-                    // ԭ�ӷ���
-                    if (__atomic_load_n(&bfs_visted[candidate_id], __ATOMIC_RELAXED)) continue;   // bfs�ѷ��ʹ�
+                    if (candidate_id == polygon_id) continue; // 跳过自身
+                    // 原子访问
+                    if (__atomic_load_n(&bfs_visted[candidate_id], __ATOMIC_RELAXED)) continue;   // bfs已访问过
 
                     // Detailed Manhattan intersection check
                     if (ManhattanIntersectDetector::manhattanPolygonsIntersect(source, candidate)) {
@@ -284,7 +284,7 @@ public:
         )
     }
 
-    /* ===================== For �ӳٽ�ͼ end =====================*/
+    /* ===================== For 延迟建图 end =====================*/
 #pragma endregion
 
 private:
@@ -317,19 +317,19 @@ private:
                 INFO_INSTR(stats.total_polygon_pairs += (local_size * (local_size - 1)) / 2;)
                 INFO_INSTR(stats.manhattan_complete_used++;)
 
-                // ����С�Ͳ��鼯
-				if (lfd.size() > ufs.getSize())
-					ufs = UnionFindSet(lfd.size() * 2);
+                // 按需扩展并查集
+				if (lfd.size() > static_cast<size_t>(ufs.getSize()))
+					ufs = UnionFindSet(std::max(lfd.size() * 2, static_cast<size_t>(ufs.getSize() * 2)));
 				else
 					ufs.init();
 
-				// n������ �ڲ��Ķ���ζ�
+				// n方遍历 内部的两两端点对
 				for (int i = 0; i < (int)lfd.size(); i++) {
 					Polygon* a = lfd[i];
 					for (int j = i + 1; j < (int)lfd.size(); j++) {
 						Polygon* b = lfd[j];
-						if (ufs.find(i) == ufs.find(j)) continue; // �Ѿ���ͨ������
-						// ʹ�������ٶ�����ཻ���
+						if (ufs.find(i) == ufs.find(j)) continue; // 已经连通的跳过
+						// 使用曼哈顿多边形相交检测
 						if (ManhattanIntersectDetector::manhattanPolygonsIntersect(a, b)) {
 							edges.emplace_back(a->id, b->id);
 							ufs.join(i, j);
@@ -341,12 +341,11 @@ private:
         }
     }
 
-    // ���а汾openMP���������ཻ��⽨��
+    // 并行版本openMP批量多边形相交检测建边
     void processWithManhattanCompleteParallel(const std::vector<QuadTree*>& quad_trees, std::vector<std::pair<int, int>>& edges, int thread_count) {
-        omp_set_num_threads(thread_count);
         std::mutex edges_mutex;
 
-        // Ԥ�ռ�����Ҷ�ӽڵ�
+        // 预收集所有叶节点
         std::vector<QuadTreeNode*> all_leaf_nodes;
         for (int idx = 0; idx < quad_trees.size(); ++idx) {
             QuadTree* qtree = quad_trees[idx];
@@ -355,16 +354,16 @@ private:
             all_leaf_nodes.insert(all_leaf_nodes.end(), leaf_nodes.begin(), leaf_nodes.end());
         }
 
-        // ����С������С���ɸ���ʵ�����������
+        // 批大小，可根据实际数据量调整
         const int batch_size = std::min(1000, std::max(10, (int)all_leaf_nodes.size() / (thread_count * 20)));
 
-        #pragma omp parallel
+        #pragma omp parallel num_threads(thread_count)
         {
             UnionFindSet ufs(100);
             std::vector<std::pair<int, int>> thread_local_edges;
-            thread_local_edges.reserve(50000);  // Ԥ����ռ�
+            thread_local_edges.reserve(50000);  // 预分配空间
 
-            // ʹ�ö�̬���ȣ�ÿ���̴߳���һ��С����
+            // 使用动态调度，每个线程处理一小批
             #pragma omp for schedule(dynamic, batch_size) nowait
             for (int leaf_idx = 0; leaf_idx < all_leaf_nodes.size(); ++leaf_idx) {
                 QuadTreeNode* lfNode = all_leaf_nodes[leaf_idx];
@@ -375,14 +374,14 @@ private:
                     continue;
                 }
 
-                // ��̬�������鼯��С
+                // 动态调整并查集大小
                 if (lfd.size() * 2 > ufs.getSize()) {
                     ufs = UnionFindSet(lfd.size() * 2);
                 } else {
                     ufs.init();
                 }
 
-                // ��������ཻ
+                // 检测内部相交
                 for (int i = 0; i < (int)lfd.size(); i++) {
                     Polygon* a = lfd[i];
                     for (int j = i + 1; j < (int)lfd.size(); j++) {
@@ -396,10 +395,10 @@ private:
                 }
             }
 
-            // �̴߳��������з���������һ���Ժϲ����
+            // 线程处理完后将所有发现边一次性合并到结果
             if (!thread_local_edges.empty()) {
                 std::lock_guard<std::mutex> lock(edges_mutex);
-                 // Ԥ����ռ�������·���
+                 // 预分配空间避免重新分配
                 if (edges.capacity() - edges.size() < thread_local_edges.size()) {
                     edges.reserve(edges.size() + thread_local_edges.size());
                 }

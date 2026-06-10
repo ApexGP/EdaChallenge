@@ -409,78 +409,16 @@ public:
     // 读取版图文件
     void readLayout(const std::string& layout_path) {
         INFO_INSTR(Timer stage;)
-        // 内存映射文件
         LayoutFileView layout_view = mapLayoutFile(layout_path);
         const char* file_data = layout_view.data;
         size_t file_size = layout_view.size;
-        assert(file_data && file_size > 0 && "empty layout file");
+        if (!file_data || file_size == 0) {
+    throw std::runtime_error("empty or invalid layout file");
+}
         INFO_INSTR(double buffer_time = stage.FromLastCallElapsed();)
 
-        // 第一轮扫描统计层信息
-        size_t total_polygons_scanned = preprocessLayoutBuffer(file_data, file_size);
-        INFO_INSTR(double first_pass_time = stage.FromLastCallElapsed();)
-
-        // 预留多边形数组空间
-        size_t reserve_count = total_polygons_scanned;
-        if (has_gate_rule && gate_rule.second >= 0 && static_cast<size_t>(gate_rule.second) < layer_scan_info_.size()) {
-            size_t aa_count = static_cast<size_t>(layer_scan_info_[gate_rule.second].polygon_count);
-            reserve_count += aa_count * kAaSplitReserveMultiplier;  // 考虑AA层的切割数量
-        }
-        polygons.reserve(reserve_count);
-        polygons.resize(total_polygons_scanned);
-        INFO_INSTR(double resize_time = stage.FromLastCallElapsed();)
-
-        // 更新层多边形的id范围
-        size_t layer_count = layer_name_to_id.size();
-        if (polygon_id_range_in_layer.size() < layer_count) {
-            polygon_id_range_in_layer.resize(layer_count, Range{0, -1});
-        }
-        int next_polygon_id = 0;
-        for (size_t layer_id = 0; layer_id < layer_count; ++layer_id) {
-            auto& range = polygon_id_range_in_layer[layer_id];
-            range.first = next_polygon_id;
-            const int polygon_count = (layer_id < layer_scan_info_.size()) ? layer_scan_info_[layer_id].polygon_count : 0;
-            range.second = next_polygon_id + polygon_count - 1;
-            next_polygon_id += polygon_count;
-        }
-        total_polygon = next_polygon_id;
-        INFO_INSTR(double range_time = stage.FromLastCallElapsed();)
-
-        // 收集每个层分块的任务
-        std::vector<ParseTaskRange> tasks;
-        size_t total_chunks = 0;
-        for (size_t layer_id = 0; layer_id < layer_count; ++layer_id) {
-            const LayerScanInfo& info = (layer_id < layer_scan_info_.size()) ? layer_scan_info_[layer_id] : LayerScanInfo{};
-            if (info.polygon_count <= 0) {
-                continue;
-            }
-            total_chunks += info.chunks.size();
-        }
-        tasks.reserve(total_chunks);
-        for (size_t layer_id = 0; layer_id < layer_count; ++layer_id) {
-            const LayerScanInfo& info = (layer_id < layer_scan_info_.size()) ? layer_scan_info_[layer_id] : LayerScanInfo{};
-            if (info.polygon_count <= 0) {
-                continue;
-            }
-            int layer_begin = polygon_id_range_in_layer[layer_id].first;
-            if (info.chunks.empty()) {
-                tasks.push_back({info.start, info.end, layer_begin, static_cast<int>(layer_id), info.polygon_count});
-            } else {
-                for (const auto& chunk : info.chunks) {
-                    if (chunk.local_count <= 0) {
-                        continue;
-                    }
-                    const char* start_ptr = chunk.start ? chunk.start : info.start;
-                    const char* end_ptr = chunk.end ? chunk.end : info.end;
-                    if (!start_ptr || !end_ptr || start_ptr >= end_ptr) {
-                        continue;
-                    }
-                    int begin_id = layer_begin + chunk.local_begin;
-                    tasks.push_back({start_ptr, end_ptr, begin_id, static_cast<int>(layer_id), chunk.local_count});
-                }
-            }
-        }
-        INFO_INSTR(double collect_task_time = stage.FromLastCallElapsed();)
+        std::vector<ParseTaskRange> tasks = prepareParseTasks(file_data, file_size);
+        INFO_INSTR(double setup_time = stage.FromLastCallElapsed();)
 
         // 依次执行解析任务
         for (size_t i = 0; i < tasks.size(); ++i) {
@@ -489,10 +427,7 @@ public:
         INFO_INSTR(double parse_time = stage.FromLastCallElapsed();)
 
         INFO_MSG( "[Input][Timing] readLayout buffer: " << buffer_time
-                  << " s, first_pass: " << first_pass_time
-                  << " s, resize: " << resize_time
-                  << " s, range: " << range_time
-                  << " s, collect_task: " << collect_task_time
+                  << " s, setup: " << setup_time
                   << " s, parse: " << parse_time
                   << " s, total: " << stage.Elapsed() << " s" )
     }
@@ -501,78 +436,16 @@ public:
     // 并行读取版图文件
     void readLayoutParallel(const std::string& layout_path, int thread_count) {
         INFO_INSTR(Timer stage;)
-        // 内存映射文件
         LayoutFileView layout_view = mapLayoutFile(layout_path);
         const char* file_data = layout_view.data;
         size_t file_size = layout_view.size;
-        assert(file_data && file_size > 0 && "empty layout file");
+        if (!file_data || file_size == 0) {
+    throw std::runtime_error("empty or invalid layout file");
+}
         INFO_INSTR(double buffer_time = stage.FromLastCallElapsed();)
 
-        // 第一轮扫描统计层信息
-        size_t total_polygons_scanned = preprocessLayoutBuffer(file_data, file_size);
-        INFO_INSTR(double first_pass_time = stage.FromLastCallElapsed();)
-
-        // 预留多边形数组空间
-        size_t reserve_count = total_polygons_scanned;
-        if (has_gate_rule && gate_rule.second >= 0 && static_cast<size_t>(gate_rule.second) < layer_scan_info_.size()) {
-            size_t aa_count = static_cast<size_t>(layer_scan_info_[gate_rule.second].polygon_count);
-            reserve_count += aa_count * kAaSplitReserveMultiplier;  // 考虑AA层的切割数量
-        }
-        polygons.reserve(reserve_count);
-        polygons.resize(total_polygons_scanned);
-        INFO_INSTR(double resize_time = stage.FromLastCallElapsed();)
-
-        // 更新层多边形的id范围
-        size_t layer_count = layer_name_to_id.size();
-        if (polygon_id_range_in_layer.size() < layer_count) {
-            polygon_id_range_in_layer.resize(layer_count, Range{0, -1});
-        }
-        int next_polygon_id = 0;
-        for (size_t layer_id = 0; layer_id < layer_count; ++layer_id) {
-            auto& range = polygon_id_range_in_layer[layer_id];
-            range.first = next_polygon_id;
-            const int polygon_count = (layer_id < layer_scan_info_.size()) ? layer_scan_info_[layer_id].polygon_count : 0;
-            range.second = next_polygon_id + polygon_count - 1;
-            next_polygon_id += polygon_count;
-        }
-        total_polygon = next_polygon_id;
-        INFO_INSTR(double range_time = stage.FromLastCallElapsed();)
-
-        // 收集每个层分块的任务
-        std::vector<ParseTaskRange> tasks;
-        size_t total_chunks = 0;
-        for (size_t layer_id = 0; layer_id < layer_count; ++layer_id) {
-            const LayerScanInfo& info = (layer_id < layer_scan_info_.size()) ? layer_scan_info_[layer_id] : LayerScanInfo{};
-            if (info.polygon_count <= 0) {
-                continue;
-            }
-            total_chunks += info.chunks.size();
-        }
-        tasks.reserve(total_chunks);
-        for (size_t layer_id = 0; layer_id < layer_count; ++layer_id) {
-            const LayerScanInfo& info = (layer_id < layer_scan_info_.size()) ? layer_scan_info_[layer_id] : LayerScanInfo{};
-            if (info.polygon_count <= 0) {
-                continue;
-            }
-            int layer_begin = polygon_id_range_in_layer[layer_id].first;
-            if (info.chunks.empty()) {
-                tasks.push_back({info.start, info.end, layer_begin, static_cast<int>(layer_id), info.polygon_count});
-            } else {
-                for (const auto& chunk : info.chunks) {
-                    if (chunk.local_count <= 0) {
-                        continue;
-                    }
-                    const char* start_ptr = chunk.start ? chunk.start : info.start;
-                    const char* end_ptr = chunk.end ? chunk.end : info.end;
-                    if (!start_ptr || !end_ptr || start_ptr >= end_ptr) {
-                        continue;
-                    }
-                    int begin_id = layer_begin + chunk.local_begin;
-                    tasks.push_back({start_ptr, end_ptr, begin_id, static_cast<int>(layer_id), chunk.local_count});
-                }
-            }
-        }
-        INFO_INSTR(double collect_task_time = stage.FromLastCallElapsed();)
+        std::vector<ParseTaskRange> tasks = prepareParseTasks(file_data, file_size);
+        INFO_INSTR(double setup_time = stage.FromLastCallElapsed();)
 
         // 按任务量从大到小排序任务
         std::vector<Rect> thread_local_layouts(thread_count);
@@ -596,10 +469,7 @@ public:
         INFO_INSTR(double parse_time = stage.FromLastCallElapsed();)
 
         INFO_MSG( "[Input][Timing] readLayoutParallel buffer: " << buffer_time
-                  << " s, first_pass: " << first_pass_time
-                  << " s, resize: " << resize_time
-                  << " s, range: " << range_time
-                  << " s, collect_task: " << collect_task_time
+                  << " s, setup: " << setup_time
                   << " s, sort_task: " << sort_task_time
                   << " s, parse: " << parse_time
                   << " s, total: " << stage.Elapsed() << " s" )
@@ -688,14 +558,18 @@ private:
 #endif
         // 非Linux平台或内存映射失败时使用传统文件读取方式
         std::ifstream file(path, std::ios::binary | std::ios::ate);
-        assert(file.is_open() && "failed to open file");
+        if (!file.is_open()) {
+    throw std::runtime_error("failed to open file: " + path);
+}
         std::streamsize size = file.tellg();
         file.seekg(0, std::ios::beg);
         if (size > 0) {
             view.size = static_cast<size_t>(size);
             view.buffer.resize(view.size);
             file.read(view.buffer.data(), size);
-            assert(file.gcount() == size && "failed to read file");
+            if (file.gcount() != size) {
+    throw std::runtime_error("failed to read complete file: " + path);
+}
             view.data = view.buffer.data();
         }
         return view;
@@ -1034,6 +908,60 @@ private:
         return total_polygons;
     }
 
+    // 准备解析任务：扫描、预分配、收集分块（readLayout/readLayoutParallel 公共逻辑）
+    std::vector<ParseTaskRange> prepareParseTasks(const char* file_data, size_t file_size) {
+        size_t total_polygons_scanned = preprocessLayoutBuffer(file_data, file_size);
+
+        size_t reserve_count = total_polygons_scanned;
+        if (has_gate_rule && gate_rule.second >= 0 && static_cast<size_t>(gate_rule.second) < layer_scan_info_.size()) {
+            size_t aa_count = static_cast<size_t>(layer_scan_info_[gate_rule.second].polygon_count);
+            reserve_count += aa_count * kAaSplitReserveMultiplier;
+        }
+        polygons.reserve(reserve_count);
+        polygons.resize(total_polygons_scanned);
+
+        size_t layer_count = layer_name_to_id.size();
+        if (polygon_id_range_in_layer.size() < layer_count) {
+            polygon_id_range_in_layer.resize(layer_count, Range{0, -1});
+        }
+        int next_polygon_id = 0;
+        for (size_t layer_id = 0; layer_id < layer_count; ++layer_id) {
+            auto& range = polygon_id_range_in_layer[layer_id];
+            range.first = next_polygon_id;
+            const int polygon_count = (layer_id < layer_scan_info_.size()) ? layer_scan_info_[layer_id].polygon_count : 0;
+            range.second = next_polygon_id + polygon_count - 1;
+            next_polygon_id += polygon_count;
+        }
+        total_polygon = next_polygon_id;
+
+        std::vector<ParseTaskRange> tasks;
+        size_t total_chunks = 0;
+        for (size_t layer_id = 0; layer_id < layer_count; ++layer_id) {
+            const LayerScanInfo& info = (layer_id < layer_scan_info_.size()) ? layer_scan_info_[layer_id] : LayerScanInfo{};
+            if (info.polygon_count <= 0) continue;
+            total_chunks += info.chunks.size();
+        }
+        tasks.reserve(total_chunks);
+        for (size_t layer_id = 0; layer_id < layer_count; ++layer_id) {
+            const LayerScanInfo& info = (layer_id < layer_scan_info_.size()) ? layer_scan_info_[layer_id] : LayerScanInfo{};
+            if (info.polygon_count <= 0) continue;
+            int layer_begin = polygon_id_range_in_layer[layer_id].first;
+            if (info.chunks.empty()) {
+                tasks.push_back({info.start, info.end, layer_begin, static_cast<int>(layer_id), info.polygon_count});
+            } else {
+                for (const auto& chunk : info.chunks) {
+                    if (chunk.local_count <= 0) continue;
+                    const char* start_ptr = chunk.start ? chunk.start : info.start;
+                    const char* end_ptr = chunk.end ? chunk.end : info.end;
+                    if (!start_ptr || !end_ptr || start_ptr >= end_ptr) continue;
+                    int begin_id = layer_begin + chunk.local_begin;
+                    tasks.push_back({start_ptr, end_ptr, begin_id, static_cast<int>(layer_id), chunk.local_count});
+                }
+            }
+        }
+        return tasks;
+    }
+
     // 处理一个多边形解析任务
     void executeParseRange(const ParseTaskRange& task, Rect& local_layout) {
         const char* current = task.start;
@@ -1048,13 +976,13 @@ private:
             size_t line_len = current - line_start;
             if (line_len > 0 && *line_start == '(') {
                 if (curr_id >= static_cast<int>(polygons.size())) {
-                    break;
+                    std::cerr << "错误：解析多边形数超过预期，数据可能损坏" << std::endl;
+                    return;
                 }
                 Polygon& poly = polygons[curr_id];
                 poly.id = curr_id;
                 poly.layer_id = task.layer_id;
-				poly.vertex.reserve(12);
-                // preparePolygonVertices(poly, line_start, line_len);
+				preparePolygonVertices(poly, line_start, line_len);
                 Rect poly_rect;
                 if (fastParseCoordinates(line_start, line_start + line_len, poly.vertex, poly_rect)) {
                     poly.rect = poly_rect;

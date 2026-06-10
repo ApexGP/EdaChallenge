@@ -365,8 +365,7 @@ public:
 			return;
 		}
 
-		omp_set_num_threads(thread_count);
-		#pragma omp parallel
+		#pragma omp parallel num_threads(thread_count)
 		{
 			#pragma omp single
 			{

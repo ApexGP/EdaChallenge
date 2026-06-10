@@ -20,10 +20,18 @@ public:
 
         // 第一次遍历：统计节点度数
         std::vector<int> degrees(_node_count, 0);
+        bool out_of_range_warned = false;
         for (const auto& edge : edges) {
             int u = edge.first;
             int v = edge.second;
-            if (u < 0 || u >= _node_count || v < 0 || v >= _node_count) continue;
+            if (u < 0 || u >= _node_count || v < 0 || v >= _node_count) {
+                if (!out_of_range_warned) {
+                    std::cerr << "[Graph] AddEdges: skipping out-of-range edge ("
+                              << u << "," << v << "), node_count=" << _node_count << std::endl;
+                    out_of_range_warned = true;
+                }
+                continue;
+            }
             ++degrees[u];
             ++degrees[v];
         }
@@ -52,7 +60,7 @@ public:
         if (start < 0 || start >= _node_count) return {};
 
         // 位图记录访问状态（1bit/node）
-        std::vector<bool> visited(_node_count, false);
+        std::vector<uint8_t> visited(_node_count, 0);
         std::vector<int> component;
         component.reserve(_node_count / 10); // 预分配内存
 

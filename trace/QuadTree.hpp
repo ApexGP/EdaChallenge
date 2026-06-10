@@ -3,7 +3,7 @@
 #include "./ManhattanBooleanSetOperation/utils/HighPerfMemoryPool.h"
 
 class QuadTreeNode;
-static thread_local MBSO::HighPerfMemoryPool<QuadTreeNode> quadTreeNodePool(65536); // 四叉树节点内存池
+static MBSO::HighPerfMemoryPool<QuadTreeNode> quadTreeNodePool(65536); // 四叉树节点内存池（线程安全）
 
 // 四叉树节点定义
 class QuadTreeNode
@@ -120,11 +120,8 @@ public:
         // 初始化根节点数据
         _root->_datas = poly_ptr;
 
-        // 设置线程数
-        omp_set_num_threads(thread_count);
-
         // 启动并行区域递归划分节点
-        #pragma omp parallel
+        #pragma omp parallel num_threads(thread_count)
         {
             #pragma omp single nowait
             SplitNodeParallel(_root);

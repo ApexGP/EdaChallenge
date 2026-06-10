@@ -19,71 +19,78 @@
 + instance/ 算例
 + solution/ 结果
 + trace/ 源码
-+ + thirty/ 第三方库, 更多信息请查阅 [第三方库说明](./trace/third_party/README.md), ps:最新版已不在使用CGAL
++ + third_party/ 第三方库（gitignored）：Boost（头文件）、CGAL（头文件，当前未使用）、GMP/MPFR 预编译库
++ + ManhattanBooleanSetOperation/ 自研曼哈顿布尔运算静态库（`libMBSO.a`），替代了早期的 CGAL 依赖
 + test/ 测试
 + checker/ 检验答案程序 查阅 [检验程序说明](./checker/README.md)
 
 
 ## 3.代码结构
-+ public.h 一些公用数据定义
-+ NaiveThreadPool.h 简单线程池
-+ robin_hood.h 提供更快的unordered_map/unordered_set
-+ Input.hpp 输入类
-+ Intersect.hpp 多边形相交检测类
-+ ManhattanIntersectDetector.hpp 基于两两边比较和点包含测试的曼哈顿多边形相交检测类
-+ QuadTree.hpp 四叉树实现类
-+ SpaceIndex.hpp 使用四叉树建立空间索引类
-+ Graph.hpp 拓扑图类，根据边集建图，求连通分量
-+ PolygonCutting.hpp 多边形合并与切割类，合并PO层，切割AA层
-+ Trace.hpp 链路追踪方法上层封装类
-+ Output.hpp 输出类
++ `public.h` 公用数据定义（Polygon、Rect、UnionFindSet、Timer 等）
++ `NaiveThreadPool.h` 简单线程池
++ `robin_hood.h` 高性能 hash map/set，替代 `std::unordered_map`
++ `Input.hpp` 输入类：mmap 加速读取，支持按 chunk 并行解析
++ `Intersect.hpp` 多边形相交检测编排（完整建图 / 惰性按需两种模式）
++ `ManhattanIntersectDetector.hpp` 曼哈顿多边形专用相交检测（基于两边比较和点包含）
++ `QuadTree.hpp` 四叉树空间索引（线程安全内存池分配）
++ `SpaceIndex.hpp` 四叉树空间索引上层封装（支持 Via 层合并）
++ `Graph.hpp` CSR 格式无向图：批量建边 + BFS 连通分量
++ `PolygonCutting.hpp` Gate 规则处理：PO 层合并、AA 层切割
++ `Trace.hpp` 链路追踪上层封装（4 种策略：Complete/Lazy × 单线程/多线程）
++ `Output.hpp` 结果输出
++ `ManhattanBooleanSetOperation/` 自研静态库：替代 CGAL 布尔集合运算
 
 ## 4.运行方式
 ### 4.1.环境
-~~​由于我们使用CGAL6.0+​~~​, 所以要求​C++17及以上, 即编译器要求: GCC 7+, Clang 5+, MSVC 2017+
+C++17 及以上。支持 **MSVC / MinGW-w64 / GCC** 三种编译器，通过 CMake Presets 一键配置。
 
-### 4.2.Windows with VS2022
-+ ~~解决方案属性页，配置-切换为`所有配置`~~
-+ ~~配置VC++目录-包含目录：`$(SolutionDir)third_party` 和 `$(SolutionDir)third_party\gmp-win\include`~~
-+ ~~配置VC++目录-库目录：`$(SolutionDir)third_party\gmp-win\lib`~~
-+ ~~配置链接器-输入-附加依赖项：`gmp.lib` 和 `mpfr.lib`~~
-+ ~~配置常规-C++语言标准：`ISO C++17 标准`~~
-+ 若依赖openMP，需要添加启用对应编译选项
+**必需依赖**：OpenMP（CMake 自动检测，未找到时报错提示安装）。
 
-### 4.3.Linux
-#### 4.3.1.手动编译运行
+**可选依赖**：GMP/MPFR（仅 CGAL 需要，当前 MBSO 路径不依赖）。
+
+### 4.2.编译
+
 ```shell
-# 编译
-mkdir build
-cd build
-cmake ..
-make
-# 运行
-cd ../bin
-./trace -layout ./layout.txt -rule ./rule.txt [-thread n] -output ./res.txt 
-# 例: ./trace -layout ../instance/case/case1_small_layout.txt -rule ../instance/Rule/public_small_rule1.txt -output ../solution/case1_small_layout_q1.txt
-```
-+ trace：链路追踪（Net Trace）可执行程序
-+ -layout：必选参数，指定版图文件的路径，该文件由出题方提供。
-+ -rule:  必选参数，指定规则文件的路径，该文件由出题方提供。
-+ -thread：可选参数，指定n个线程的并行计算。
-+ -output:  必须参数，指定输出的结果文件的路径，由程序运行产生。
+# Windows MSVC
+cmake --preset msvc-release && cmake --build --preset msvc-release
 
-#### 4.3.2.Python脚本自动化
-test/run_trace.py  
-```shell 
-# 调用方式：  
-cd test
-python3 run_trace.py -layout ./layout.txt -rule ./rule.txt [-thread n] -output ./res.txt -ans ans.txt
-# 例: 
-python3 run_trace.py \
-    -layout ../instance/case/case1_small_layout.txt \
-    -rule ../instance/Rule/public_small_rule1.txt \
-    -output ../solution/case1_small_layout_q1.txt \
-    -ans ../answer/small/case1_small_q1.txt \
-    -thread 1
+# Windows MinGW-w64
+cmake --preset mingw-release && cmake --build --preset mingw-release
+
+# Linux GCC
+cmake --preset gcc-release && cmake --build --preset gcc-release
 ```
-该脚本自动编译、运行trace、运行checker, 参数与trace程序对应，最后一个`-ans`参数为对应答案的路径
+
+所有 preset 均提供 `-release` / `-debug` 变体（共 6 组）。可执行文件输出到 `bin/trace[.exe]`。
+
+优化参数按平台自动选择：
+- **MSVC**: `/O2 /arch:AVX2 /fp:fast /MT`
+- **MinGW/GCC**: `-O3 -flto -mavx2 -mfma -mbmi2 -mpopcnt -march=x86-64-v3 -static`
+
+### 4.3.运行
+
+```shell
+cd ../bin
+./trace -layout <layout_file> -rule <rule_file> [-thread n] -output <output_file>
+# 例: ./trace -layout ../instance/case/case1_small_layout.txt \
+#            -rule ../instance/Rule/public_small_rule1.txt \
+#            -output ../solution/case1_small_layout_q1.txt
+```
+
+| 参数 | 说明 |
+|:-----|:-----|
+| `-layout` | 必选，版图文件路径 |
+| `-rule` | 必选，规则文件路径 |
+| `-thread` | 可选，并行线程数（默认 1，范围 1-256） |
+| `-output` | 必选，输出结果文件路径 |
+
+### 4.4.Python 脚本自动化
+
+```shell
+cd test
+python3 run_trace.py -layout <layout_file> -rule <rule_file> [-thread n] -output <res_file> -ans <ans_file>
+```
+脚本自动完成 cmake/make 编译、运行 trace、调用 checker 验证结果。
 
 ## 5.可视化脚本
 test/visual.py  

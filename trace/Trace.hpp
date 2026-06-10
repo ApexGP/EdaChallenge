@@ -132,7 +132,7 @@ std::vector<int> Trace::TraceUsingCompleteGraph() {
 
 // BFS驱动延迟建图-单线程
 std::vector<int> Trace::TraceUsingLazyGraph() {
-    Timer myTimer;
+    INFO_INSTR(Timer myTimer;)
     if (!input.has_gate_rule) // 若没有Gate规则(单起点)
     {
         /* 根据输入和规则建立空间索引 */
@@ -307,7 +307,7 @@ std::vector<int> Trace::TraceUsingCompleteGraphParallel(int thread_count) {
 
 // BFS驱动延迟建图-多线程
 std::vector<int> Trace::TraceUsingLazyGraphParallel(int thread_count) {
-	Timer myTimer;
+	INFO_INSTR(Timer myTimer;)
     if (!input.has_gate_rule) // 若没有Gate规则(单起点)
     {
         /* 根据输入和规则建立空间索引 */
@@ -518,7 +518,6 @@ std::vector<int> Trace::RunLazyConnectedComponentParallel(SpaceIndex& spaceIndex
 
 	const size_t PARALLEL_THRESHOLD = 100;	// 可调整的并行阈值
 
-	omp_set_num_threads(thread_count);
 	const int buffer_threads = std::max(1, thread_count);
 
 	// 分开管理线程局部存储
@@ -600,7 +599,7 @@ std::vector<int> Trace::RunLazyConnectedComponentParallel(SpaceIndex& spaceIndex
 	    else {
 	        uint8_t* visited_ptr = bfs_visted.data();
 
-	        #pragma omp parallel for schedule(dynamic, 50) INFO_INSTR(reduction(+:neighbor_candidates, extra_neighbors, skipped_visited, enqueued))
+	        #pragma omp parallel for schedule(dynamic, 50) num_threads(thread_count) INFO_INSTR(reduction(+:neighbor_candidates, extra_neighbors, skipped_visited, enqueued))
 	        for (int idx = 0; idx < static_cast<int>(level_size); ++idx) {
 	            int current = frontier[idx];
 	            int tid = omp_get_thread_num();
