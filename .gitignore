@@ -65,15 +65,18 @@ clangd-stubs/
 *.iobj
 
 # 大文件
-answer/large/*
-answer/small/*
-instance/case/*
-solution/*
+answer/Public/small/*
+answer/Public/large/*
+answer/Hidden/*
+instance/case/Public/*
+instance/case/Hidden/*
+solution/Public/*
+solution/Hidden/*
 
 # 特赦一些小文件
-!answer/small/case1_small_q1.txt
-!instance/case/case1_small_layout.txt
-!solution/case1_small_layout_q1.txt
+!answer/Public/small/case1_small_q1.txt
+!instance/case/Public/case1_small_layout.txt
+!solution/Public/case1_small_layout_q1.txt
 
 # 第三方库
 trace/third_party/*

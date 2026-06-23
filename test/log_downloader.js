@@ -1,0 +1,127 @@
+// 复制以下代码到浏览器控制台执行：
+
+// 自动点击并下载所有提交记录日志
+function clickAndDownloadAllLogs() {
+    console.log('🚀 开始自动点击并下载所有提交记录日志...');
+
+    // 获取所有提交记录行
+    const tbody = document.querySelector('#user-submission-table > table > tbody');
+    if (!tbody) {
+        console.error('❌ 未找到提交记录表格');
+        return;
+    }
+
+    const submissionRows = tbody.querySelectorAll('tr');
+
+    if (submissionRows.length === 0) {
+        console.error('❌ 未找到任何提交记录行');
+        return;
+    }
+
+    console.log(`📋 找到 ${submissionRows.length} 条提交记录`);
+
+    // 创建处理队列
+    const processQueue = async () => {
+        for (let i = 0; i < submissionRows.length; i++) {
+            const row = submissionRows[i];
+
+            try {
+                console.log(`\n--- 处理第 ${i+1}/${submissionRows.length} 条记录 ---`);
+
+                // 获取文件名
+                const filenameCell = row.cells[1];
+                if (!filenameCell) {
+                    console.error(`❌ 第${i+1}行无法获取文件名`);
+                    continue;
+                }
+
+                const originalFilename = filenameCell.textContent.trim();
+                if (!originalFilename.endsWith('.zip')) {
+                    console.warn(`⚠️ 第${i+1}行文件名不是.zip格式: ${originalFilename}`);
+                    continue;
+                }
+
+                const logFilename = originalFilename.slice(0, -4) + '.txt';
+
+                // 高亮当前处理的行
+                row.style.backgroundColor = '#e3f2fd';
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // 点击行以激活
+                console.log(`🖱️ 点击行以激活: ${originalFilename}`);
+                row.click();
+
+                // 等待页面响应和元素激活
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // 尝试多种选择器查找日志内容
+                const selectors = [
+                    'div[data-tab="s_stdout"] pre',
+                    'div.ui.bottom.attached.inverted.segment.tab.log pre',
+                    'pre'
+                ];
+
+                let preElement = null;
+                for (const selector of selectors) {
+                    preElement = document.querySelector(selector);
+                    if (preElement) {
+                        console.log(`✅ 使用选择器找到元素: ${selector}`);
+                        break;
+                    }
+                }
+
+                if (preElement) {
+                    const content = preElement.textContent || preElement.innerText;
+
+                    if (content && content.trim().length > 0) {
+                        // 下载文件
+                        const blob = new Blob([content], { type: 'text/plain; charset=utf-8' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = logFilename;
+                        a.style.display = 'none';
+
+                        document.body.appendChild(a);
+                        a.click();
+
+                        setTimeout(() => {
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }, 100);
+
+                        console.log(`✅ 文件 "${logFilename}" 下载成功！`);
+                        console.log(`📊 内容长度: ${content.length} 字符`);
+                    } else {
+                        console.error(`❌ 找到元素但内容为空`);
+                    }
+                } else {
+                    console.error(`❌ 未找到日志元素，可能点击未成功激活`);
+                }
+
+                // 处理完成后恢复原背景色
+                setTimeout(() => {
+                    row.style.backgroundColor = '';
+                }, 1000);
+
+            } catch (error) {
+                console.error(`❌ 处理第${i+1}行时出错:`, error);
+            }
+
+            // 等待一段时间再处理下一行
+            if (i < submissionRows.length - 1) {
+                console.log(`⏳ 等待3秒后处理下一条记录...`);
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+        }
+
+        console.log(`\n🎉 所有记录处理完成！共处理了 ${submissionRows.length} 条记录`);
+    };
+
+    // 开始处理队列
+    processQueue();
+}
+
+// 使用方法：
+// 在浏览器控制台中执行以下命令即可开始自动点击并下载
+clickAndDownloadAllLogs();
