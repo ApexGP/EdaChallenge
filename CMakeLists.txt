@@ -43,15 +43,6 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 # ============================================================================
-# 第三方库路径（相对于 trace/third_party/）
-# ============================================================================
-set(THIRD_PARTY_DIR ${CMAKE_SOURCE_DIR}/trace/third_party)
-set(THIRD_PARTY_BOOST_DIR  ${THIRD_PARTY_DIR}/boost)
-set(THIRD_PARTY_CGAL_DIR   ${THIRD_PARTY_DIR}/CGAL)
-set(THIRD_PARTY_GMP_WIN    ${THIRD_PARTY_DIR}/gmp-win)
-set(THIRD_PARTY_GMP_LINUX  ${THIRD_PARTY_DIR}/gmp-linux)
-
-# ============================================================================
 # 平台相关编译选项
 # ============================================================================
 if(COMPILER_ID STREQUAL "msvc")
@@ -72,10 +63,6 @@ if(COMPILER_ID STREQUAL "msvc")
     # MSVC 不需要 -static 标志
     set(STATIC_LINK_FLAGS "")
 
-    # GMP/MPFR 路径（MSVC 可以用 .lib 直接链接）
-    set(GMP_INCLUDE_DIR ${THIRD_PARTY_GMP_WIN}/include)
-    set(GMP_LIBRARY_DIR ${THIRD_PARTY_GMP_WIN}/lib)
-
 elseif(COMPILER_ID STREQUAL "mingw")
     # ----- MinGW -----
     message(STATUS "使用 MinGW 编译选项")
@@ -87,10 +74,6 @@ elseif(COMPILER_ID STREQUAL "mingw")
 
     # 静态链接（MinGW 支持 -static，LTO 链接需要 -flto -fuse-linker-plugin）
     set(STATIC_LINK_FLAGS "-static -flto")
-
-    # GMP/MPFR：优先找 .dll.a 导入库，找不到则尝试 MSYS2 路径
-    set(GMP_INCLUDE_DIR ${THIRD_PARTY_GMP_WIN}/include)
-    set(GMP_LIBRARY_DIR ${THIRD_PARTY_GMP_WIN}/lib)
 
 else()  # GCC / Clang (Linux)
     # ----- GCC / Clang (Linux) -----
@@ -105,9 +88,6 @@ else()  # GCC / Clang (Linux)
     set(STATIC_LINK_FLAGS "-static -flto")
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 
-    # GMP/MPFR（Linux 预编译静态库）
-    set(GMP_INCLUDE_DIR ${THIRD_PARTY_GMP_LINUX}/include)
-    set(GMP_LIBRARY_DIR ${THIRD_PARTY_GMP_LINUX}/lib)
 endif()
 
 # 应用静态链接标志
@@ -133,64 +113,11 @@ endif()
 message(STATUS "✅ OpenMP 已找到 (版本: ${OpenMP_CXX_VERSION})")
 
 # ============================================================================
-# GMP/MPFR — 可选依赖（仅 CGAL 路径需要，当前 MBSO 路径不依赖）
-# ============================================================================
-set(GMP_ENABLED OFF)
-if(COMPILER_ID STREQUAL "mingw")
-    # MinGW 需要在 gmp-win 目录下有 .dll.a 导入库
-    if(EXISTS "${GMP_LIBRARY_DIR}/libgmp.dll.a" AND EXISTS "${GMP_LIBRARY_DIR}/libmpfr.dll.a")
-        set(GMP_ENABLED ON)
-        set(GMP_LIBRARIES gmp mpfr)
-        message(STATUS "✅ GMP/MPFR 导入库已找到")
-    else()
-        # 尝试查找系统安装的 GMP/MPFR（如 MSYS2）
-        find_library(GMP_FOUND_LIB NAMES gmp mpfr PATHS ENV PATH NO_DEFAULT_PATH)
-        if(GMP_FOUND_LIB)
-            set(GMP_ENABLED ON)
-            find_package(PkgConfig QUIET)
-            if(PKG_CONFIG_FOUND)
-                pkg_check_modules(GMP gmp)
-                pkg_check_modules(MPFR mpfr)
-            endif()
-            message(STATUS "✅ GMP/MPFR 已从系统路径找到")
-        else()
-            message(STATUS "ℹ️  GMP/MPFR 未找到（MinGW 需要 .dll.a 导入库）。当前 MBSO 路径不需要它们，跳过。")
-            message(STATUS "   如需 CGAL 支持，请执行：")
-            message(STATUS "     gendef ${GMP_LIBRARY_DIR}/gmp-10.dll")
-            message(STATUS "     dlltool -d gmp-10.def -l ${GMP_LIBRARY_DIR}/libgmp.dll.a -D ${GMP_LIBRARY_DIR}/gmp-10.dll")
-            message(STATUS "   或: pacman -S mingw-w64-x86_64-gmp mingw-w64-x86_64-mpfr")
-        endif()
-    endif()
-else()
-    # MSVC / GCC：检查库文件是否存在
-    if(EXISTS "${GMP_LIBRARY_DIR}" AND EXISTS "${GMP_INCLUDE_DIR}")
-        set(GMP_ENABLED ON)
-        set(GMP_LIBRARIES gmp mpfr)
-        message(STATUS "✅ GMP/MPFR 已找到 (${GMP_LIBRARY_DIR})")
-    else()
-        message(STATUS "ℹ️  GMP/MPFR 未找到，跳过。当前 MBSO 路径不需要它们。")
-    endif()
-endif()
-
-# ============================================================================
 # 头文件路径
 # ============================================================================
 include_directories(
     ${CMAKE_SOURCE_DIR}/trace/ManhattanBooleanSetOperation  # MBSO
 )
-
-# Boost 和 CGAL（header-only，始终加入路径）
-if(EXISTS ${THIRD_PARTY_BOOST_DIR})
-    include_directories(${THIRD_PARTY_BOOST_DIR})
-endif()
-if(EXISTS ${THIRD_PARTY_CGAL_DIR}/include)
-    include_directories(${THIRD_PARTY_CGAL_DIR}/include)
-endif()
-
-if(GMP_ENABLED)
-    include_directories(${GMP_INCLUDE_DIR})
-    link_directories(${GMP_LIBRARY_DIR})
-endif()
 
 # ============================================================================
 # MBSO 子库
@@ -227,10 +154,6 @@ target_link_libraries(trace PRIVATE
     OpenMP::OpenMP_CXX
 )
 
-if(GMP_ENABLED AND GMP_LIBRARIES)
-    target_link_libraries(trace PRIVATE ${GMP_LIBRARIES})
-endif()
-
 # 目标编译特性
 set_target_properties(trace PROPERTIES
     CXX_STANDARD 17
@@ -258,10 +181,6 @@ message(STATUS "║  编译器:    ${COMPILER_ID} (${CMAKE_CXX_COMPILER_ID})")
 message(STATUS "║  构建类型:  ${CMAKE_BUILD_TYPE}")
 message(STATUS "║  C++标准:   C++${CMAKE_CXX_STANDARD}")
 message(STATUS "║  OpenMP:    ${OpenMP_CXX_VERSION}")
-if(GMP_ENABLED)
-    message(STATUS "║  GMP/MPFR:  已启用")
-else()
-    message(STATUS "║  GMP/MPFR:  未启用 (MBSO模式不需要)")
-endif()
+message(STATUS "║  几何后端:  MBSO (无 CGAL/GMP/Boost 依赖)")
 message(STATUS "╚════════════════════════════════════════╝")
 message(STATUS "")

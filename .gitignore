@@ -85,3 +85,6 @@ trace/third_party/*
 submit/*.zip
 # 特赦bestSubmit
 !submit/bestSubmit.zip
+
+# 结果文件
+results/

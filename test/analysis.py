@@ -1,207 +1,171 @@
-import os
+import argparse
+import csv
 import re
-import glob
-import pandas as pd
+from pathlib import Path
+
+REPEAT_SUFFIX_RE = re.compile(r'_r(\d+)$')
+THREAD_SUFFIX_RE = re.compile(r'_t(\d+)(?:_r\d+)?$')
+
+TIME_COLUMNS = [
+    'Trace_Wall_Time',
+    'Pipeline_Time',
+    'Total_Time',
+    'Input_Time',
+    'Space_Index_Time',
+    'Lazy_BFS_Time',
+    'Output_Time',
+    'Merge_Cutting_Time',
+]
+
+CSV_COLUMNS = ['文件名', '用例', '重复序号', '线程数'] + TIME_COLUMNS
+
+
+def parse_log_name(stem):
+    repeat_index = ''
+    repeat_match = REPEAT_SUFFIX_RE.search(stem)
+    if repeat_match:
+        repeat_index = int(repeat_match.group(1))
+        stem_without_repeat = stem[:repeat_match.start()]
+    else:
+        stem_without_repeat = stem
+
+    thread = ''
+    thread_match = THREAD_SUFFIX_RE.search(stem)
+    if thread_match:
+        thread = int(thread_match.group(1))
+        suffix_pos = stem_without_repeat.rfind(f'_t{thread}')
+        case_name = stem_without_repeat[:suffix_pos] if suffix_pos != -1 else stem_without_repeat
+    else:
+        case_name = stem_without_repeat
+    return case_name, thread, repeat_index
+
+
+def parse_float(pattern, content, default=None):
+    match = re.search(pattern, content, re.DOTALL)
+    return float(match.group(1)) if match else default
+
+
+def parse_thread(content, thread_from_name):
+    command_match = re.search(r'Command:.*?(?:^|\s)-thread\s+(\d+)(?:\s|$)', content)
+    if command_match:
+        return int(command_match.group(1))
+    if thread_from_name:
+        return thread_from_name
+    if re.search(r'Command:.*?\btrace(?:\.exe)?\b', content):
+        return 1
+    return ''
+
 
 def extract_info_from_txt(file_path):
-    """
-    从txt文件中提取信息，每个文件一行，多次执行的信息分开列
-    """
-    with open(file_path, 'r', encoding='utf-8') as f:
-        content = f.read()
+    file_path = Path(file_path).resolve()
+    content = file_path.read_text(encoding='utf-8')
+    case_name, thread_from_name, repeat_index = parse_log_name(file_path.stem)
 
-    # 提取文件名（不含扩展名）
-    filename = os.path.splitext(os.path.basename(file_path))[0]
+    return {
+        '文件名': file_path.stem,
+        '用例': case_name,
+        '重复序号': repeat_index,
+        '线程数': parse_thread(content, thread_from_name),
+        'Trace_Wall_Time': parse_float(r'Trace execution time:\s*([\d.e+-]+)\s*seconds', content),
+        'Pipeline_Time': parse_float(r'Total pipeline time:\s*([\d.e+-]+)\s*seconds', content),
+        'Total_Time': parse_float(r'----- Total Time:\s*([\d.e+-]+)\s*s', content),
+        'Input_Time': parse_float(r'----- Starting Input -----.*?Use Time:\s*([\d.e+-]+)\s*s', content),
+        'Space_Index_Time': parse_float(r'----- Starting Space Index -----.*?Use Time:\s*([\d.e+-]+)\s*s', content),
+        'Lazy_BFS_Time': parse_float(r'----- Starting Lazy BFS.*?Use Time:\s*([\d.e+-]+)\s*s', content),
+        'Output_Time': parse_float(r'----- Starting Output -----.*?Use Time:\s*([\d.e+-]+)\s*s', content),
+        'Merge_Cutting_Time': parse_float(r'----- Starting Merge and Cutting Polygon -----.*?Use Time:\s*([\d.e+-]+)\s*s', content),
+    }
 
-    # 初始化结果字典
-    result = {'文件名': filename}
 
-    # 1. 提取线程数
-    thread_match = re.search(r'从线程配置文件读取到线程数:\s*(\d+)', content)
-    if thread_match:
-        result['线程数'] = int(thread_match.group(1))
-    else:
-        thread_match2 = re.search(r'准备运行编译后的C\+\+程序\d+次，使用(\d+)线程', content)
-        result['线程数'] = int(thread_match2.group(1)) if thread_match2 else '未找到'
+def collect_txt_files(paths, recursive=False):
+    txt_files = []
+    for raw_path in paths:
+        path = Path(raw_path).expanduser()
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        path = path.resolve()
 
-    # 2. 提取总执行时间
-    total_time_match = re.search(r'总执行时间:\s*([\d.]+)秒', content)
-    if total_time_match:
-        result['总执行时间'] = float(total_time_match.group(1))
-    else:
-        total_time_match2 = re.search(r'提取的执行时间:\s*([\d.]+)\s*秒', content)
-        result['总执行时间'] = float(total_time_match2.group(1)) if total_time_match2 else None
+        if path.is_file():
+            if path.suffix.lower() == '.txt':
+                txt_files.append(path)
+            continue
+        if path.is_dir():
+            txt_files.extend(sorted(path.glob('**/*.txt' if recursive else '*.txt')))
+            continue
+        print(f"路径不存在，已跳过: {path}")
+    return sorted(dict.fromkeys(txt_files))
 
-    # 3. 提取每次执行的详细时间（共6次）
-    execution_times = re.findall(r'第(\d+)次执行时间:\s*([\d.]+)秒', content)
-    for i, time in execution_times:
-        result[f'第{i}次执行时间'] = float(time)
 
-    # 4. 为每次运行提取各个步骤的时间
-    # 分割每次运行的内容
-    run_sections = re.split(r'第\d+次运行:', content)
-    if run_sections and '第一步：运行ingestion.py' in run_sections[0]:
-        run_sections = run_sections[1:]
+def numeric_values(rows, column):
+    values = []
+    for row in rows:
+        value = row.get(column)
+        if value in (None, ''):
+            continue
+        values.append(float(value))
+    return values
 
-    # 处理每次运行
-    for i, run_content in enumerate(run_sections, 1):
-        if i > 6:  # 只处理前6次运行
-            break
 
-        # 提取各个步骤的时间（针对本次运行）
-        time_patterns = {
-            'Input_Time': r'----- Starting Input -----.*?Use Time:\s*([\d.e+-]+)\s*s',
-            'Space_Index_Time': r'----- Starting Space Index -----.*?Use Time:\s*([\d.e+-]+)\s*s',
-            'Output_Time': r'----- Starting Output -----.*?Use Time:\s*([\d.e+-]+)\s*s',
-            'Total_Time': r'----- Total Time:\s*([\d.e+-]+)\s*s',
-            'Merge_Cutting_Time': r'----- Starting Merge and Cutting Polygon -----.*?Use Time:\s*([\d.e+-]+)\s*s'
-        }
+def append_average_row(rows):
+    avg_row = {column: '' for column in CSV_COLUMNS}
+    first = rows[0]
+    avg_row['文件名'] = 'AVG'
+    avg_row['用例'] = first.get('用例', '')
+    avg_row['线程数'] = first.get('线程数', '')
+    avg_row['重复序号'] = 'AVG'
 
-        for key, pattern in time_patterns.items():
-            match = re.search(pattern, run_content, re.DOTALL)
-            if match:
-                try:
-                    result[f'第{i}次{key}'] = float(match.group(1))
-                except ValueError:
-                    result[f'第{i}次{key}'] = match.group(1)  # 保留科学计数法字符串
-            else:
-                result[f'第{i}次{key}'] = None
+    for column in TIME_COLUMNS:
+        values = numeric_values(rows, column)
+        if values:
+            avg_row[column] = sum(values) / len(values)
 
-        # 特殊处理Lazy_BFS_Time，因为可能有多个
-        lazy_bfs_pattern = r'----- Starting Lazy BFS.*?Use Time:\s*([\d.e+-]+)\s*s'
-        lazy_bfs_matches = re.findall(lazy_bfs_pattern, run_content, re.DOTALL)
+    return rows + [avg_row]
 
-        if lazy_bfs_matches:
-            # 如果有多个Lazy_BFS_Time，用分号分隔
-            lazy_bfs_times = []
-            for j, time in enumerate(lazy_bfs_matches, 1):
-                try:
-                    lazy_bfs_times.append(str(float(time)))
-                except ValueError:
-                    lazy_bfs_times.append(time)  # 保留科学计数法字符串
 
-            result[f'第{i}次Lazy_BFS_Time'] = '; '.join(lazy_bfs_times)
-        else:
-            result[f'第{i}次Lazy_BFS_Time'] = None
+def write_csv(csv_file, rows):
+    csv_file.parent.mkdir(parents=True, exist_ok=True)
+    with csv_file.open('w', encoding='utf-8-sig', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS, extrasaction='ignore')
+        writer.writeheader()
+        writer.writerows(rows)
 
-    return result
 
 def main():
-    # 获取当前目录下所有txt文件
-    txt_files = glob.glob("*.txt")
+    parser = argparse.ArgumentParser(description='Extract per-round trace timing metrics into one CSV.')
+    parser.add_argument('paths', nargs='*', default=['.'],
+                        help='txt files or directories to scan. Default: current directory')
+    parser.add_argument('-r', '--recursive', action='store_true',
+                        help='Recursively scan txt files when a directory is provided')
+    parser.add_argument('-o', '--output', default='result.csv',
+                        help='Output CSV path. Default: result.csv in current directory')
+    args = parser.parse_args()
 
+    txt_files = collect_txt_files(args.paths, recursive=args.recursive)
     if not txt_files:
-        print("当前目录下没有找到txt文件")
+        print("未找到txt文件")
         return
 
-    # 存储所有文件的结果
-    all_results = []
-
-    # 处理每个txt文件
+    rows = []
     for txt_file in txt_files:
-        print(f"正在处理文件: {txt_file}")
         try:
-            result = extract_info_from_txt(txt_file)
-            all_results.append(result)
-            print(f"成功提取信息: {txt_file}")
-        except Exception as e:
-            print(f"处理文件 {txt_file} 时发生错误: {e}")
+            rows.append(extract_info_from_txt(txt_file))
+        except Exception as exc:
+            print(f"处理文件 {txt_file} 时发生错误: {exc}")
 
-    if not all_results:
+    if not rows:
         print("没有成功提取到任何信息")
         return
 
-    # 转换为DataFrame
-    df = pd.DataFrame(all_results)
+    rows = append_average_row(rows)
+    csv_file = Path(args.output).expanduser()
+    if not csv_file.is_absolute():
+        csv_file = Path.cwd() / csv_file
+    csv_file = csv_file.resolve()
+    write_csv(csv_file, rows)
 
-    # 重新排列列的顺序，使每次执行的执行时间和Total_Time相邻
-    all_columns = df.columns.tolist()
+    print(f"处理完成，共处理日志数: {len(txt_files)}")
+    print(f"输出文件: {csv_file}")
 
-    # 将文件名放在第一列
-    if '文件名' in all_columns:
-        all_columns.remove('文件名')
-        all_columns = ['文件名'] + all_columns
-
-    # 将线程数和总执行时间放在前面
-    for col in ['线程数', '总执行时间']:
-        if col in all_columns:
-            all_columns.remove(col)
-            all_columns.insert(1, col)  # 放在文件名后面
-
-    # 为每次运行创建列组
-    new_column_order = all_columns[:3]  # 文件名, 线程数, 总执行时间
-
-    # 对每次运行i，将相关列按特定顺序排列
-    for i in range(1, 7):
-        # 找出与本次运行相关的所有列
-        run_columns = [col for col in all_columns if f'第{i}次' in col]
-
-        # 按特定顺序排列这些列
-        preferred_order = [
-            f'第{i}次执行时间',
-            f'第{i}次Total_Time',
-            f'第{i}次Input_Time',
-            f'第{i}次Space_Index_Time',
-            f'第{i}次Lazy_BFS_Time',
-            f'第{i}次Output_Time',
-            f'第{i}次Merge_Cutting_Time'
-        ]
-
-        # 只保留实际存在的列
-        ordered_columns = [col for col in preferred_order if col in run_columns]
-
-        # 添加剩余的列（如果有不在preferred_order中的列）
-        remaining_columns = [col for col in run_columns if col not in ordered_columns]
-        ordered_columns.extend(remaining_columns)
-
-        # 将这些列添加到新的列顺序中
-        new_column_order.extend(ordered_columns)
-
-    # 添加不属于任何运行的列（如果有的话）
-    remaining_columns = [col for col in all_columns if col not in new_column_order and not any(f'第{i}次' in col for i in range(1, 7))]
-    new_column_order.extend(remaining_columns)
-
-    # 应用新的列顺序
-    df = df[new_column_order]
-
-    # 保存到Excel文件
-    excel_file = "result.xlsx"
-
-    # 如果文件已存在，追加到现有文件
-    if os.path.exists(excel_file):
-        try:
-            # 读取现有文件
-            existing_df = pd.read_excel(excel_file)
-
-            # 合并数据（基于文件名去重）
-            combined_df = pd.concat([existing_df, df], ignore_index=True)
-            combined_df = combined_df.drop_duplicates(subset=['文件名'], keep='last')
-
-            # 保存回文件
-            combined_df.to_excel(excel_file, index=False)
-            print(f"已追加数据到现有文件: {excel_file}")
-
-        except Exception as e:
-            print(f"追加到现有文件失败，将创建新文件: {e}")
-            df.to_excel(excel_file, index=False)
-            print(f"已创建新文件: {excel_file}")
-    else:
-        df.to_excel(excel_file, index=False)
-        print(f"已创建新文件: {excel_file}")
-
-    # 打印统计信息
-    print(f"\n处理完成！")
-    print(f"共处理文件数: {len(all_results)}")
-    print(f"输出文件: {excel_file}")
-
-    # 显示提取的列信息
-    print(f"\n提取的列信息:")
-    for i, col in enumerate(df.columns, 1):
-        print(f"{i:2d}. {col}")
-
-    # 显示数据预览
-    print(f"\n数据预览（前5行）:")
-    print(df.head())
 
 if __name__ == "__main__":
     main()
