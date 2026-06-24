@@ -153,7 +153,7 @@ declare -a CASES=(
   "Public|case1_large_q3|instance/case/Public/case1_large_0909b_layout.txt|instance/Rule/Public/public_large_rule3.txt|answer/Public/large/case1_large_gate_q3_0912.txt|solution/Public/case1_large_layout_q3.txt"
   "Hidden|hidden_case_q1|instance/case/Hidden/hidden_case_layout.txt|instance/Rule/Hidden/hidden_case_rule_q1.txt|answer/Hidden/hidden_case_q1.txt|solution/Hidden/hidden_case_layout_q1.txt"
   "Hidden|hidden_case_q2|instance/case/Hidden/hidden_case_layout.txt|instance/Rule/Hidden/hidden_case_rule_q2.txt|answer/Hidden/hidden_case_q2.txt|solution/Hidden/hidden_case_layout_q2.txt"
-#   "Hidden|hidden_case_q3|instance/case/Hidden/hidden_case_layout.txt|instance/Rule/Hidden/hidden_case_rule_q3.txt|answer/Hidden/hidden_case_q3.txt|solution/Hidden/hidden_case_layout_q3.txt"
+  "Hidden|hidden_case_q3|instance/case/Hidden/hidden_case_layout.txt|instance/Rule/Hidden/hidden_case_rule_q3.txt|answer/Hidden/hidden_case_q3.txt|solution/Hidden/hidden_case_layout_q3.txt"
 )
 
 build_args=()

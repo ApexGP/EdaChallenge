@@ -114,7 +114,7 @@ namespace MBSO {
         // 常量定义
         static constexpr size_t MIN_BLOCK_SIZE = 64 * 1024;  // 最小内存块大小（64KB）
         static constexpr size_t ALIGNMENT = alignof(std::max_align_t);  // 内存对齐要求
-        static constexpr size_t LOCAL_CACHE_POOL_THRESHOLD = 4096;
+        static constexpr size_t LOCAL_CACHE_POOL_THRESHOLD = static_cast<size_t>(-1);  // 禁用：thread_local batching 在单线程和大数据集下均不如无竞争 mutex
         static constexpr size_t LOCAL_CACHE_REFILL_COUNT = 256;
 
         // 成员变量
@@ -270,22 +270,18 @@ namespace MBSO {
                 node = local_cache.back();
                 local_cache.pop_back();
             } else {
-                // 小池仅由 MBSOCore 的线程局部实例使用，保持无锁快路径。
+                std::lock_guard<std::mutex> lock(mutex_);
                 // 确保自由链表不为空（必要时分配新内存块）
                 if (!free_list_) {
                     add_block();
                 }
                 node = free_list_;
                 free_list_ = free_list_->next;
+                ++total_allocated_;
             }
 
             // 使用placement new在获取的内存上构造对象
             T* object = new (node) T(std::forward<Args>(args)...);
-
-            // 更新分配计数器
-            if (!useLocalCache()) {
-                ++total_allocated_;
-            }
 
             return object;
         }
@@ -337,13 +333,9 @@ namespace MBSO {
                     local_free_cache.clear();
                 }
             } else {
-                // 小池保持无锁归还，避免 MBSO 点/边高频回收开销。
+                std::lock_guard<std::mutex> lock(mutex_);
                 node->next = free_list_;
                 free_list_ = node;
-            }
-
-            // 更新释放计数器
-            if (!useLocalCache()) {
                 ++total_freed_;
             }
         }
