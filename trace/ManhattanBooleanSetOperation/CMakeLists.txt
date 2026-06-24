@@ -37,4 +37,5 @@ install(TARGETS MBSO
 install(DIRECTORY const model solve utils
     DESTINATION include/ManhattanBooleanSetOperation
     FILES_MATCHING PATTERN "*.h"
+    PATTERN "robin_hood.h" EXCLUDE
 )

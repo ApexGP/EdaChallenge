@@ -541,7 +541,7 @@ std::vector<int> Trace::RunLazyConnectedComponentParallel(SpaceIndex& spaceIndex
 
 	        for (int current : frontier) {
 				// 获取基础邻居
-	            intersect.GetNeighborsLazyParallel(current, bfs_visted, neighbors);
+	            intersect.GetNeighborsLazy(current, bfs_visted, neighbors);
 	            INFO_INSTR(neighbor_candidates += neighbors.size();)
 				// 添加额外邻居
 	            if (extra_adj) {

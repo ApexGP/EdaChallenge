@@ -104,7 +104,7 @@ private:
 		// 建立空间索引
 		std::string name = input.layer_id_to_name[input.gate_rule.first];
 		QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, "PO:" + name);
-		quad_tree->CreatIndex(po_polygons_ptr);
+		quad_tree->CreatIndex(std::move(po_polygons_ptr));
 		// 相交检测求边
 		std::vector<Edge> edges = getEdgeofQuadTree_mergePO(quad_tree);
 		// 并查集获取所有联通分量
@@ -425,7 +425,7 @@ private:
 		// 建立空间索引
 		std::string name = input.layer_id_to_name[input.gate_rule.first];
 		QuadTree* quad_tree = new QuadTree(input.layout, MAX_DEPTH, MAX_DATA_NUM, "PO:" + name);
-		quad_tree->CreatIndexParallel(po_polygons_ptr, thread_count);
+		quad_tree->CreatIndexParallel(std::move(po_polygons_ptr), thread_count);
 		// 相交检测求边
 		std::vector<Edge> edges = getEdgeofQuadTree_mergePO_Parallel(quad_tree, thread_count);
 		// 并查集获取所有联通分量

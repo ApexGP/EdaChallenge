@@ -124,8 +124,8 @@ include_directories(
 # ============================================================================
 add_subdirectory(trace/ManhattanBooleanSetOperation)
 
-# MBSO 静态库在 MinGW/GCC 下禁用 LTO（避免 ar 不支持 LTO 目标文件导致链接失败）
-if(COMPILER_ID STREQUAL "mingw" OR COMPILER_ID STREQUAL "gcc")
+# MBSO 静态库仅在 MinGW 下禁用 LTO（避免部分 MinGW ar 不识别 LTO 目标文件）
+if(COMPILER_ID STREQUAL "mingw")
     target_compile_options(MBSO PRIVATE -fno-lto)
 endif()
 
@@ -174,13 +174,13 @@ install(TARGETS trace DESTINATION ${CMAKE_SOURCE_DIR}/bin)
 # 编译环境汇总
 # ============================================================================
 message(STATUS "")
-message(STATUS "╔════════════════════════════════════════╗")
-message(STATUS "║  编译环境配置汇总                      ║")
-message(STATUS "╠════════════════════════════════════════╣")
-message(STATUS "║  编译器:    ${COMPILER_ID} (${CMAKE_CXX_COMPILER_ID})")
-message(STATUS "║  构建类型:  ${CMAKE_BUILD_TYPE}")
-message(STATUS "║  C++标准:   C++${CMAKE_CXX_STANDARD}")
-message(STATUS "║  OpenMP:    ${OpenMP_CXX_VERSION}")
-message(STATUS "║  几何后端:  MBSO (无 CGAL/GMP/Boost 依赖)")
-message(STATUS "╚════════════════════════════════════════╝")
+message(STATUS "╔═══════════════════════════════════════════╗")
+message(STATUS "║  编译环境配置汇总                         ║")
+message(STATUS "╠═══════════════════════════════════════════╣")
+message(STATUS "║  编译器:    ${COMPILER_ID} (${CMAKE_CXX_COMPILER_ID})                   ║")
+message(STATUS "║  构建类型:  ${CMAKE_BUILD_TYPE}                       ║")
+message(STATUS "║  C++标准:   C++${CMAKE_CXX_STANDARD}                         ║")
+message(STATUS "║  OpenMP:    ${OpenMP_CXX_VERSION}                           ║")
+message(STATUS "║  几何后端:  MBSO (无 CGAL/GMP/Boost 依赖) ║")
+message(STATUS "╚═══════════════════════════════════════════╝")
 message(STATUS "")

@@ -28,7 +28,7 @@ public:
     // 构造函数：包含矩形范围、深度和初始数据
     explicit QuadTreeNode(Rect rect, int depth, std::vector<Polygon*>& datas) : QuadTreeNode(rect, depth)
     {
-        _datas = datas;
+        _datas = std::move(datas);
     }
 
     // 禁止拷贝构造和赋值操作
@@ -103,22 +103,23 @@ public:
     * brief 根据多边形的矩形包围盒构建四叉树空间索引
     * poly_ptr: 多边形指针向量
     */
-    void CreatIndex(std::vector<Polygon*>& poly_ptr) {
+    // poly_ptr 按值传递：调用者可通过 std::move 避免拷贝
+    void CreatIndex(std::vector<Polygon*> poly_ptr) {
         clear();
 
         // 初始化根节点数据
-        _root->_datas = poly_ptr;
+        _root->_datas = std::move(poly_ptr);
 
         // 递归划分节点
         SplitNode(_root);
     }
 
     /* 并行版本：根据多边形的矩形包围盒构建四叉树空间索引 */
-    void CreatIndexParallel(std::vector<Polygon*>& poly_ptr, int thread_count) {
+    void CreatIndexParallel(std::vector<Polygon*> poly_ptr, int thread_count) {
         clear();
 
         // 初始化根节点数据
-        _root->_datas = poly_ptr;
+        _root->_datas = std::move(poly_ptr);
 
         // 启动并行区域递归划分节点
         #pragma omp parallel num_threads(thread_count)
@@ -128,11 +129,11 @@ public:
         }
     }
 
-    void CreatIndexParallelSharedTeam(std::vector<Polygon*>& poly_ptr) {
+    void CreatIndexParallelSharedTeam(std::vector<Polygon*> poly_ptr) {
         clear();
 
         // 初始化根节点数据
-        _root->_datas = poly_ptr;
+        _root->_datas = std::move(poly_ptr);
 
         // 并行划分，直接共享外部并行区（ps:外部已开树级别的并行区，若再开并行区则将嵌套并行，而openMP默认禁止嵌套并行，此时内部划分的节点任务将无法利用外部的空闲线程）
         SplitNodeParallel(_root);

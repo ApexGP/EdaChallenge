@@ -206,7 +206,7 @@ public:
 				poly_ptr.push_back(&input.polygons[i]);
 			}
 			// 实际数据划分
-			quad_tree->CreatIndex(poly_ptr);
+			quad_tree->CreatIndex(std::move(poly_ptr));
 		}
 		else{ // 双层合并
 			std::string layer1_name = name.substr(0, dashPos);
@@ -223,7 +223,7 @@ public:
 				poly_ptr.push_back(&input.polygons[i]);
 			}
 			// 实际数据划分
-			quad_tree->CreatIndex(poly_ptr);
+			quad_tree->CreatIndex(std::move(poly_ptr));
 		}
 	}
 
@@ -350,9 +350,9 @@ public:
 
 		// 实际数据划分
 		if (use_shared_team) {
-			quad_tree->CreatIndexParallelSharedTeam(poly_ptr); // 直接共享外部的并行区
+			quad_tree->CreatIndexParallelSharedTeam(std::move(poly_ptr)); // 直接共享外部的并行区
 		} else {
-			quad_tree->CreatIndexParallel(poly_ptr, thread_count);
+			quad_tree->CreatIndexParallel(std::move(poly_ptr), thread_count);
 		}
 	}
 

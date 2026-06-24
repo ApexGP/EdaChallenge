@@ -114,6 +114,8 @@ namespace MBSO {
         // 常量定义
         static constexpr size_t MIN_BLOCK_SIZE = 64 * 1024;  // 最小内存块大小（64KB）
         static constexpr size_t ALIGNMENT = alignof(std::max_align_t);  // 内存对齐要求
+        static constexpr size_t LOCAL_CACHE_POOL_THRESHOLD = 4096;
+        static constexpr size_t LOCAL_CACHE_REFILL_COUNT = 256;
 
         // 成员变量
         std::vector<MemoryBlock> blocks_;  // 存储所有内存块的容器
@@ -121,9 +123,9 @@ namespace MBSO {
         size_t element_size_;              // 对齐后的单个元素大小（字节）
         size_t block_size_;                // 用户指定的内存块大小（字节）
         size_t elements_per_block_;        // 每个内存块可容纳的元素数量
-        size_t total_allocated_ = 0;       // 总共分配的对象计数
-        size_t total_freed_ = 0;           // 总共释放的对象计数
-        mutable std::mutex mutex_;         // 保护自由链表的互斥锁（支持跨线程分配/释放）
+        size_t total_allocated_ = 0;       // 小池总共分配的对象计数
+        size_t total_freed_ = 0;           // 小池总共释放的对象计数
+        mutable std::mutex mutex_;         // 大池全局自由链表互斥锁
 
         /**
          * @brief 计算对齐后的元素大小
@@ -177,6 +179,34 @@ namespace MBSO {
             }
         }
 
+        bool useLocalCache() const {
+            return elements_per_block_ >= LOCAL_CACHE_POOL_THRESHOLD;
+        }
+
+        void refillLocalCache(std::vector<Node*>& cache) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            while (!free_list_) {
+                add_block();
+            }
+
+            for (size_t i = 0; i < LOCAL_CACHE_REFILL_COUNT && free_list_; ++i) {
+                Node* node = free_list_;
+                free_list_ = free_list_->next;
+                cache.push_back(node);
+            }
+        }
+
+        // 将线程本地释放缓存批量归还到全局自由链表
+        void flushLocalFreeCache(std::vector<Node*>& free_cache) {
+            if (free_cache.empty()) return;
+            std::lock_guard<std::mutex> lock(mutex_);
+            for (Node* node : free_cache) {
+                node->next = free_list_;
+                free_list_ = node;
+            }
+            free_cache.clear();
+        }
+
     public:
         /**
          * @brief 构造函数
@@ -200,9 +230,11 @@ namespace MBSO {
          */
         ~HighPerfMemoryPool() {
             // 检查是否有未释放的对象
-            if (total_allocated_ != total_freed_) {
+            const size_t allocated = total_allocated();
+            const size_t freed = total_freed();
+            if (allocated != freed) {
                 std::cerr << "WARNING: Memory leak detected: "
-                    << total_allocated_ - total_freed_
+                    << allocated - freed
                     << " objects not freed\n";
             }
         }
@@ -222,21 +254,38 @@ namespace MBSO {
          */
         template <typename... Args>
         T* newElement(Args&&... args) {
-            std::lock_guard<std::mutex> lock(mutex_);
-            // 确保自由链表不为空（必要时分配新内存块）
-            if (!free_list_) {
-                add_block();
-            }
+            Node* node = nullptr;
 
-            // 从自由链表头部获取一个节点
-            Node* node = free_list_;
-            free_list_ = free_list_->next;
+            if (useLocalCache()) {
+                thread_local std::vector<Node*> local_cache;
+                thread_local const HighPerfMemoryPool<T>* local_owner = nullptr;
+
+                if (local_owner != this) {
+                    local_cache.clear();
+                    local_owner = this;
+                }
+                if (local_cache.empty()) {
+                    refillLocalCache(local_cache);
+                }
+                node = local_cache.back();
+                local_cache.pop_back();
+            } else {
+                // 小池仅由 MBSOCore 的线程局部实例使用，保持无锁快路径。
+                // 确保自由链表不为空（必要时分配新内存块）
+                if (!free_list_) {
+                    add_block();
+                }
+                node = free_list_;
+                free_list_ = free_list_->next;
+            }
 
             // 使用placement new在获取的内存上构造对象
             T* object = new (node) T(std::forward<Args>(args)...);
 
             // 更新分配计数器
-            total_allocated_++;
+            if (!useLocalCache()) {
+                ++total_allocated_;
+            }
 
             return object;
         }
@@ -254,16 +303,49 @@ namespace MBSO {
             // 调用对象的析构函数
             object->~T();
 
-            std::lock_guard<std::mutex> lock(mutex_);
             // 将对象内存重新解释为Node指针
             Node* node = reinterpret_cast<Node*>(object);
 
-            // 将节点插入自由链表头部
-            node->next = free_list_;
-            free_list_ = node;
+            if (useLocalCache()) {
+                // 大池：释放路径也采用线程本地批量缓存，每攒满 LOCAL_CACHE_REFILL_COUNT
+                // 个节点才获取一次 mutex 批量归还，避免高频锁竞争。
+                thread_local std::vector<Node*> local_free_cache;
+                thread_local std::mutex* local_free_mutex = nullptr;
+                thread_local Node** local_free_list_ptr = nullptr;
+
+                if (local_free_mutex != &mutex_) {
+                    // 切换到不同池实例：先刷新旧池的缓存
+                    if (local_free_mutex && !local_free_cache.empty()) {
+                        std::lock_guard<std::mutex> lock(*local_free_mutex);
+                        for (Node* n : local_free_cache) {
+                            n->next = *local_free_list_ptr;
+                            *local_free_list_ptr = n;
+                        }
+                        local_free_cache.clear();
+                    }
+                    local_free_mutex = &mutex_;
+                    local_free_list_ptr = &free_list_;
+                }
+
+                local_free_cache.push_back(node);
+                if (local_free_cache.size() >= LOCAL_CACHE_REFILL_COUNT) {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    for (Node* n : local_free_cache) {
+                        n->next = free_list_;
+                        free_list_ = n;
+                    }
+                    local_free_cache.clear();
+                }
+            } else {
+                // 小池保持无锁归还，避免 MBSO 点/边高频回收开销。
+                node->next = free_list_;
+                free_list_ = node;
+            }
 
             // 更新释放计数器
-            total_freed_++;
+            if (!useLocalCache()) {
+                ++total_freed_;
+            }
         }
 
         // ================= 统计信息方法 =================
@@ -290,13 +372,17 @@ namespace MBSO {
          * @brief 获取活跃对象数
          * @return 当前活跃（已分配但未释放）的对象数量
          */
-        size_t active_objects() const { return total_allocated_ - total_freed_; }
+        size_t active_objects() const { return total_allocated() - total_freed(); }
 
         /**
          * @brief 获取自由链表大小
          * @return 自由链表中空闲节点的数量
          */
         size_t free_list_size() const {
+            std::unique_lock<std::mutex> lock(mutex_, std::defer_lock);
+            if (useLocalCache()) {
+                lock.lock();
+            }
             size_t count = 0;
             Node* node = free_list_;
 

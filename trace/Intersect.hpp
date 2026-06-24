@@ -7,9 +7,6 @@
 #include <vector>
 #include <cstdint>
 #include <algorithm>
-#include <chrono>
-#include <unordered_set>
-#include <numeric>
 
 /**
  * @brief Intersection detection method enumeration
@@ -80,8 +77,6 @@ private:
     IntersectionMethod method = IntersectionMethod::MANHATTAN_COMPLETE;
 
     /* For 延迟建图 */
-    // Buffer for collecting leaf nodes
-    std::vector<QuadTreeNode*> leaf_buffer;
     // Cache for neighbor candidate detection
     robin_hood::unordered_set<int> neighbor_candidate_cache;
     // Statistics for lazy neighbor detection
@@ -211,31 +206,8 @@ public:
         for (auto* qtree : quad_trees) {
             if (!qtree) continue;
 
-            // Collect leaves that intersect with the source polygon's bounding box
-            leaf_buffer.clear();
-            qtree->CollectIntersectLeaves(source->rect, leaf_buffer);
-            // 遍历每个叶节点
-            for (auto* leaf : leaf_buffer) {
-                // Direct checking for light leaves
-                for (auto* candidate : leaf->_datas) {
-                    INFO_INSTR(++lazy_neighbor_candidates;)
-                    const int candidate_id = candidate->id;
-
-                    if (candidate_id == polygon_id) continue; // 跳过自身
-                    if (bfs_visted[candidate_id]) continue;   // bfs已访问过
-
-                    //if (!neighbor_candidate_cache.insert(candidate_id).second) { // 重复邻居 ps:已去重复
-                    //    INFO_INSTR(++lazy_neighbor_duplicates;)
-                    //    continue;
-                    //}
-
-                    // Detailed Manhattan intersection check
-                    if (ManhattanIntersectDetector::manhattanPolygonsIntersect(source, candidate)) {
-                        neighbors.push_back(candidate_id);
-                        INFO_INSTR(++lazy_neighbor_enqueues;)
-                    }
-                }
-            }
+            // 直接递归收集叶节点并处理，避免中间缓冲区
+            CollectAndProcessLeaves(qtree->_root, source, bfs_visted, neighbors);
         }
     }
 
@@ -247,29 +219,13 @@ public:
 
         // 获取该多边形所在层关联的四叉树
         const auto& quad_trees = spaceIndex.GetQuadTreesForLayer(source->layer_id);
-        thread_local std::vector<QuadTreeNode*> leaf_buffer_local;
+        thread_local robin_hood::unordered_set<int> candidate_cache_local;
+        candidate_cache_local.clear();
         for (auto* qtree : quad_trees) {
             if (!qtree) continue;
 
-            // Collect leaves that intersect with the source polygon's bounding box
-            leaf_buffer_local.clear();
-            qtree->CollectIntersectLeaves(source->rect, leaf_buffer_local);
-            // 遍历每个叶节点
-            for (auto* leaf : leaf_buffer_local) {
-                // Direct checking for light leaves
-                for (auto* candidate : leaf->_datas) {
-                    const int candidate_id = candidate->id;
-
-                    if (candidate_id == polygon_id) continue; // 跳过自身
-                    // 原子访问
-                    if (__atomic_load_n(&bfs_visted[candidate_id], __ATOMIC_RELAXED)) continue;   // bfs已访问过
-
-                    // Detailed Manhattan intersection check
-                    if (ManhattanIntersectDetector::manhattanPolygonsIntersect(source, candidate)) {
-                        neighbors.push_back(candidate_id);
-                    }
-                }
-            }
+            // 直接递归收集叶节点并处理，避免中间缓冲区
+            CollectAndProcessLeavesParallel(qtree->_root, source, bfs_visted, neighbors, candidate_cache_local);
         }
     }
 
@@ -292,6 +248,80 @@ public:
 #pragma endregion
 
 private:
+    // 直接递归遍历四叉树收集与source相交的叶节点，并在候选多边形上执行相交检测
+    void CollectAndProcessLeaves(QuadTreeNode* node, Polygon* source,
+                                  const std::vector<uint8_t>& bfs_visted,
+                                  std::vector<int>& neighbors) {
+        if (node->_divided) {
+            const int xmid = node->_lt->_rect._xmax;
+            const int ymid = node->_lt->_rect._ymin;
+            const Rect& src_rect = source->rect;
+
+            if (src_rect._xmin <= xmid) {
+                if (src_rect._ymax >= ymid) CollectAndProcessLeaves(node->_lt, source, bfs_visted, neighbors);
+                if (src_rect._ymin <= ymid) CollectAndProcessLeaves(node->_lb, source, bfs_visted, neighbors);
+            }
+            if (src_rect._xmax >= xmid) {
+                if (src_rect._ymax >= ymid) CollectAndProcessLeaves(node->_rt, source, bfs_visted, neighbors);
+                if (src_rect._ymin <= ymid) CollectAndProcessLeaves(node->_rb, source, bfs_visted, neighbors);
+            }
+        } else if (!node->_datas.empty()) {
+            // 叶节点：直接处理候选多边形
+            const int polygon_id = source->id;
+            for (auto* candidate : node->_datas) {
+                INFO_INSTR(++lazy_neighbor_candidates;)
+                const int candidate_id = candidate->id;
+
+                if (candidate_id == polygon_id) continue;
+                if (bfs_visted[candidate_id]) continue;
+
+                if (!neighbor_candidate_cache.insert(candidate_id).second) {
+                    INFO_INSTR(++lazy_neighbor_duplicates;)
+                    continue;
+                }
+
+                if (ManhattanIntersectDetector::manhattanPolygonsIntersect(source, candidate)) {
+                    neighbors.push_back(candidate_id);
+                    INFO_INSTR(++lazy_neighbor_enqueues;)
+                }
+            }
+        }
+    }
+
+    // 并行安全版本：直接递归遍历四叉树并处理候选多边形（使用外部传入的去重缓存，原子访问visited）
+    void CollectAndProcessLeavesParallel(QuadTreeNode* node, Polygon* source,
+                                          const std::vector<uint8_t>& bfs_visted,
+                                          std::vector<int>& neighbors,
+                                          robin_hood::unordered_set<int>& candidate_cache) {
+        if (node->_divided) {
+            const int xmid = node->_lt->_rect._xmax;
+            const int ymid = node->_lt->_rect._ymin;
+            const Rect& src_rect = source->rect;
+
+            if (src_rect._xmin <= xmid) {
+                if (src_rect._ymax >= ymid) CollectAndProcessLeavesParallel(node->_lt, source, bfs_visted, neighbors, candidate_cache);
+                if (src_rect._ymin <= ymid) CollectAndProcessLeavesParallel(node->_lb, source, bfs_visted, neighbors, candidate_cache);
+            }
+            if (src_rect._xmax >= xmid) {
+                if (src_rect._ymax >= ymid) CollectAndProcessLeavesParallel(node->_rt, source, bfs_visted, neighbors, candidate_cache);
+                if (src_rect._ymin <= ymid) CollectAndProcessLeavesParallel(node->_rb, source, bfs_visted, neighbors, candidate_cache);
+            }
+        } else if (!node->_datas.empty()) {
+            const int polygon_id = source->id;
+            for (auto* candidate : node->_datas) {
+                const int candidate_id = candidate->id;
+
+                if (candidate_id == polygon_id) continue;
+                if (__atomic_load_n(&bfs_visted[candidate_id], __ATOMIC_RELAXED)) continue;
+                if (!candidate_cache.insert(candidate_id).second) continue;
+
+                if (ManhattanIntersectDetector::manhattanPolygonsIntersect(source, candidate)) {
+                    neighbors.push_back(candidate_id);
+                }
+            }
+        }
+    }
+
     // ========== Intersection Detection Method Implementations ==========
 
     /**
