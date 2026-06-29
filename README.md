@@ -13,6 +13,7 @@
 - [6. 性能分析工具](#6-性能分析工具)
 - [7. 代码改动记录](#7-代码改动记录)
 - [8. 性能记录](#8-性能记录)
+- [9. 鸣谢](#9-鸣谢)
 
 ## 1. 问题分析
 
@@ -150,6 +151,8 @@ python3 test/run_trace.py \
 
 ### 5.3 批量测试
 
+> 已经上传了该赛题的完整测试集（[下载地址](https://pan.baidu.com/s/1E3fB0M2UlwcU7Gr1HLd7xg?pwd=vuvc)），下载后解压到根目录即可使用
+
 ```shell
 # 默认每个规则重复 3 次，单线程，跳过构建
 bash test/test.sh
@@ -245,6 +248,7 @@ bash test/test.sh --build-preset gcc-release -n 3 -t 1
 ## 8. 性能记录
 
 ### 服务器参数
+> 原作者使用的服务器参数规格与本次 benchmark 所使用服务器不同，因此已重新测定 baseline
 
 | 项目 | 参数 |
 |:--|:--|
@@ -255,8 +259,8 @@ bash test/test.sh --build-preset gcc-release -n 3 -t 1
 | 内核 | 5.4.0-126-generic |
 | 架构 | x86_64 |
 
-### 测试-单线程-优化前基线 (MBSO+Lazy BFS, 初始版本)
-> 注意：Hidden Case 由于原作者未测试，因此这里不给出数据，**eda** 分支已经实现 Hidden Case的布线，`test/test.sh` 中已经包含批量测试
+### 测试-单线程-优化前基线 (MBSO+Lazy BFS, updated baseline)
+> **说明**：由于 Hidden Case 未在原作者的测试集中进行评测，因此本处暂不列出其对比数据。目前，**eda 分支**（已合并）已支持 Hidden Case 的布线功能，相关的批量测试可通过 `test/test.sh` 脚本执行。
 
 |            case          |  rule  | Total Time |   Input   | Space Index |  Lazy BFS  |   Output   | Merge/Cutting |
 |:------------------------:|:------:|:----------:|:---------:|:-----------:|:----------:|:----------:|:-------------:|
@@ -270,7 +274,7 @@ bash test/test.sh --build-preset gcc-release -n 3 -t 1
 |    hidden_case_layout    |   q2   |      -     |   -       |      -      |    -       |   -        |       -       |
 |    hidden_case_layout    |   q3   |      -     |   -       |      -      |    -       |   -        |       -       |
 
-### 测试-单线程-优化后 (MBSO+Lazy BFS, eda 分支)
+### 测试-单线程-优化后 (MBSO+Lazy BFS, current)
 
 |            case          |  rule  | Total Time |   Input   | Space Index |  Lazy BFS  |   Output   | Merge/Cutting |
 |:------------------------:|:------:|:----------:|:---------:|:-----------:|:----------:|:----------:|:-------------:|
@@ -284,7 +288,7 @@ bash test/test.sh --build-preset gcc-release -n 3 -t 1
 |    hidden_case_layout    |   q2   |      -     |   -       |      -      |    -       |   -        |       -       |
 |    hidden_case_layout    |   q3   |      -     |   -       |      -      |    -       |   -        |       -       |
 
-### 测试-多线程(8)-优化前基线 (MBSO+Lazy BFS, 初始版本)
+### 测试-多线程(8)-优化前基线 (MBSO+Lazy BFS, updated baseline)
 
 |            case          |  rule  | Total Time |   Input   | Space Index |  Lazy BFS  |   Output   | Merge/Cutting |
 |:------------------------:|:------:|:----------:|:---------:|:-----------:|:----------:|:----------:|:-------------:|
@@ -298,7 +302,7 @@ bash test/test.sh --build-preset gcc-release -n 3 -t 1
 |    hidden_case_layout    |   q2   |      -     |   -       |      -      |    -       |   -        |       -       |
 |    hidden_case_layout    |   q3   |      -     |   -       |      -      |    -       |   -        |       -       |
 
-### 测试-多线程(8)-优化后 (MBSO+Lazy BFS, eda 分支)
+### 测试-多线程(8)-优化后 (MBSO+Lazy BFS, current)
 
 |            case          |  rule  | Total Time |   Input   | Space Index |  Lazy BFS  |   Output   | Merge/Cutting |
 |:------------------------:|:------:|:----------:|:---------:|:-----------:|:----------:|:----------:|:-------------:|
@@ -311,3 +315,11 @@ bash test/test.sh --build-preset gcc-release -n 3 -t 1
 |    hidden_case_layout    |   q1   |      -     |   -       |      -      |    -       |   -        |       -       |
 |    hidden_case_layout    |   q2   |      -     |   -       |      -      |    -       |   -        |       -       |
 |    hidden_case_layout    |   q3   |      -     |   -       |      -      |    -       |   -        |       -       |
+
+## 9. 鸣谢
+
+感谢 [@Goodfeelings6](https://github.com/Goodfeelings6) 作者提供完整测试数据集与早期实现参考，为本项目的正确性验证与后续优化提供了重要基础。
+
+<p align="center">
+  <img src="assets/thanks.jpg" alt="开源作者提供的数据集" width="200">
+</p>
